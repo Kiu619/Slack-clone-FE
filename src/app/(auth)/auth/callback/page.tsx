@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { api, ApiError } from '@/lib/api'
+import { apiClient } from '@/lib/axios'
+import axios from 'axios'
 
-const AuthCallbackPage = () => {
+const AuthCallbackContent = () => {
   const searchParams = useSearchParams()
   const router = useRouter()
   const handled = useRef(false)
@@ -19,6 +20,7 @@ const AuthCallbackPage = () => {
       const token = searchParams.get('token')
       const type = searchParams.get('type')
       const error = searchParams.get('error')
+      const redirect = searchParams.get('redirect') ?? '/'
 
       if (error) {
         toast.error('Authentication failed. Please try again.')
@@ -27,11 +29,10 @@ const AuthCallbackPage = () => {
       }
 
       if (success === 'true') {
-        // OAuth flow: backend already set cookies, verify session
         try {
-          await api.get('/auth/me')
+          await apiClient.get('/auth/me')
           toast.success('Signed in successfully!')
-          router.replace('/')
+          router.replace(redirect)
         } catch {
           toast.error('Authentication failed. Please try again.')
           router.replace('/auth')
@@ -40,14 +41,13 @@ const AuthCallbackPage = () => {
       }
 
       if (token && type === 'magic') {
-        // Magic link flow: exchange token for session cookies
         try {
-          await api.post('/auth/magic-link/verify', { token })
+          await apiClient.post('/auth/magic-link/verify', { token })
           toast.success('Signed in successfully!')
-          router.replace('/')
+          router.replace(redirect)
         } catch (err) {
           const message =
-            err instanceof ApiError && err.status === 401
+            axios.isAxiosError(err) && err.response?.status === 401
               ? 'Magic link has expired. Please request a new one.'
               : 'Authentication failed. Please try again.'
           toast.error(message)
@@ -63,10 +63,25 @@ const AuthCallbackPage = () => {
   }, [searchParams, router])
 
   return (
-    <div className='min-h-screen flex flex-col items-center justify-center bg-white gap-4'>
-      <div className='w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin' />
-      <p className='text-gray-500 text-sm'>Verifying your login&hellip</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+      <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
+      <p className="text-gray-500 text-sm">Verifying your login&hellip;</p>
     </div>
+  )
+}
+
+const AuthCallbackPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
+          <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
   )
 }
 

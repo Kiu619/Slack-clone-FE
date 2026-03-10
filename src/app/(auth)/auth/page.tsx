@@ -21,7 +21,9 @@ import { MdOutlineAutoAwesome } from 'react-icons/md'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import Typography from '@/components/ui/typography'
-import { api, ApiError, API_URL } from '@/lib/api'
+import { apiClient } from '@/lib/axios'
+import axios from 'axios'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 const formSchema = z.object({
   email: z.string().email('Please enter a valid email address')
@@ -40,12 +42,13 @@ const AuthPage = () => {
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
     try {
-      await api.post('/auth/magic-link/send', { email: values.email })
+      await apiClient.post('/auth/magic-link/send', { email: values.email })
       toast.success('Check your email for a magic link!')
       form.reset()
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Something went wrong'
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.message ?? 'Something went wrong'
+        : 'Something went wrong'
       toast.error(message)
     } finally {
       setIsSubmitting(false)
