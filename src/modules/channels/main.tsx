@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { LuX } from 'react-icons/lu'
 import MessageList from '@/components/message-list'
-import TypingIndicator from '@/components/typing-indicator'
 import Editor from '@/components/editor'
 import UploadingFileItem from '@/components/uploading-file-item'
-import { useSendMessage, useTypingIndicator } from '@/hooks/use-messages'
-import { useSocket, getSocket } from '@/hooks/use-socket'
+import { useSendMessage } from '@/hooks/use-messages'
+import { useSocket } from '@/hooks/use-socket'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { useUserStore } from '@/stores/useUserStore'
 import { messageKeys } from '@/lib/query-keys'
@@ -16,6 +16,11 @@ import { apiClient } from '@/lib/axios'
 import type { Channel, Message, MessageAttachment } from '@/lib/types'
 
 const PLACEHOLDER_CONTENT = '<p>📎 Đang tải file...</p>'
+
+export interface PendingFile {
+  id: string
+  file: File
+}
 
 interface MainProps {
   currentChannelData: Channel
@@ -30,15 +35,6 @@ const Main = ({ currentChannelData }: MainProps) => {
    * isConnected là React state — thay đổi → re-render → hook con re-run
    */
   const { isConnected } = useSocket()
-
-  /**
-   * Typing indicator: cần isConnected để join room đúng lúc
-   */
-  const typingUsers = useTypingIndicator(
-    currentChannelData.id,
-    currentUser?.userId ?? '',
-    isConnected,
-  )
 
   const currentUserForMutation = currentUser
     ? {
@@ -55,6 +51,21 @@ const Main = ({ currentChannelData }: MainProps) => {
   )
 
   const { uploadFile, uploadingFiles, clearUploadingFiles } = useFileUpload()
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+
+  const addPendingFiles = useCallback((files: File[]) => {
+    const newItems: PendingFile[] = files.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+    }))
+    setPendingFiles((prev) => [...prev, ...newItems])
+  }, [])
+
+  const removePendingFile = useCallback((id: string) => {
+    setPendingFiles((prev) => prev.filter((p) => p.id !== id))
+  }, [])
+
+  const clearPendingFiles = useCallback(() => setPendingFiles([]), [])
 
   /** Cập nhật cache khi attachment được thêm (sender không nhận WS event) */
   const addAttachmentToMessageInCache = useCallback(
@@ -129,56 +140,25 @@ const Main = ({ currentChannelData }: MainProps) => {
 
   const handleSubmit = useCallback(
     (htmlContent: string) => {
-      sendMessage({ content: htmlContent })
-    },
-    [sendMessage],
-  )
+      const hasContent =
+        htmlContent.trim() !== '' && htmlContent.trim() !== '<p></p>'
+      const hasFiles = pendingFiles.length > 0
 
-  const handleEditMessage = useCallback((message: Message) => {
-    console.log('Edit message:', message.id)
-  }, [])
+      if (!hasContent && !hasFiles) return
 
-  const handleDeleteMessage = useCallback((messageId: string) => {
-    console.log('Delete message:', messageId)
-  }, [])
+      const contentToSend = hasContent ? htmlContent : PLACEHOLDER_CONTENT
+      const filesToUpload = [...pendingFiles]
 
-  const handleReplyMessage = useCallback((message: Message) => {
-    console.log('Reply to:', message.id)
-  }, [])
-
-  /**
-   * Emit typing events qua socket singleton
-   * getSocket() trả về instance đã tồn tại — không tạo connection mới
-   */
-  const handleTypingStart = useCallback(() => {
-    if (!isConnected) return
-    getSocket().emit('typing:start', { channelId: currentChannelData.id })
-  }, [isConnected, currentChannelData.id])
-
-  const handleTypingStop = useCallback(() => {
-    if (!isConnected) return
-    getSocket().emit('typing:stop', { channelId: currentChannelData.id })
-  }, [isConnected, currentChannelData.id])
-
-  /**
-   * handleFileAttach — khi user chọn files để upload
-   *
-   * Flow:
-   * 1. Tạo message với placeholder "Đang tải file"
-   * 2. Upload từng file → mỗi success: add attachment vào cache (sender không nhận WS)
-   * 3. Khi xong: PATCH message content → "📎", clear pending + uploadingFiles
-   */
-  const handleFileAttach = useCallback(
-    async (files: File[]) => {
-      if (!files.length) return
+      clearPendingFiles()
 
       sendMessage(
-        { content: PLACEHOLDER_CONTENT },
+        { content: contentToSend },
         {
           onSuccess: async (newMessage) => {
-            let successCount = 0
+            if (filesToUpload.length === 0) return
 
-            for (const file of files) {
+            let successCount = 0
+            for (const { file } of filesToUpload) {
               try {
                 const attachment = await uploadFile(file, newMessage.id)
                 addAttachmentToMessageInCache(newMessage.id, attachment)
@@ -193,13 +173,16 @@ const Main = ({ currentChannelData }: MainProps) => {
 
             clearUploadingFiles()
 
-            if (successCount > 0) {
-              await updateMessageContent(newMessage.id, '<p></p>')
-            } else {
-              await updateMessageContent(
-                newMessage.id,
-                '<p>⚠️ Tải file thất bại</p>',
-              )
+            // Chỉ xóa placeholder nếu lúc gửi không có text (đã dùng PLACEHOLDER_CONTENT)
+            if (!hasContent) {
+              if (successCount > 0) {
+                await updateMessageContent(newMessage.id, '<p></p>')
+              } else {
+                await updateMessageContent(
+                  newMessage.id,
+                  '<p>⚠️ Tải file thất bại</p>',
+                )
+              }
             }
           },
         },
@@ -207,12 +190,35 @@ const Main = ({ currentChannelData }: MainProps) => {
     },
     [
       sendMessage,
+      pendingFiles,
+      clearPendingFiles,
       uploadFile,
       addAttachmentToMessageInCache,
       updateMessageContent,
       clearUploadingFiles,
     ],
   )
+
+  const handleEditMessage = useCallback((message: Message) => {
+    console.log('Edit message:', message.id)
+  }, [])
+
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    console.log('Delete message:', messageId)
+  }, [])
+
+  const handleReplyMessage = useCallback((message: Message) => {
+    console.log('Reply to:', message.id)
+  }, [])
+  
+  const handleFileAttach = useCallback(
+    (files: File[]) => {
+      if (!files.length) return
+      addPendingFiles(files)
+    },
+    [addPendingFiles],
+  )
+
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -229,18 +235,36 @@ const Main = ({ currentChannelData }: MainProps) => {
         onReplyMessage={handleReplyMessage}
       />
 
-      <div className="min-h-[24px] shrink-0">
-        <TypingIndicator typingUsers={typingUsers} />
-      </div>
-
       <div className="px-4 pb-4 shrink-0">
+        {/* Pending files — chưa gửi, nhấn Enter/Gửi để upload */}
+        {pendingFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {pendingFiles.map(({ id, file }) => (
+              <div
+                key={id}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222529] border border-[#797c814d] text-sm"
+              >
+                <span className="text-gray-200 truncate max-w-[150px]">
+                  {file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(id)}
+                  className="p-0.5 hover:bg-[#35373B] rounded transition-colors"
+                >
+                  <LuX size={14} className="text-gray-400" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Editor
           channelName={currentChannelData.name}
           onSubmit={handleSubmit}
-          onTypingStart={handleTypingStart}
-          onTypingStop={handleTypingStop}
           onFileAttach={handleFileAttach}
           disabled={isSending}
+          hasPendingFiles={pendingFiles.length > 0}
         />
 
         {/* Upload progress indicator */}

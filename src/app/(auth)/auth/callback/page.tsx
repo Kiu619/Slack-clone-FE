@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { apiClient } from '@/lib/axios'
 import axios from 'axios'
+import { useUserStore } from '@/stores/useUserStore'
+import { getUserApi, magicLinkVerifyApi } from '@/apis'
 
 const AuthCallbackContent = () => {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const setUser = useUserStore((s) => s.setUser)
   const handled = useRef(false)
 
   useEffect(() => {
@@ -30,7 +34,9 @@ const AuthCallbackContent = () => {
 
       if (success === 'true') {
         try {
-          await apiClient.get('/auth/me')
+          const user = await getUserApi()
+          setUser(user)
+          queryClient.setQueryData(['auth', 'me'], user)
           toast.success('Signed in successfully!')
           router.replace(redirect)
         } catch {
@@ -42,7 +48,9 @@ const AuthCallbackContent = () => {
 
       if (token && type === 'magic') {
         try {
-          await apiClient.post('/auth/magic-link/verify', { token })
+          const user = await magicLinkVerifyApi(token)
+          setUser(user)
+          queryClient.setQueryData(['auth', 'me'], user)
           toast.success('Signed in successfully!')
           router.replace(redirect)
         } catch (err) {
@@ -60,7 +68,7 @@ const AuthCallbackContent = () => {
     }
 
     handleCallback()
-  }, [searchParams, router])
+  }, [searchParams, router, setUser, queryClient])
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">

@@ -1,38 +1,42 @@
+/* eslint-disable @next/next/no-img-element */
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LuDownload, LuX, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
-import type { MessageAttachment } from '@/lib/types'
-import Image from 'next/image'
+import type { Message, MessageAttachment } from '@/lib/types'
+import {
+  getCloudinaryThumbnailUrl,
+  getCloudinaryLightboxUrl,
+  getCloudinarySrcSet,
+} from '@/lib/cloudinary-url'
+import FileToolbar from './file-toolbar'
 
 interface ImagePreviewProps {
   attachment: MessageAttachment
+  message: Message
   /** Nếu có nhiều images trong cùng message → cho phép navigate */
   allImages?: MessageAttachment[]
   onDownload?: (url: string, name: string) => void
+  formDetailPanel?: boolean
 }
 
-/**
- * ImagePreview — Preview ảnh với lightbox (zoom, navigate, download)
- *
- * Features:
- * - Click vào ảnh → mở lightbox fullscreen
- * - Navigate giữa nhiều ảnh (prev/next)
- * - Download button
- * - Close bằng ESC hoặc click backdrop
- * - Lazy load với loading="lazy"
- */
 export default function ImagePreview({
   attachment,
+  message,
   allImages = [],
   onDownload,
+  formDetailPanel = false,
 }: ImagePreviewProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   const images = allImages.length > 0 ? allImages : [attachment]
   const currentImage = images[currentIndex]
+  const thumbSrcSet = getCloudinarySrcSet(attachment.url, [400, 800, 1200])
+  const lightboxSrcSet = getCloudinarySrcSet(currentImage.url, [960, 1440, 1920])
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
@@ -42,35 +46,90 @@ export default function ImagePreview({
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
   }
 
-  const handleDownload = () => {
-    if (onDownload) {
-      onDownload(currentImage.url, currentImage.name)
-    } else {
-      // Fallback: mở URL trong tab mới
-      window.open(currentImage.url, '_blank')
+  const handleDownload = async () => {
+    if (isDownloading) return
+    setIsDownloading(true)
+    try {
+      // Fetch → Blob → download (cross-origin khiến a.download bị ignore, phải dùng blob)
+      const urlToFetch = getCloudinaryLightboxUrl(currentImage.url)
+      const res = await fetch(urlToFetch)
+      if (!res.ok) throw new Error('Fetch failed')
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = currentImage.name
+      a.click()
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      if (onDownload) {
+        onDownload(currentImage.url, currentImage.name)
+      } else {
+        window.open(currentImage.url, '_blank')
+      }
+    } finally {
+      setIsDownloading(false)
     }
   }
 
+  const handleOpenInNewTab = () => {
+    window.open(currentImage.url, "_blank");
+  };
+
+  const openLightbox = () => {
+    const idx = images.findIndex((img) => img.id === attachment.id)
+    setCurrentIndex(idx >= 0 ? idx : 0)
+    setIsOpen(true)
+  }
+
+  // Phím ← / → để chuyển ảnh, Escape để đóng lightbox
+  useEffect(() => {
+    if (!isOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+      if (e.key === 'ArrowLeft') {
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+      }
+      if (e.key === 'ArrowRight') {
+        setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, images.length])
+
   return (
     <>
-      {/* Thumbnail — click để mở lightbox */}
+      {/* Thumbnail — w-fit, hiển thị tất cả ảnh. Click mở lightbox (trong lightbox có nút trái/phải) */}
       <button
-        type="button"
-        onClick={() => {
-          const idx = images.findIndex((img) => img.id === attachment.id)
-          setCurrentIndex(idx >= 0 ? idx : 0)
-          setIsOpen(true)
-        }}
-        className="group relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+        onClick={openLightbox}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="cursor-pointer group relative block w-fit max-w-full rounded-lg overflow-hidden border border-[#797c814d] hover:border-[#797c81] transition-colors"
       >
         <img
-          src={attachment.url}
+          src={getCloudinaryThumbnailUrl(attachment.url)}
+          {...(thumbSrcSet
+            ? {
+                srcSet: thumbSrcSet,
+                sizes: '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px',
+              }
+            : {})}
           alt={attachment.name}
           loading="lazy"
-          className="max-w-full h-auto max-h-[300px] object-cover group-hover:scale-105 transition-transform duration-200"
+          decoding="async"
+          className="max-w-full h-auto max-h-[300px] object-contain block"
         />
-        {/* Overlay khi hover */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        {!formDetailPanel ? (
+          <FileToolbar
+            isHovered={isHovered}
+            message={message}
+            attachment={attachment}
+            onDownload={handleDownload}
+            onOpen={handleOpenInNewTab}
+          />
+        ) : null}
       </button>
 
       {/* Lightbox Modal */}
@@ -80,25 +139,27 @@ export default function ImagePreview({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-black/90 backdrop-blur-sm"
             onClick={() => setIsOpen(false)}
           >
-            {/* Image container */}
+            {/* Image container — giới hạn kích thước, ảnh fit bên trong */}
             <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className="relative max-w-[90vw] max-h-[90vh]"
+              className="relative flex h-[90vh] max-h-[90vh] w-full max-w-[90vw] items-center justify-center overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={currentImage.url}
+                src={getCloudinaryLightboxUrl(currentImage.url)}
+                {...(lightboxSrcSet ? { srcSet: lightboxSrcSet, sizes: '90vw' } : {})}
                 alt={currentImage.name}
-                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                className="max-h-full max-w-full object-contain"
+                fetchPriority="high"
               />
 
               {/* Top bar: filename + close */}
-              <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/60 to-transparent">
+              <div className="absolute top-0 left-0 right-0 p-4 bg-linear-to-b from-black/60 to-transparent">
                 <div className="flex items-center justify-between text-white">
                   <span className="text-sm font-medium truncate max-w-[70%]">
                     {currentImage.name}
@@ -114,7 +175,7 @@ export default function ImagePreview({
               </div>
 
               {/* Bottom bar: download + navigation */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-linear-to-t from-black/60 to-transparent">
                 <div className="flex items-center justify-between">
                   {/* Navigation (nếu có nhiều ảnh) */}
                   {images.length > 1 && (
@@ -123,6 +184,7 @@ export default function ImagePreview({
                         type="button"
                         onClick={handlePrev}
                         className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
+                        aria-label="Ảnh trước"
                       >
                         <LuChevronLeft className="w-5 h-5" />
                       </button>
@@ -133,6 +195,7 @@ export default function ImagePreview({
                         type="button"
                         onClick={handleNext}
                         className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
+                        aria-label="Ảnh sau"
                       >
                         <LuChevronRight className="w-5 h-5" />
                       </button>
@@ -143,9 +206,11 @@ export default function ImagePreview({
                   <button
                     type="button"
                     onClick={handleDownload}
-                    className="ml-auto p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
+                    disabled={isDownloading}
+                    className="ml-auto p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white disabled:opacity-50"
+                    aria-label={isDownloading ? 'Đang tải...' : 'Tải xuống'}
                   >
-                    <LuDownload className="w-5 h-5" />
+                    <LuDownload className={`w-5 h-5 ${isDownloading ? 'animate-pulse' : ''}`} />
                   </button>
                 </div>
               </div>

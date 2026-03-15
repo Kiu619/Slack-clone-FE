@@ -1,8 +1,13 @@
 'use client'
 
-import { format, isToday, isYesterday } from 'date-fns'
+import AttachmentList from '@/components/attachment-previews/attachment-list'
+import Avatar from '@/components/avatar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { Message, Reaction } from '@/lib/types'
+import { format } from 'date-fns'
 import DOMPurify from 'dompurify'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   LuEllipsis,
   LuPencil,
@@ -10,15 +15,12 @@ import {
   LuSmile,
   LuTrash2,
 } from 'react-icons/lu'
-import Avatar from '@/components/avatar'
-import AttachmentList from '@/components/attachment-previews/attachment-list'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { Message, Reaction } from '@/lib/types'
 
 // Dynamic import EmojiPicker để tránh SSR
-import dynamic from 'next/dynamic'
+import { formatTimestamp } from '@/helpers/format-time-stamp'
 import { type EmojiClickData, Theme } from 'emoji-picker-react'
-const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
+import dynamic from 'next/dynamic'
+const EmojiPicker = dynamic(() => import('emoji-picker-react'))
 
 interface MessageItemProps {
   message: Message
@@ -29,18 +31,17 @@ interface MessageItemProps {
    * → ẩn avatar + tên, chỉ hiện timestamp nhỏ bên trái (giống Slack)
    */
   isCompact?: boolean
+  /** Hover state từ parent — tránh duplicate toolbar khi lướt nhanh */
+  isHovered?: boolean
+  onHoverChange?: (messageId: string, hovered: boolean) => void
+  /** Popover emoji đang mở — controlled từ parent */
+  emojiPickerOpen?: boolean
+  /** Callback khi EmojiPicker open/close — giữ toolbar hiển thị khi picker mở */
+  onEmojiPickerOpenChange?: (messageId: string, open: boolean) => void
   onReact?: (messageId: string, emoji: string) => void
   onEdit?: (message: Message) => void
   onDelete?: (messageId: string) => void
   onReply?: (message: Message) => void
-}
-
-/** Format timestamp giống Slack */
-function formatTimestamp(dateStr: string): string {
-  const date = new Date(dateStr)
-  if (isToday(date)) return format(date, 'HH:mm')
-  if (isYesterday(date)) return `Hôm qua lúc ${format(date, 'HH:mm')}`
-  return format(date, 'dd/MM/yyyy HH:mm')
 }
 
 /** Format timestamp cho compact mode (chỉ giờ) */
@@ -52,13 +53,15 @@ export default function MessageItem({
   message,
   currentUserId,
   isCompact = false,
+  isHovered = false,
+  onHoverChange,
+  emojiPickerOpen = false,
+  onEmojiPickerOpenChange,
   onReact,
   onEdit,
   onDelete,
   onReply,
 }: MessageItemProps) {
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
 
   const isDeleted = !!message.deletedAt
   /** Ẩn "đã chỉnh sửa" khi là system update (thay placeholder upload bằng content rỗng) */
@@ -69,6 +72,7 @@ export default function MessageItem({
       message.content === '<p>📎</p>')
   const isEdited =
     !!message.editedAt && !isFileOnlyPlaceholder
+
   const isOwner = message.user.id === currentUserId
 
   /** Placeholder khi đang upload file — ẩn nếu đã có attachments */
@@ -104,9 +108,16 @@ export default function MessageItem({
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
       onReact?.(message.id, emojiData.emoji)
-      setShowEmojiPicker(false)
+      onEmojiPickerOpenChange?.(message.id, false)
     },
-    [message.id, onReact],
+    [message.id, onReact, onEmojiPickerOpenChange],
+  )
+
+  const handleEmojiPickerOpenChange = useCallback(
+    (open: boolean) => {
+      onEmojiPickerOpenChange?.(message.id, open)
+    },
+    [message.id, onEmojiPickerOpenChange],
   )
 
   /** Kiểm tra current user đã react emoji này chưa */
@@ -128,11 +139,8 @@ export default function MessageItem({
       className={`group relative flex gap-x-2 px-4 hover:bg-[#222529] transition-colors ${
         isCompact ? 'py-0.5' : 'py-1.5'
       }`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false)
-        setShowEmojiPicker(false)
-      }}
+      onMouseEnter={() => onHoverChange?.(message.id, true)}
+      onMouseLeave={() => onHoverChange?.(message.id, false)}
     >
       {/* Cột trái: Avatar hoặc timestamp nhỏ (compact mode) */}
       <div className="w-9 shrink-0 flex justify-center">
@@ -182,16 +190,19 @@ export default function MessageItem({
 
         {/* Attachments — hiển thị files/images/videos */}
         {message.attachments && message.attachments.length > 0 && (
-          <AttachmentList
-            attachments={message.attachments}
-            onDownload={(url, name) => {
-              // Download file
-              const a = document.createElement('a')
-              a.href = url
-              a.download = name
-              a.click()
-            }}
-          />
+          <>
+            <AttachmentList
+              message={message}
+              attachments={message.attachments}
+              onDownload={(url, name) => {
+                // Download file
+                const a = document.createElement('a')
+                a.href = url
+                a.download = name
+                a.click()
+              }}
+            />
+          </>
         )}
 
         {/* Reactions bar */}
@@ -218,35 +229,43 @@ export default function MessageItem({
       {/* Hover action toolbar — xuất hiện khi hover (góc trên phải) */}
       {isHovered && (
         <div className="absolute right-4 top-0 -translate-y-1/2 flex items-center gap-0.5 bg-[#1a1d21] border border-[#797c814d] rounded-lg shadow-lg px-1 py-0.5 z-10">
-          {/* React với emoji */}
-          <div className="relative">
+          {/* React với emoji — Popover (portal) giữ picker khi di chuột ra ngoài */}
+          <Popover
+            open={emojiPickerOpen}
+            onOpenChange={handleEmojiPickerOpenChange}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
-                >
-                  <LuSmile size={16} />
-                </button>
+                <PopoverTrigger asChild>
+                  <button
+                    className="p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
+                  >
+                    <LuSmile size={16} />
+                  </button>
+                </PopoverTrigger>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p className="text-xs">Thêm reaction</p>
               </TooltipContent>
             </Tooltip>
-
-            {showEmojiPicker && (
-              <div className="absolute bottom-full right-0 mb-2 z-50">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiSelect}
-                  theme={Theme.DARK}
-                  width={320}
-                  height={380}
-                  searchPlaceHolder="Tìm emoji..."
-                  previewConfig={{ showPreview: false }}
-                />
-              </div>
-            )}
-          </div>
+            <PopoverContent
+              side="top"
+              align="end"
+              sideOffset={8}
+              className="w-auto p-0 border-none bg-transparent"
+              withOverlay={true}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <EmojiPicker
+                onEmojiClick={handleEmojiSelect}
+                theme={Theme.DARK}
+                width={320}
+                height={380}
+                searchPlaceHolder="Tìm emoji..."
+                previewConfig={{ showPreview: false }}
+              />
+            </PopoverContent>
+          </Popover>
 
           {/* Reply */}
           <Tooltip>

@@ -1,9 +1,28 @@
-
-
 import { useState } from 'react'
 import axios from 'axios'
 import { apiClient } from '@/lib/axios'
 import type { MessageAttachment } from '@/lib/types'
+
+/**
+ * Resolve MIME type — file.type thường rỗng với .drawio, .sketch, .fig... (browser không biết)
+ * Fallback: suy từ extension → application/octet-stream
+ */
+function getResolvedFileType(file: File): string {
+  if (file.type && file.type.length > 0) return file.type
+
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  const mimeByExt: Record<string, string> = {
+    drawio: 'application/vnd.jgraph.mxfile',
+    'draw.io': 'application/vnd.jgraph.mxfile',
+    xml: 'application/xml',
+    sketch: 'application/octet-stream',
+    fig: 'application/octet-stream',
+    psd: 'image/vnd.adobe.photoshop',
+    ai: 'application/postscript',
+    eps: 'application/postscript',
+  }
+  return mimeByExt[ext ?? ''] ?? 'application/octet-stream'
+}
 
 /**
  * File đang upload với progress
@@ -52,9 +71,9 @@ export function useFileUpload() {
     ])
 
     try {
-      // Detect file type
-      const isImage = file.type.startsWith('image/')
-      const isVideo = file.type.startsWith('video/')
+      const mimeType = getResolvedFileType(file)
+      const isImage = mimeType.startsWith('image/')
+      const isVideo = mimeType.startsWith('video/')
       const useCloudinary = isImage || isVideo
 
       let uploadedUrl: string
@@ -93,7 +112,7 @@ export function useFileUpload() {
         type: isImage ? 'image' : isVideo ? 'video' : 'file',
         name: file.name,
         size: file.size,
-        mimeType: file.type,
+        mimeType: mimeType,
         width,
         height,
         duration,
@@ -176,7 +195,7 @@ async function uploadToCloudinary(
     uploadUrl: string
   }>('/upload/presigned-url/cloudinary', {
     fileName: file.name,
-    fileType: file.type,
+    fileType: getResolvedFileType(file),
     fileSize: file.size,
   })
 
@@ -222,14 +241,14 @@ async function uploadToS3(
     publicUrl: string
   }>('/upload/presigned-url/s3', {
     fileName: file.name,
-    fileType: file.type,
+    fileType: getResolvedFileType(file),
     fileSize: file.size,
   })
 
   // 2. Upload lên S3 qua presigned URL
   await axios.put(presignedData.url, file, {
     headers: {
-      'Content-Type': file.type,
+      'Content-Type': getResolvedFileType(file),
     },
     onUploadProgress: (progressEvent) => {
       if (progressEvent.total) {

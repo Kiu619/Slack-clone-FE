@@ -1,5 +1,7 @@
 'use client'
 
+import { LinkInputDialog } from '@/components/dialogs/link-input-dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import Code from '@tiptap/extension-code'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -13,55 +15,28 @@ import {
   LuAtSign,
   LuBold,
   LuCode,
-  LuSquareCode,
   LuItalic,
   LuLink,
   LuList,
   LuListOrdered,
-  LuMic,
-  LuPaperclip,
-  LuSend,
   LuSmile,
+  LuSquareCode,
   LuStrikethrough,
-  LuUnderline,
-  LuVideo,
+  LuUnderline
 } from 'react-icons/lu'
 import { MdFormatColorText } from 'react-icons/md'
-import { LinkInputDialog } from './dialogs/link-input-dialog'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
-interface EditorProps {
-  onSubmit?: (htmlContent: string) => void
-  channelName?: string
-  /**
-   * Callback khi user bắt đầu/ngừng gõ — dùng để emit typing events qua WebSocket
-   * Phase 1: không dùng
-   * Phase 3: truyền từ Main.tsx xuống
-   */
-  onTypingStart?: () => void
-  onTypingStop?: () => void
-  /** Disable editor khi đang gửi */
-  disabled?: boolean
-  /** Callback khi user attach files (add vào pending, chờ nhấn Gửi/Enter) */
-  onFileAttach?: (files: File[]) => void
-  /** Có file pending → cho phép gửi dù không có text */
-  hasPendingFiles?: boolean
-}
+// interface EditorProps {
+// }
 
-const Editor = ({
-  onSubmit,
-  channelName,
-  disabled = false,
-  onFileAttach,
-  hasPendingFiles = false,
-}: EditorProps) => {
+const ShareFileEditor = ({
+}) => {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [, forceUpdate] = useState({})
   const emojiPickerRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const editor = useEditor({
     extensions: [
@@ -97,7 +72,7 @@ const Editor = ({
         },
       }),
       Placeholder.configure({
-        placeholder: `Nhắn tin tới #${channelName || 'channel'}`,
+        placeholder: `Add a message, if you'd like.`,
       }),
       Link.configure({
         openOnClick: false,
@@ -108,12 +83,12 @@ const Editor = ({
     editorProps: {
       attributes: {
         class:
-          'max-w-none focus:outline-none max-h-[200px] overflow-y-auto px-3 py-2 text-[15px] text-white leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
+          'max-w-none focus:outline-none min-h-[100px] overflow-y-auto px-3 py-2 text-[15px] text-white leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
       },
     },
     content: '',
     immediatelyRender: false,
-    editable: !disabled,
+    editable: true,
     onUpdate: () => {
       forceUpdate({})
     },
@@ -121,11 +96,6 @@ const Editor = ({
       forceUpdate({})
     },
   })
-
-  // Sync editable state với disabled prop
-  useEffect(() => {
-    editor?.setEditable(!disabled)
-  }, [editor, disabled])
 
   // Close emoji picker khi click outside
   useEffect(() => {
@@ -145,52 +115,15 @@ const Editor = ({
   }, [showEmojiPicker])
 
   const handleSubmit = useCallback(() => {
-    if (!editor || disabled) return
+    if (!editor) return
 
     const content = editor.getHTML()
     const hasContent = content.trim() !== '' && content.trim() !== '<p></p>'
-    if (!hasContent && !hasPendingFiles) return
+    if (!hasContent) return
 
-    onSubmit?.(content)
     editor.commands.clearContent()
     editor.commands.focus()
-  }, [editor, disabled, onSubmit, hasPendingFiles])
-
-  /**
-   * handleFileSelect — khi user chọn file từ file picker
-   */
-  const handleFileSelect = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files
-      if (!files || files.length === 0) return
-
-      const fileArray = Array.from(files)
-      onFileAttach?.(fileArray)
-
-      // Reset input để có thể chọn lại cùng file
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    },
-    [onFileAttach],
-  )
-
-  /**
-   * handleFileDrop — khi user drag & drop file vào editor
-   */
-  const handleFileDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      event.stopPropagation()
-
-      const files = event.dataTransfer.files
-      if (!files || files.length === 0) return
-
-      const fileArray = Array.from(files)
-      onFileAttach?.(fileArray)
-    },
-    [onFileAttach],
-  )
+  }, [editor])
 
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
@@ -236,31 +169,14 @@ const Editor = ({
   const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run()
   const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run()
 
-  const hasContent = !!editor?.getText().trim()
-  const canSubmit = hasContent || hasPendingFiles
-
   if (!editor) return null
 
   return (
     <div className="relative">
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={handleFileSelect}
-        accept="*"
-      />
-
       <div
         className={`border rounded-lg bg-[#1a1d21] transition-colors ${
-          disabled
-            ? 'border-[#797c814d] opacity-60'
-            : 'border-[#797c814d] hover:border-[#797c81]'
+          'border-[#797c814d] hover:border-[#797c81]'
         }`}
-        onDrop={handleFileDrop}
-        // onDragOver={handleDragOver}
       >
         {/* Top Toolbar: Formatting */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
@@ -307,12 +223,6 @@ const Editor = ({
         {/* Bottom Toolbar: Media + Send */}
         <div className="flex items-center justify-between px-2 py-1.5">
           <div className="flex items-center gap-0.5">
-            <ToolbarButton
-              onClick={() => fileInputRef.current?.click()}
-              tooltip="Đính kèm file"
-            >
-              <LuPaperclip size={16} />
-            </ToolbarButton>
             <ToolbarButton tooltip="Format text">
               <MdFormatColorText size={16} />
             </ToolbarButton>
@@ -345,36 +255,7 @@ const Editor = ({
             <ToolbarButton tooltip="Mention someone (@)">
               <LuAtSign size={16} />
             </ToolbarButton>
-
-            <Divider />
-
-            <ToolbarButton tooltip="Record video clip">
-              <LuVideo size={16} />
-            </ToolbarButton>
-            <ToolbarButton tooltip="Record audio clip">
-              <LuMic size={16} />
-            </ToolbarButton>
           </div>
-
-          {/* Send button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleSubmit}
-                disabled={!canSubmit || disabled}
-                className={`p-2 rounded transition-colors ${
-                  canSubmit && !disabled
-                    ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
-                    : 'bg-[#222529] text-[#797c81] cursor-not-allowed'
-                }`}
-              >
-                <LuSend size={16} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Gửi (Enter)</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
       </div>
 
@@ -423,4 +304,4 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
   )
 }
 
-export default Editor
+export default ShareFileEditor

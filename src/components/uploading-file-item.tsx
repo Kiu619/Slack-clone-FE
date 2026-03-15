@@ -35,7 +35,7 @@ export default function UploadingFileItem({
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg bg-[#222529] border border-[#797c814d]">
       {/* Icon */}
-      <div className="flex-shrink-0">{icon}</div>
+      <div className="shrink-0">{icon}</div>
 
       {/* File info + progress */}
       <div className="flex-1 min-w-0">
@@ -74,7 +74,7 @@ export default function UploadingFileItem({
         <button
           type="button"
           onClick={() => onCancel(file.id)}
-          className="flex-shrink-0 p-1 hover:bg-gray-700 rounded transition-colors"
+          className="shrink-0 p-1 hover:bg-gray-700 rounded transition-colors"
         >
           <LuX className="w-4 h-4 text-gray-400" />
         </button>

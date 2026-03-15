@@ -1,13 +1,23 @@
-'use client'
+"use client";
 
-import type { MessageAttachment } from '@/lib/types'
-import ImagePreview from './image-preview'
-import VideoPreview from './video-preview'
-import FilePreview from './file-preview'
+import dynamic from "next/dynamic";
+import type { Message, MessageAttachment } from "@/lib/types";
+import ImagePreview from "./image-preview";
+import VideoPreview from "./video-preview";
+import FilePreview from "./file-preview";
+import CodePreview from "./code-preview";
+import OfficeFilePreview from "./office-file-preview";
+import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils";
+import Typography from "../ui/typography";
+import { FaCaretDown, FaCaretRight } from "react-icons/fa";
+import { useAttachmentExpanded } from "@/hooks/use-attachment-expanded";
+
+const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false });
 
 interface AttachmentListProps {
-  attachments: MessageAttachment[]
-  onDownload?: (url: string, name: string) => void
+  message: Message;
+  attachments: MessageAttachment[];
+  onDownload?: (url: string, name: string) => void;
 }
 
 /**
@@ -17,72 +27,151 @@ interface AttachmentListProps {
  * - Single image: full width (max 400px)
  * - Multiple images: grid 2x2 hoặc 3x3
  * - Videos: stacked vertically (max 500px width)
- * - Files: list view với icon
+ * - Office (PPT, Excel, Word): card với icon + mô tả (giống Slack)
+ * - Code/text: syntax highlighting giống IDE
+ * - Files khác: list view với icon
  */
 export default function AttachmentList({
+  message,
   attachments,
   onDownload,
 }: AttachmentListProps) {
-  if (!attachments.length) return null
+  const [isExpanded, handleToggle] = useAttachmentExpanded(message.id);
+
+  if (!attachments.length) return null;
 
   // Group theo type
-  const images = attachments.filter((a) => a.type === 'image')
-  const videos = attachments.filter((a) => a.type === 'video')
-  const files = attachments.filter(
-    (a) => a.type === 'file' || a.type === 'audio',
-  )
+  const images = attachments.filter((a) => a.type === "image");
+  const videos = attachments.filter((a) => a.type === "video");
+  const allFiles = attachments.filter(
+    (a) => a.type === "file" || a.type === "audio",
+  );
+
+  const officeFiles = allFiles.filter((a) => isOfficeFile(a.name));
+  const pdfFiles = allFiles.filter((a) => isPdfFile(a.name, a.mimeType));
+  const codeFiles = allFiles.filter(
+    (a) =>
+      !isOfficeFile(a.name) &&
+      !isPdfFile(a.name, a.mimeType) &&
+      isCodeOrTextFile(a.name, a.mimeType),
+  );
+  const otherFiles = allFiles.filter(
+    (a) =>
+      !isOfficeFile(a.name) &&
+      !isPdfFile(a.name, a.mimeType) &&
+      !isCodeOrTextFile(a.name, a.mimeType),
+  );
 
   return (
-    <div className="mt-2 space-y-2">
-      {/* Images — grid layout */}
-      {images.length > 0 && (
-        <div
-          className={`grid gap-2 ${
-            images.length === 1
-              ? 'grid-cols-1'
-              : images.length === 2
-                ? 'grid-cols-2'
-                : images.length === 3
-                  ? 'grid-cols-3'
-                  : 'grid-cols-2 md:grid-cols-3'
-          }`}
-        >
-          {images.map((img) => (
-            <ImagePreview
-              key={img.id}
-              attachment={img}
-              allImages={images}
-              onDownload={onDownload}
-            />
-          ))}
-        </div>
-      )}
+    <>
+      <button
+        type="button"
+        onClick={handleToggle}
+        className="flex w-full gap-2 items-center text-left hover:opacity-80 transition-opacity text-[#d1d2d3] truncate!"
+      >
+        {attachments.length > 1 ? (
+          <Typography
+            variant="p"
+            className="text-[10px]"
+            text={`${attachments.length} files`}
+          />
+        ) : (
+          <Typography
+            variant="p"
+            className="text-[10px] truncate!"
+            text={attachments[0].name}
+          />
+        )}
+        {isExpanded ? (
+          <FaCaretDown className="w-3 h-3 shrink-0 text-[#797c81]" />
+        ) : (
+          <FaCaretRight className="w-3 h-3 shrink-0 text-[#797c81]" />
+        )}
+      </button>
+      {isExpanded && (
+        <div className="flex flex-wrap gap-2 w-full">
+          {/* Images — hiển thị hết tất cả ảnh, mỗi ảnh rộng = kích thước ảnh. Lightbox có nút trái/phải */}
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2 w-full">
+              {images.map((img) => (
+                <ImagePreview
+                  key={img.id}
+                  message={message}
+                  attachment={img}
+                  allImages={images}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
 
-      {/* Videos — stacked vertically */}
-      {videos.length > 0 && (
-        <div className="space-y-2">
-          {videos.map((video) => (
-            <VideoPreview
-              key={video.id}
-              attachment={video}
-              onDownload={onDownload}
-            />
-          ))}
-        </div>
-      )}
+          {videos.length > 0 && (
+            <div className="flex flex-col gap-2 w-full">
+              {videos.map((video) => (
+                <VideoPreview
+                  key={video.id}
+                  message={message}
+                  attachment={video}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
 
-      {/* Files — list view */}
-      {files.length > 0 && (
-        <div className="space-y-2">
-          {files.map((file) => (
-            <FilePreview
-              key={file.id}
-              attachment={file}
-              onDownload={onDownload}
-            />
-          ))}
+          {officeFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 w-full">
+              {officeFiles.map((file) => (
+                <OfficeFilePreview
+                  key={file.id}
+                  message={message}
+                  attachment={file}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
+
+          {pdfFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 w-full">
+              {pdfFiles.map((file) => (
+                <PdfPreview
+                  key={file.id}
+                  message={message}
+                  attachment={file}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
+
+          {codeFiles.length > 0 && (
+            <div className="flex flex-col gap-2 w-full">
+              {codeFiles.map((file) => (
+                <CodePreview
+                  key={file.id}
+                  message={message}
+                  attachment={file}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Files khác — list view */}
+          {otherFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 w-full">
+              {otherFiles.map((file) => (
+                <FilePreview
+                  key={file.id}
+                  message={message}
+                  attachment={file}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
-    </div>
-  )
+    </>
+  );
 }

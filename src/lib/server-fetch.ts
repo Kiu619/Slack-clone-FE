@@ -1,25 +1,3 @@
-/**
- * SERVER-SIDE FETCH UTILITY
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * File này chỉ chạy trên SERVER.
- *
- * `server-only` là package của Next.js đảm bảo file này KHÔNG BAO GIỜ được
- * import trên client. Nếu vô tình import → build error ngay → bắt lỗi sớm.
- *
- * Tại sao cần file này?
- * ─────────────────────
- * Trên client: axios + `withCredentials: true` → browser tự đính cookie.
- * Trên server: không có browser → phải đọc cookie thủ công từ Next.js headers
- * và đính vào request header khi gọi NestJS backend.
- *
- * Có 2 loại function trong file này:
- *
- * 1. getServer*() — trả về data trực tiếp, dùng cho auth guard và render
- * 2. prefetchWorkspaceData() — trả về QueryClient đã được "fill" data,
- *    dùng với HydrationBoundary để hydrate TanStack Query cache trên client
- */
-
 import 'server-only'
 
 import { cookies } from 'next/headers'
@@ -29,21 +7,10 @@ import {
   type DehydratedState,
 } from '@tanstack/react-query'
 import type { User, Workspace, Channel } from './types'
-// Import từ query-keys.ts (isomorphic) thay vì hooks (client-only)
-// → tránh lỗi "use client module imported in server-only file"
 import { workspaceKeys, channelKeys } from './query-keys'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
-
-/**
- * getAuthHeaders() — đọc cookie từ request hiện tại và tạo header
- *
- * `cookies()` từ 'next/headers' là Dynamic API của Next.js.
- * Gọi nó làm cho route trở thành "dynamic" (không được cache bởi Next.js).
- * Đây là hành vi đúng vì data của mỗi user là khác nhau.
- */
 async function getAuthHeaders(): Promise<HeadersInit> {
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')?.value
@@ -59,18 +26,6 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   }
 }
 
-/**
- * serverFetch<T>() — hàm fetch generic cho server
- *
- * `cache: 'no-store'` vì data là user-specific:
- * - Không được cache giữa các user khác nhau
- * - Không được serve data cũ cho cùng một user
- *
- * Return null thay vì throw error để:
- * - Auth error (401/403) → layout redirect về /auth
- * - Not found (404) → layout redirect về /
- * - Network error → layout có thể xử lý gracefully
- */
 async function serverFetch<T>(path: string): Promise<T | null> {
   try {
     const headers = await getAuthHeaders()
@@ -86,7 +41,6 @@ async function serverFetch<T>(path: string): Promise<T | null> {
 }
 
 // ─── Data fetchers (trả về data trực tiếp) ───────────────────────────────────
-// Dùng cho: auth guard, WorkspaceShell props
 
 export async function getServerUser(): Promise<User | null> {
   return serverFetch<User>('/auth/me')
@@ -109,28 +63,6 @@ export async function getServerChannels(workspaceId: string): Promise<Channel[]>
 // ─── HydrationBoundary helpers ────────────────────────────────────────────────
 
 /**
- * prefetchWorkspaceData() — prefetch tất cả data cần thiết cho workspace layout
- *
- * Hàm này dùng kỹ thuật "Server-side prefetching" của TanStack Query:
- *
- * LUỒNG HOẠT ĐỘNG:
- * ─────────────────
- * 1. Tạo QueryClient MỚI trên server (mỗi request tạo một cái riêng)
- * 2. Dùng `queryClient.prefetchQuery()` để fetch data vào server QueryClient
- *    Điều này giống `useQuery` nhưng chạy trên server
- * 3. `dehydrate(queryClient)` serialize cache thành plain object (JSON-safe)
- * 4. Layout truyền dehydrated state xuống `<HydrationBoundary state={...}>`
- * 5. HydrationBoundary restore state vào CLIENT QueryClient trước khi render
- * 6. Khi `useChannels()` được gọi → cache đã có data → KHÔNG fetch lại
- *
- * ĐIỂM KHÁC BIỆT VỚI useEffect + setQueryData:
- * ───────────────────────────────────────────────
- * useEffect:    Component mount → useEffect chạy → set cache
- *               Có race condition: query có thể chạy trước useEffect!
- *
- * HydrationBoundary: cache được restore TRƯỚC KHI component nào mount
- *                    Không có race condition.
- *
  * @param workspaceId - ID của workspace cần prefetch data
  * @param data - data đã fetch từ getServerUser/getServerWorkspace (tái dùng, không fetch lại)
  * @returns DehydratedState — state đã được serialize, an toàn để truyền qua props
@@ -154,7 +86,6 @@ export async function prefetchWorkspaceData(
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        // Trên server, không bao giờ retry (chậm + không cần thiết)
         retry: false,
       },
     },
@@ -167,10 +98,6 @@ export async function prefetchWorkspaceData(
    * - prefetchQuery sẽ gọi queryFn (fetch lại API)
    * - Ta đã có data từ Promise.all bên ngoài → không cần fetch lại
    * - setQueryData đặt thẳng data vào cache → nhanh hơn
-   *
-   * Query keys phải KHỚP CHÍNH XÁC với keys trong useWorkspace, useChannels...
-   * → Đó là lý do các key được định nghĩa và export từ hooks (workspaceKeys, channelKeys)
-   *   thay vì hardcode ở nhiều nơi.
    */
 
   // Cache user data với key ['auth', 'me'] — khớp với useAuth() query key

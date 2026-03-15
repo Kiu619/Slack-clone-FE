@@ -1,30 +1,15 @@
 'use client'
 
-/**
- * MessageList — danh sách messages với infinite scroll + virtual rendering
- *
- * Tại sao dùng react-virtuoso?
- * ────────────────────────────
- * Nếu channel có 10,000 messages, render tất cả vào DOM sẽ rất chậm.
- * Virtuoso chỉ render những messages đang hiển thị trong viewport (~20-30 items),
- * các message ngoài viewport chỉ là "placeholder" → smooth scroll dù có nhiều tin.
- *
- * Tại sao scroll ngược (cũ ở trên, mới ở dưới)?
- * ─────────────────────────────────────────────────
- * Giống Slack: messages mới nhất ở dưới, scroll lên để xem cũ hơn.
- * Khi có message mới → auto scroll xuống bottom.
- * Khi scroll lên đầu → trigger load thêm (load messages cũ hơn).
- */
-
 import MessageItem from '@/components/message-item'
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAddReaction, useMessages } from '@/hooks/use-messages'
+import { usePrefetchPdfAttachments } from '@/hooks/use-prefetch-pdf-attachments'
 import type { Message } from '@/lib/types'
 import { format, isSameDay, isThisYear, isToday, isYesterday } from 'date-fns'
 import { enUS } from 'date-fns/locale'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IoChevronDownOutline } from "react-icons/io5"
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 
@@ -113,10 +98,6 @@ function ChannelWelcome({ channelId }: { channelId: string }) {
   )
 }
 
-/**
- * Kiểm tra 2 messages có nên "compact" không
- * Compact = cùng user + cách nhau < 5 phút
- */
 function shouldCompact(prev: Message, curr: Message): boolean {
   if (prev.user.id !== curr.user.id) return false
   const prevTime = new Date(prev.createdAt).getTime()
@@ -124,11 +105,6 @@ function shouldCompact(prev: Message, curr: Message): boolean {
   return currTime - prevTime < 5 * 60 * 1000 // 5 phút
 }
 
-/**
- * Flatten tất cả pages thành flat array, thêm date separators
- * Pages từ useInfiniteQuery: pages[0] = mới nhất, pages[-1] = cũ nhất
- * Ta hiển thị cũ → mới (cũ ở trên, mới ở dưới)
- */
 type ListItem =
   | { type: 'message'; message: Message; isCompact: boolean }
   | { type: 'date'; date: Date }
@@ -171,6 +147,10 @@ export default function MessageList({
   onReplyMessage,
 }: MessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
+  const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(
+    null,
+  )
   const {
     data,
     isLoading,
@@ -180,6 +160,8 @@ export default function MessageList({
   } = useMessages(channelId, isConnected)
 
   const { mutate: addReaction } = useAddReaction(channelId)
+
+  usePrefetchPdfAttachments(data?.pages)
 
   /** Flatten pages → list items có date separators */
   const listItems = useMemo<ListItem[]>(() => {
@@ -193,18 +175,39 @@ export default function MessageList({
     return items
   }, [data, hasNextPage])
 
-  /** Auto scroll xuống bottom khi có messages mới hoặc load lần đầu */
+  /** firstItemIndex — giữ scroll position khi prepend (load tin nhắn cũ hơn) */
+  const prevLengthRef = useRef<number | null>(null)
+  const [firstItemIndex, setFirstItemIndex] = useState(10000)
+
   useEffect(() => {
-    if (!isLoading && listItems.length > 0) {
-      // Delay nhỏ để DOM update xong
-      setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: listItems.length - 1,
-          behavior: 'auto',
-        })
-      }, 50)
+    const curr = listItems.length
+    if (prevLengthRef.current === null) {
+      prevLengthRef.current = curr
+      return
     }
-  }, [isLoading]) // Chỉ auto scroll khi lần đầu load xong
+    const prev = prevLengthRef.current
+    if (curr > prev) {
+      setFirstItemIndex((f) => f - (curr - prev))
+    }
+    prevLengthRef.current = curr
+  }, [listItems.length])
+
+  /** Auto scroll xuống bottom CHỈ khi load lần đầu xong (không chạy khi fetchNextPage) */
+  const hasInitiallyScrolledRef = useRef(false)
+  useEffect(() => {
+    hasInitiallyScrolledRef.current = false // Reset khi đổi channel
+  }, [channelId])
+  useEffect(() => {
+    if (isLoading || listItems.length === 0) return
+    if (hasInitiallyScrolledRef.current) return
+    hasInitiallyScrolledRef.current = true
+    setTimeout(() => {
+      virtuosoRef.current?.scrollToIndex({
+        index: listItems.length - 1,
+        behavior: 'auto',
+      })
+    }, 50)
+  }, [isLoading, listItems.length, channelId])
 
   /** Callback khi scroll lên đầu → load thêm messages cũ */
   const handleStartReached = useCallback(() => {
@@ -247,10 +250,19 @@ export default function MessageList({
       <Virtuoso
         ref={virtuosoRef}
         data={listItems}
+        firstItemIndex={firstItemIndex}
+        increaseViewportBy={{ top: 600, bottom: 400 }}
         followOutput="smooth"
         atTopThreshold={100}
         startReached={handleStartReached}
         style={{ height: '100%' }}
+        computeItemKey={(_, item) =>
+          item.type === 'message'
+            ? item.message.id
+            : item.type === 'date'
+              ? `date-${item.date.getTime()}`
+              : 'welcome'
+        }
         itemContent={(_, item) => {
           if (item.type === 'welcome') {
             return <ChannelWelcome channelId={channelId} />
@@ -265,6 +277,17 @@ export default function MessageList({
               message={item.message}
               currentUserId={currentUserId}
               isCompact={item.isCompact}
+              isHovered={
+                hoveredMessageId === item.message.id ||
+                emojiPickerMessageId === item.message.id
+              }
+              onHoverChange={(id, hovered) =>
+                setHoveredMessageId(hovered ? id : null)
+              }
+              emojiPickerOpen={emojiPickerMessageId === item.message.id}
+              onEmojiPickerOpenChange={(id, open) =>
+                setEmojiPickerMessageId(open ? id : null)
+              }
               onReact={handleReact}
               onEdit={onEditMessage}
               onDelete={onDeleteMessage}

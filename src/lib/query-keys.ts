@@ -42,6 +42,20 @@ export const messageKeys = {
   thread: (messageId: string) => ['messages', 'thread', messageId] as const,
 }
 
+// ─── Attachment content (code preview cache) ─────────────────────────────────────
+
+export const attachmentContentKeys = {
+  /** Nội dung file cho CodePreview — cache theo attachment.id (Virtuoso unmount/remount) */
+  detail: (attachmentId: string) => ['attachment-content', attachmentId] as const,
+}
+
+// ─── Attachment file blob (PDF, Office preview cache) ──────────────────────────────
+
+export const attachmentFileKeys = {
+  /** Blob/ArrayBuffer của file theo URL — cache PDF để không tải lại khi mở lại modal */
+  blob: (url: string) => ['attachment-file', url] as const,
+}
+
 // ─── Channel query keys ───────────────────────────────────────────────────────
 
 export const channelKeys = {

@@ -1,15 +1,15 @@
 'use client'
 
+import { useChannelSocket } from '@/hooks/use-socket'
+import { apiClient } from '@/lib/axios'
+import { messageKeys } from '@/lib/query-keys'
+import type { Message, MessagesPage, SendMessagePayload } from '@/lib/types'
 import {
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query'
-import { useCallback, useEffect, useState } from 'react'
-import { apiClient } from '@/lib/axios'
-import { messageKeys } from '@/lib/query-keys'
-import { useChannelSocket } from '@/hooks/use-socket'
-import type { Message, MessagesPage, SendMessagePayload, TypingUser } from '@/lib/types'
+import { useCallback } from 'react'
 
 // ─── Fetcher ──────────────────────────────────────────────────────────────────
 
@@ -347,47 +347,4 @@ export function useAddReaction(channelId: string) {
       }
     },
   })
-}
-
-/**
- * useTypingIndicator — quản lý typing state từ WebSocket
- */
-export function useTypingIndicator(
-  channelId: string,
-  currentUserId: string,
-  isConnected: boolean,
-) {
-  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
-
-  useEffect(() => {
-    if (typingUsers.length === 0) return
-    const timer = setTimeout(() => setTypingUsers([]), 4000)
-    return () => clearTimeout(timer)
-  }, [typingUsers])
-
-  const handleTyping = useCallback(
-    (data: {
-      channelId: string
-      user: { userId: string; name: string | null }
-      isTyping: boolean
-    }) => {
-      if (data.channelId !== channelId) return
-      if (data.user.userId === currentUserId) return
-
-      setTypingUsers((prev) => {
-        if (data.isTyping) {
-          const exists = prev.some((u) => u.userId === data.user.userId)
-          if (exists) return prev
-          return [...prev, { userId: data.user.userId, name: data.user.name, avatar: null }]
-        } else {
-          return prev.filter((u) => u.userId !== data.user.userId)
-        }
-      })
-    },
-    [channelId, currentUserId],
-  )
-
-  useChannelSocket(channelId, isConnected, { onTyping: handleTyping })
-
-  return typingUsers
 }

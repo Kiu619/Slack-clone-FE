@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { apiClient } from '@/lib/axios'
 import { useUserStore } from '@/stores/useUserStore'
 import type { User } from '@/lib/types'
+import { getUserApi } from '@/apis'
 
 export function useAuth() {
   const queryClient = useQueryClient()
@@ -19,8 +20,8 @@ export function useAuth() {
   } = useQuery<User>({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const res = await apiClient.get<User>('/auth/me')
-      return res.data
+      const user = await getUserApi()
+      return user
     },
     retry: false,
     staleTime: 5 * 60 * 1000,

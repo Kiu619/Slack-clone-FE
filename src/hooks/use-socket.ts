@@ -36,9 +36,13 @@ export type SocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
  * Gọi một lần ở top-level component (WorkspaceShell hoặc Main).
  * Trả về { socket, isConnected } để các hook con sử dụng.
  */
+
 export function useSocket() {
-  const [isConnected, setIsConnected] = useState(false)
-  const socketRef = useRef<Socket>(getSocket())
+  const socket = getSocket()
+  const socketRef = useRef<Socket>(socket)
+  const [isConnected, setIsConnected] = useState(socket.connected)
+
+
 
   useEffect(() => {
     const socket = socketRef.current
@@ -56,8 +60,6 @@ export function useSocket() {
 
     if (!socket.connected) {
       socket.connect()
-    } else {
-      setIsConnected(true)
     }
 
     return () => {
@@ -67,7 +69,7 @@ export function useSocket() {
     }
   }, [])
 
-  return { socket: socketRef.current, isConnected }
+  return { isConnected }
 }
 
 /**
@@ -86,11 +88,6 @@ export function useChannelSocket(
   isConnected: boolean,
   callbacks: {
     onMessage?: (msg: unknown) => void
-    onTyping?: (data: {
-      channelId: string
-      user: { userId: string; name: string | null }
-      isTyping: boolean
-    }) => void
     onMessageUpdated?: (data: unknown) => void
     onMessageDeleted?: (data: { messageId: string }) => void
     onReactionUpdate?: (data: unknown) => void
@@ -110,10 +107,9 @@ export function useChannelSocket(
     socket.emit('join-channel', { channelId })
 
     // Đăng ký event listeners
-    const { onMessage, onTyping, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded } = callbacks
+    const { onMessage, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded } = callbacks
 
     if (onMessage) socket.on('message', onMessage)
-    if (onTyping) socket.on('typing', onTyping)
     if (onMessageUpdated) socket.on('message:updated', onMessageUpdated)
     if (onMessageDeleted) socket.on('message:deleted', onMessageDeleted)
     if (onReactionUpdate) socket.on('reaction:update', onReactionUpdate)
@@ -123,7 +119,6 @@ export function useChannelSocket(
       socket.emit('leave-channel', { channelId })
 
       if (onMessage) socket.off('message', onMessage)
-      if (onTyping) socket.off('typing', onTyping)
       if (onMessageUpdated) socket.off('message:updated', onMessageUpdated)
       if (onMessageDeleted) socket.off('message:deleted', onMessageDeleted)
       if (onReactionUpdate) socket.off('reaction:update', onReactionUpdate)

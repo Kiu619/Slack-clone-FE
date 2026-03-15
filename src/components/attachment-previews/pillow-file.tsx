@@ -1,59 +1,30 @@
 "use client";
 
-import type { Message, MessageAttachment } from "@/lib/types";
-import React, { useState } from "react";
+import type { MessageAttachment } from "@/lib/types";
+import React from "react";
 import {
   FaFileExcel,
   FaFilePdf,
   FaFilePowerpoint,
   FaFileWord,
 } from "react-icons/fa";
-import { LuFile, LuFileArchive, LuFileText } from "react-icons/lu";
-import FileToolbar from "./file-toolbar";
-
+import { LuFile, LuFileArchive, LuFileText, LuImage } from "react-icons/lu";
 interface FilePreviewProps {
-  message: Message;
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
-  formDetailPanel?: boolean;
 }
 
-export default function FilePreview({
-  message,
+export default function PillowFile({
   attachment,
-  onDownload,
-  formDetailPanel = false,
 }: FilePreviewProps) {
-  const [isHovered, setIsHovered] = useState(false);
-  const handleDownload = () => {
-    if (onDownload) {
-      onDownload(attachment.url, attachment.name);
-    } else {
-      window.open(attachment.url, "_blank");
-    }
-  }
-  const handleOpenInNewTab = () => {
-    window.open(attachment.url, "_blank");
-  };
 
   const fileIcon = getFileIcon(attachment.name);
   const fileSize = formatFileSize(attachment.size);
 
   return (
     <div
-      className="group relative flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors w-full max-w-[400px] bg-[#1a1d21]"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="group relative w-full flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors bg-[#1a1d21]"
     >
-      {!formDetailPanel ? (
-        <FileToolbar
-          isHovered={isHovered}
-          message={message}
-          attachment={attachment}
-          onDownload={handleDownload}
-          onOpen={handleOpenInNewTab}
-        />
-      ) : null}
 
       {/* File icon */}
       <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded bg-[#2a2d31]">
@@ -103,6 +74,16 @@ function getFileIcon(fileName: string): React.ReactElement {
     case ".xml":
     case ".csv":
       return <LuFileText className={`${iconClass} text-gray-500`} />;
+    case ".png":
+    case ".jpg":
+    case ".jpeg":
+    case ".gif":
+    case ".webp":
+    case ".svg":
+    case ".ico":
+    case ".bmp":
+    case ".tiff":
+      return <LuImage className={`${iconClass} text-gray-400`} />;
     default:
       return <LuFile className={`${iconClass} text-gray-400`} />;
   }
