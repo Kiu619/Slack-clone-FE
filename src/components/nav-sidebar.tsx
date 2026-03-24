@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { Copy } from 'lucide-react'
 import { FaPlus } from 'react-icons/fa'
 import Link from 'next/link'
+import { MdBookmarkBorder } from 'react-icons/md'
 
 interface WorkspaceSidebarProps {
   currentWorkspaceData: Workspace
@@ -303,6 +304,25 @@ const WorkspaceSidebar = ({ currentWorkspaceData, userWorkspacesData }: Workspac
               <Typography
                 variant='p'
                 text='Files'
+                className='text-[11px]!'
+              />
+
+            </div>
+          </div>
+        </li>
+
+        <li>
+          <div className='flex flex-col cursor-pointer items-center group'>
+            <div className='flex flex-col items-center cursor-pointer group'>
+              <div className='p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]'>
+                <MdBookmarkBorder
+                  size={23}
+                  className='group-hover:scale-125 transition-all duration-300'
+                />
+              </div>
+              <Typography
+                variant='p'
+                text='Later'
                 className='text-[11px]!'
               />
 

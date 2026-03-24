@@ -25,11 +25,11 @@ function WorkspaceInitials({ name }: { name: string }) {
 }
 
 function WorkspaceRow({ workspace }: { workspace: Workspace }) {
-  const router = useRouter()
   return (
-    <button
+    <Link
+      prefetch
       key={workspace.id}
-      onClick={() => router.push(`/workspace/${workspace.id}`)}
+      href={`/workspace/${workspace.id}`}
       className="flex w-full items-center gap-4 border-b border-[#DDDDDD] px-6 py-4 text-left transition-colors hover:bg-gray-50 last:border-b-0"
     >
       {workspace.imageUrl ? (
@@ -65,7 +65,7 @@ function WorkspaceRow({ workspace }: { workspace: Workspace }) {
         </div>
       </div>
       <IoIosArrowForward className="h-5 w-5 text-[#616061]" />
-    </button>
+    </Link>
   )
 }
 

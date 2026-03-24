@@ -38,7 +38,7 @@ const Main = ({ currentChannelData }: MainProps) => {
 
   const currentUserForMutation = currentUser
     ? {
-        id: currentUser.userId,
+        id: currentUser.id,
         name: currentUser.name ?? null,
         email: currentUser.email,
         avatar: currentUser.avatar ?? null,
@@ -228,7 +228,8 @@ const Main = ({ currentChannelData }: MainProps) => {
        */}
       <MessageList
         channelId={currentChannelData.id}
-        currentUserId={currentUser?.userId ?? ''}
+        currentUserId={currentUser?.id ?? ''}
+        workspaceId={currentChannelData.workspaceId}
         isConnected={isConnected}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}

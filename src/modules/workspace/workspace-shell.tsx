@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
 import Sidebar from '@/components/sidebar'
@@ -14,40 +14,60 @@ import WorkspaceSidePanel from '@/modules/workspace/workspace-side-panel/workspa
 import FileDetailPanel from '@/components/attachment-previews/file-detail-panel'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import { useChannels } from '@/hooks/use-channel'
-import type { User, Workspace } from '@/lib/types'
+import type { AccountUser, User, Workspace } from '@/lib/types'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/lib/axios'
+import ProfilePanel from '@/modules/profile/profile-panel'
+import { useProfilePanelStore } from '@/stores/useProfilePanelStore'
+import { authKeys } from '@/lib/query-keys'
+import { getUserApi, getWorkspaceProfileApi } from '@/apis'
+import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 
 interface Props {
-  userData: User
+  accountUser: AccountUser
+  initialSidebarUser: User
   currentWorkspaceData: Workspace
   workspaceId: string
   children: React.ReactNode
 }
 
 export default function WorkspaceShell({
-  userData,
+  accountUser,
+  initialSidebarUser,
   currentWorkspaceData,
   workspaceId,
   children,
 }: Props) {
   const { data: allWorkspaces = [] } = useWorkspaces()
   const { data: channels = [] } = useChannels(workspaceId)
-  const { data: user } = useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: async () => {
-      const res = await apiClient.get<User>('/auth/me')
-      return res.data
-    },
-    initialData: userData,
+
+  const { data: account } = useQuery({
+    queryKey: authKeys.me,
+    queryFn: getUserApi,
+    initialData: accountUser,
     staleTime: 5 * 60 * 1000,
   })
+
+  const { data: workspaceProfile } = useQuery({
+    queryKey: authKeys.workspaceProfile(workspaceId),
+    queryFn: () => getWorkspaceProfileApi(workspaceId),
+    staleTime: 60 * 1000,
+  })
+
+  const sidebarUser = useMemo(
+    () =>
+      mergeAccountWithWorkspaceProfile(account ?? accountUser, workspaceProfile),
+    [account, accountUser, workspaceProfile],
+  )
+
   const setUser = useUserStore((s) => s.setUser)
   const isFileDetailOpen = useFileDetailStore((s) => s.isOpen)
+  const isProfilePanelOpen = useProfilePanelStore((s) => s.isOpen)
 
   useEffect(() => {
-    if (user) setUser(user)
-  }, [user, setUser])
+    if (account) setUser(account)
+  }, [account, setUser])
+
+  const displayUser = sidebarUser ?? initialSidebarUser
 
   return (
     <>
@@ -55,7 +75,7 @@ export default function WorkspaceShell({
 
       <div className="flex h-full">
         <Sidebar
-          userData={user}
+          userData={displayUser}
           currentWorkspaceData={currentWorkspaceData}
           userWorkspacesData={allWorkspaces}
         />
@@ -72,7 +92,7 @@ export default function WorkspaceShell({
               className="flex flex-col gap-2 h-full px-3 py-2 bg-[#231226] min-w-[320px]"
             >
               <WorkspaceSidePanel
-                userData={user}
+                userData={displayUser}
                 currentWorkspaceData={currentWorkspaceData}
                 userWorkspaceChannels={channels}
               />
@@ -80,7 +100,6 @@ export default function WorkspaceShell({
 
             <ResizableHandle />
 
-            {/* Main content */}
             <ResizablePanel
               defaultSize={isFileDetailOpen ? 54 : 77}
               minSize={30}
@@ -90,7 +109,6 @@ export default function WorkspaceShell({
               {children}
             </ResizablePanel>
 
-            {/* File detail panel — chỉ render khi mở */}
             {isFileDetailOpen && (
               <>
                 <ResizableHandle />
@@ -101,6 +119,20 @@ export default function WorkspaceShell({
                   className="h-full border-l border-[#797c814d]"
                 >
                   <FileDetailPanel />
+                </ResizablePanel>
+              </>
+            )}
+
+            {isProfilePanelOpen && (
+              <>
+                <ResizableHandle />
+                <ResizablePanel
+                  defaultSize={23}
+                  minSize="20%"
+                  maxSize="35%"
+                  className="h-full border-l border-[#797c814d]"
+                >
+                  <ProfilePanel />
                 </ResizablePanel>
               </>
             )}

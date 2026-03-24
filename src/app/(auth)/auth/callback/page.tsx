@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import axios from 'axios'
 import { useUserStore } from '@/stores/useUserStore'
 import { getUserApi, magicLinkVerifyApi } from '@/apis'
+import { authKeys } from '@/lib/query-keys'
 
 const AuthCallbackContent = () => {
   const searchParams = useSearchParams()
@@ -36,7 +37,7 @@ const AuthCallbackContent = () => {
         try {
           const user = await getUserApi()
           setUser(user)
-          queryClient.setQueryData(['auth', 'me'], user)
+          queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
           router.replace(redirect)
         } catch {
@@ -50,7 +51,7 @@ const AuthCallbackContent = () => {
         try {
           const user = await magicLinkVerifyApi(token)
           setUser(user)
-          queryClient.setQueryData(['auth', 'me'], user)
+          queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
           router.replace(redirect)
         } catch (err) {

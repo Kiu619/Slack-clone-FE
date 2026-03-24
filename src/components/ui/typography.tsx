@@ -11,7 +11,7 @@ const typographyVariants = cva('', {
       h4: 'scroll-m-20 text-xl font-semibold tracking-tight',
       h5: 'scroll-m-20 text-lg font-semibold tracking-tight',
       h6: 'scroll-m-20 text-base font-semibold tracking-tight',
-      p: '',
+      p: 'text-[15px] font-[500]',
       blockquote: 'mt-6 border-l-2 pl-6 italic',
       lead: 'text-xl text-muted-foreground',
       large: 'text-lg font-semibold',

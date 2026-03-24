@@ -20,6 +20,14 @@
  * nên hoàn toàn phù hợp để làm isomorphic.
  */
 
+// ─── Auth / profile (theo workspace) ─────────────────────────────────────────
+
+export const authKeys = {
+  me: ['auth', 'me'] as const,
+  workspaceProfile: (workspaceId: string) =>
+    ['workspace-profile', workspaceId] as const,
+}
+
 // ─── Workspace query keys ─────────────────────────────────────────────────────
 
 export const workspaceKeys = {

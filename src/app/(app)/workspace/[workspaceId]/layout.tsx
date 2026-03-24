@@ -2,11 +2,13 @@ import { redirect } from 'next/navigation'
 import { HydrationBoundary } from '@tanstack/react-query'
 import {
   getServerUser,
+  getServerWorkspaceProfile,
   getServerWorkspace,
   getServerWorkspaces,
   getServerChannels,
   prefetchWorkspaceData,
 } from '@/lib/server-fetch'
+import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import WorkspaceShell from '@/modules/workspace/workspace-shell'
 
 interface WorkspaceLayoutProps {
@@ -20,13 +22,20 @@ export default async function WorkspaceLayout({
 }: WorkspaceLayoutProps) {
   const { workspaceId } = await params
 
-  const [user, currentWorkspace, allWorkspaces, channels] = await Promise.all([
-    getServerUser(),
-    getServerWorkspace(workspaceId),
-    getServerWorkspaces(),
-    getServerChannels(workspaceId),
-  ])
+  const [account, workspaceProfile, currentWorkspace, allWorkspaces, channels] =
+    await Promise.all([
+      getServerUser(),
+      getServerWorkspaceProfile(workspaceId),
+      getServerWorkspace(workspaceId),
+      getServerWorkspaces(),
+      getServerChannels(workspaceId),
+    ])
   
+  if (!account) {
+    redirect(`/auth?redirect=/workspace/${workspaceId}`)
+  }
+
+  const user = mergeAccountWithWorkspaceProfile(account, workspaceProfile)
   if (!user) {
     redirect(`/auth?redirect=/workspace/${workspaceId}`)
   }
@@ -49,7 +58,8 @@ export default async function WorkspaceLayout({
    *   Truyền vào để chỉ serialize, không fetch thêm lần nào.
    */
   const dehydratedState = await prefetchWorkspaceData(workspaceId, {
-    user,
+    user: account,
+    workspaceProfile,
     workspace: currentWorkspace,
     workspaces: allWorkspaces,
     channels,
@@ -73,7 +83,8 @@ export default async function WorkspaceLayout({
   return (
     <HydrationBoundary state={dehydratedState}>
       <WorkspaceShell
-        userData={user}
+        accountUser={account}
+        initialSidebarUser={user}
         currentWorkspaceData={currentWorkspace}
         workspaceId={workspaceId}
       >

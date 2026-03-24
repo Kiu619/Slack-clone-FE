@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { formatTimestamp } from "@/helpers/format-time-stamp"
 import { useFileDetailStore } from "@/stores/useFileDetailStore"
 import { X } from "lucide-react"
@@ -15,10 +16,11 @@ import FilePreview from "./file-preview"
 import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils"
 import ImagePreview from "./image-preview"
 import OfficeFilePreview from "./office-file-preview"
-import PdfPreview from "./pdf-preview"
 import { ShareFileModal } from "./share-file-modal"
 import VideoPreview from "./video-preview"
 import { cn } from "@/lib/utils"
+
+const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
 const MENU_ITEM_STYLE =
   "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm"

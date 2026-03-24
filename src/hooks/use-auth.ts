@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { apiClient } from '@/lib/axios'
 import { useUserStore } from '@/stores/useUserStore'
-import type { User } from '@/lib/types'
+import type { AccountUser } from '@/lib/types'
 import { getUserApi } from '@/apis'
+import { authKeys } from '@/lib/query-keys'
 
 export function useAuth() {
   const queryClient = useQueryClient()
@@ -17,8 +18,8 @@ export function useAuth() {
     data: user,
     isLoading,
     isError,
-  } = useQuery<User>({
-    queryKey: ['auth', 'me'],
+  } = useQuery<AccountUser>({
+    queryKey: authKeys.me,
     queryFn: async () => {
       const user = await getUserApi()
       return user

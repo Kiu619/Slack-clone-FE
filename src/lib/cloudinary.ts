@@ -1,8 +1,11 @@
-export const uploadToCloudinary = async (file: File): Promise<string> => {
+export const uploadToCloudinary = async (
+  file: File,
+  folder = 'slack-clone/workspace-avatars'
+): Promise<string> => {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', 'slack_clone_preset')
-  formData.append('folder', 'slack-clone/workspace-avatars')
+  formData.append('folder', folder)
 
   try {
     const response = await fetch(

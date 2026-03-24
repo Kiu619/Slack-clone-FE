@@ -6,8 +6,8 @@ import {
   dehydrate,
   type DehydratedState,
 } from '@tanstack/react-query'
-import type { User, Workspace, Channel } from './types'
-import { workspaceKeys, channelKeys } from './query-keys'
+import type { AccountUser, User, Workspace, Channel } from './types'
+import { workspaceKeys, channelKeys, authKeys } from './query-keys'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -42,8 +42,16 @@ async function serverFetch<T>(path: string): Promise<T | null> {
 
 // ─── Data fetchers (trả về data trực tiếp) ───────────────────────────────────
 
-export async function getServerUser(): Promise<User | null> {
-  return serverFetch<User>('/auth/me')
+export async function getServerUser(): Promise<AccountUser | null> {
+  return serverFetch<AccountUser>('/auth/me')
+}
+
+export async function getServerWorkspaceProfile(
+  workspaceId: string,
+): Promise<User | null> {
+  return serverFetch<User>(
+    `/user-profile/me?workspaceId=${encodeURIComponent(workspaceId)}`,
+  )
 }
 
 export async function getServerWorkspace(
@@ -70,7 +78,8 @@ export async function getServerChannels(workspaceId: string): Promise<Channel[]>
 export async function prefetchWorkspaceData(
   workspaceId: string,
   data: {
-    user: User
+    user: AccountUser
+    workspaceProfile: User | null
     workspace: Workspace
     workspaces: Workspace[]
     channels: Channel[]
@@ -100,8 +109,11 @@ export async function prefetchWorkspaceData(
    * - setQueryData đặt thẳng data vào cache → nhanh hơn
    */
 
-  // Cache user data với key ['auth', 'me'] — khớp với useAuth() query key
-  queryClient.setQueryData(['auth', 'me'], data.user)
+  queryClient.setQueryData(authKeys.me, data.user)
+  queryClient.setQueryData(
+    authKeys.workspaceProfile(workspaceId),
+    data.workspaceProfile,
+  )
 
   // Cache workspace detail — khớp với useWorkspace(workspaceId)
   queryClient.setQueryData(workspaceKeys.detail(workspaceId), data.workspace)

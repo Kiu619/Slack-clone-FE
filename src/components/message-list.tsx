@@ -16,6 +16,7 @@ import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 interface MessageListProps {
   channelId: string
   currentUserId: string
+  workspaceId: string
   isConnected: boolean
   onEditMessage?: (message: Message) => void
   onDeleteMessage?: (messageId: string) => void
@@ -141,6 +142,7 @@ function buildListItems(pages: { messages: Message[] }[]): ListItem[] {
 export default function MessageList({
   channelId,
   currentUserId,
+  workspaceId,
   isConnected,
   onEditMessage,
   onDeleteMessage,
@@ -276,6 +278,7 @@ export default function MessageList({
             <MessageItem
               message={item.message}
               currentUserId={currentUserId}
+              workspaceId={workspaceId}
               isCompact={item.isCompact}
               isHovered={
                 hoveredMessageId === item.message.id ||

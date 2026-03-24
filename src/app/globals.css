@@ -137,6 +137,10 @@
   }
 }
 
+button {
+  cursor: pointer;
+}
+
 /* Tiptap Editor Styles */
 .tiptap {
   outline: none;

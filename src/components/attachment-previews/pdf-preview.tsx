@@ -3,7 +3,7 @@
 import { useFileCache } from "@/hooks/use-file-cache"
 import type { Message, MessageAttachment } from "@/lib/types"
 import { Loader2 } from "lucide-react"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { LuDownload } from "react-icons/lu"
 import { Document, Page, pdfjs } from "react-pdf"
 import "react-pdf/dist/Page/AnnotationLayer.css"
@@ -38,17 +38,35 @@ export default function PdfPreview({
 
   const { data: pdfData, isPending, isError } = useFileCache(attachment.url)
 
-  
+  /**
+   * PDF.js (worker) có thể detach ArrayBuffer — dùng blob URL từ slice mới.
+   * URL tạo trong render (useMemo); effect chỉ revoke (không setState trong effect).
+   */
+  const cardObjectUrl = useMemo(() => {
+    if (!pdfData) return null
+    const blob = new Blob([pdfData.slice(0)], { type: "application/pdf" })
+    return URL.createObjectURL(blob)
+  }, [pdfData])
 
-  /** Mỗi Document cần bản sao ArrayBuffer riêng — PDF.js transfer buffer sang worker → detach, dùng chung gây lỗi */
-  const filePropCard = useMemo(
-    () => (pdfData ? { data: pdfData.slice(0) } : undefined),
-    [pdfData],
-  )
-  const filePropModal = useMemo(
-    () => (pdfData ? { data: pdfData.slice(0) } : undefined),
-    [pdfData],
-  )
+  const modalObjectUrl = useMemo(() => {
+    if (!pdfData || !isExpanded) return null
+    const blob = new Blob([pdfData.slice(0)], { type: "application/pdf" })
+    return URL.createObjectURL(blob)
+  }, [pdfData, isExpanded])
+
+  useEffect(() => {
+    if (!cardObjectUrl) return
+    return () => {
+      URL.revokeObjectURL(cardObjectUrl)
+    }
+  }, [cardObjectUrl])
+
+  useEffect(() => {
+    if (!modalObjectUrl) return
+    return () => {
+      URL.revokeObjectURL(modalObjectUrl)
+    }
+  }, [modalObjectUrl])
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
@@ -135,9 +153,9 @@ export default function PdfPreview({
               >
                 <div className="text-[#797c81] text-sm flex items-center gap-2">Loading PDF...<Loader2 className="w-4 h-4 animate-spin" /></div>
               </div>
-            ) : filePropCard ? (
+            ) : cardObjectUrl ? (
               <Document
-                file={filePropCard}
+                file={cardObjectUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
               >
@@ -172,9 +190,9 @@ export default function PdfPreview({
         onDownload={handleDownload}
       >
         <div className="h-full overflow-auto p-4 flex flex-col items-center">
-          {filePropModal ? (
+          {modalObjectUrl ? (
             <Document
-              file={filePropModal}
+              file={modalObjectUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div className="text-white">Đang tải...</div>}
             >
