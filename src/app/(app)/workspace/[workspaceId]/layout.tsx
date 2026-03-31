@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { HydrationBoundary } from '@tanstack/react-query'
 import {
   getServerUser,
@@ -10,6 +11,8 @@ import {
 } from '@/lib/server-fetch'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import WorkspaceShell from '@/modules/workspace/workspace-shell'
+import { ThemeProvider } from '@/providers/theme-provider'
+import { FontInjector } from '@/components/font-injector'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -30,7 +33,7 @@ export default async function WorkspaceLayout({
       getServerWorkspaces(),
       getServerChannels(workspaceId),
     ])
-  
+
   if (!account) {
     redirect(`/auth?redirect=/workspace/${workspaceId}`)
   }
@@ -65,6 +68,14 @@ export default async function WorkspaceLayout({
     channels,
   })
 
+  const cookieStore = await cookies()
+  const widthsCookie = cookieStore.get('panel-widths')?.value
+  const initialWidths = widthsCookie ? JSON.parse(widthsCookie) : {
+    sidebarWidth: 260,
+    fileDetailWidth: 400,
+    profilePanelWidth: 410,
+  }
+
   /**
    * BƯỚC 4: Render với HydrationBoundary
    *
@@ -82,14 +93,24 @@ export default async function WorkspaceLayout({
    */
   return (
     <HydrationBoundary state={dehydratedState}>
-      <WorkspaceShell
-        accountUser={account}
-        initialSidebarUser={user}
-        currentWorkspaceData={currentWorkspace}
-        workspaceId={workspaceId}
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
       >
-        {children}
-      </WorkspaceShell>
+        <WorkspaceShell
+          accountUser={account}
+          initialSidebarUser={user}
+          currentWorkspaceData={currentWorkspace}
+          workspaceId={workspaceId}
+          workspaceProfileData={workspaceProfile}
+          initialWidths={initialWidths}
+        >
+          <FontInjector />
+          {children}
+        </WorkspaceShell>
+      </ThemeProvider>
     </HydrationBoundary>
   )
 }

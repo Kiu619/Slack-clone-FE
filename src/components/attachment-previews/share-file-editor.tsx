@@ -58,7 +58,7 @@ const ShareFileEditor = ({
         },
         codeBlock: {
           HTMLAttributes: {
-            class: 'bg-[#1a1d21] text-[#e8e8e8] rounded p-2 font-mono text-sm',
+            class: 'bg-white dark:bg-[#1A1D21] text-[#e8e8e8] rounded p-2 font-mono text-sm',
           },
         },
         // Tắt inline code của StarterKit để dùng extension riêng với config
@@ -174,9 +174,8 @@ const ShareFileEditor = ({
   return (
     <div className="relative">
       <div
-        className={`border rounded-lg bg-[#1a1d21] transition-colors ${
-          'border-[#797c814d] hover:border-[#797c81]'
-        }`}
+        className={`border rounded-lg bg-white dark:bg-[#1A1D21] transition-colors ${'border-[#797c814d] hover:border-[#797c81]'
+          }`}
       >
         {/* Top Toolbar: Formatting */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
@@ -245,7 +244,7 @@ const ShareFileEditor = ({
                     theme={Theme.DARK}
                     width={350}
                     height={400}
-                    searchPlaceHolder="Tìm emoji..."
+                    searchPlaceHolder="Search emoji..."
                     previewConfig={{ showPreview: false }}
                   />
                 </div>
@@ -290,9 +289,8 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
         <button
           onClick={onClick}
           disabled={disabled}
-          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${
-            active ? 'bg-[#222529] text-white' : 'text-[#d1d2d3]'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${active ? 'bg-[#222529] text-white' : 'dark:text-[#d1d2d3]'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {children}
         </button>

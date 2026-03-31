@@ -96,22 +96,22 @@ export default function OfficeFilePreview({
   return (
     <>
       <div
-        className="group relative rounded-lg border border-[#797c814d] overflow-hidden bg-[#1a1d21] hover:border-[#797c81] transition-colors w-full max-w-[400px]"
+        className="group relative rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] hover:border-[#797c81] transition-colors w-full max-w-[400px]"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         {!formDetailPanel ? (
-        <FileToolbar
-          isHovered={isHovered}
-          message={message}
-          attachment={attachment}
-          onDownload={handleDownload}
-          onOpen={handleOpenInNewTab}
-        />
-      ) : null}
+          <FileToolbar
+            isHovered={isHovered}
+            message={message}
+            attachment={attachment}
+            onDownload={handleDownload}
+            onOpen={handleOpenInNewTab}
+          />
+        ) : null}
         {/* Info bar */}
         <div className="px-4 py-3 border-t border-[#797c814d]">
-          <p className="text-[15px] font-medium text-[#d1d2d3] truncate mb-0.5">
+          <p className="text-[15px] font-medium dark:text-[#d1d2d3] truncate mb-0.5">
             {attachment.name}
           </p>
           <p className="text-[13px] text-[#797c81] mb-2">

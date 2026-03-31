@@ -38,11 +38,11 @@ const Main = ({ currentChannelData }: MainProps) => {
 
   const currentUserForMutation = currentUser
     ? {
-        id: currentUser.id,
-        name: currentUser.name ?? null,
-        email: currentUser.email,
-        avatar: currentUser.avatar ?? null,
-      }
+      id: currentUser.id,
+      name: currentUser.name ?? null,
+      email: currentUser.email,
+      avatar: currentUser.avatar ?? null,
+    }
     : null
 
   const { mutate: sendMessage, isPending: isSending } = useSendMessage(
@@ -81,9 +81,9 @@ const Main = ({ currentChannelData }: MainProps) => {
               messages: page.messages.map((m) =>
                 m.id === messageId
                   ? {
-                      ...m,
-                      attachments: [...(m.attachments || []), attachment],
-                    }
+                    ...m,
+                    attachments: [...(m.attachments || []), attachment],
+                  }
                   : m,
               ),
             })),
@@ -210,7 +210,7 @@ const Main = ({ currentChannelData }: MainProps) => {
   const handleReplyMessage = useCallback((message: Message) => {
     console.log('Reply to:', message.id)
   }, [])
-  
+
   const handleFileAttach = useCallback(
     (files: File[]) => {
       if (!files.length) return
@@ -251,7 +251,7 @@ const Main = ({ currentChannelData }: MainProps) => {
                 <button
                   type="button"
                   onClick={() => removePendingFile(id)}
-                  className="p-0.5 hover:bg-[#35373B] rounded transition-colors"
+                  className="p-0.5 hover:dark:bg-[#35373B] rounded transition-colors"
                 >
                   <LuX size={14} className="text-gray-400" />
                 </button>

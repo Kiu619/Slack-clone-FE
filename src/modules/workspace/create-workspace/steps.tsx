@@ -56,7 +56,7 @@ const Steps = () => {
         </div>
       </ResizablePanel>
       <ResizableHandle />
-      <ResizablePanel defaultSize={77} className="h-full items-center justify-center p-6 bg-[#1A1D21]">
+      <ResizablePanel defaultSize={77} className="h-full items-center justify-center p-6 bg-white dark:bg-[#1A1D21]">
         <div className="flex flex-col gap-4 lg:w-[50%] w-[80%] p-10">
           {stepInView}
         </div>

@@ -35,7 +35,7 @@ const Header = ({ currentChannelData }: { currentChannelData: Channel }) => {
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="flex items-center gap-1 cursor-pointer hover:bg-[#222529] px-2 py-1 rounded-md border border-[#797c814d]">
+            <button className="flex items-center gap-1 cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-md border border-[#797c814d]">
               <IoPersonOutline size={18} />
               <Typography text="Members" variant='p' className="text-[13px]!" />
             </button>
@@ -52,7 +52,7 @@ const Header = ({ currentChannelData }: { currentChannelData: Channel }) => {
         <div className="flex items-center rounded-md border border-[#797c814d]">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="cursor-pointer hover:bg-[#222529] px-2 py-1 rounded-l-md">
+              <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-l-md">
                 <RiHeadphoneLine size={18} />
               </button>
             </TooltipTrigger>
@@ -68,7 +68,7 @@ const Header = ({ currentChannelData }: { currentChannelData: Channel }) => {
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="cursor-pointer hover:bg-[#222529] px-2 py-1 rounded-r-md">
+              <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-r-md">
                 <IoChevronDownOutline size={16} />
               </button>
             </TooltipTrigger>
@@ -83,7 +83,7 @@ const Header = ({ currentChannelData }: { currentChannelData: Channel }) => {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="cursor-pointer hover:bg-[#222529] px-2 py-1 rounded-md">
+            <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-md">
               <IoMdMore size={20} />
             </button>
           </TooltipTrigger>

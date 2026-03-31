@@ -79,12 +79,12 @@ function formatCompactTime(dateStr: string): string {
 }
 
 const TOOLBAR_ITEM_STYLE =
-  "cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors";
+  "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
 const MENU_ITEM_STYLE =
-  "flex items-center gap-2 hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm";
+  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
 const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm";
-
+  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
+const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
 export default function MessageItem({
   message,
   currentUserId,
@@ -177,7 +177,7 @@ export default function MessageItem({
   if (isDeleted) {
     return (
       <div className="px-4 py-1 opacity-50">
-        <span className="text-[13px] text-[#797c81] italic">
+        <span className="text-[13px] dark:text-[#797c81] italic">
           [Message deleted]
         </span>
       </div>
@@ -186,9 +186,8 @@ export default function MessageItem({
 
   return (
     <div
-      className={`group relative flex gap-x-2 px-4 hover:bg-[#222529] transition-colors ${
-        isCompact ? "py-0.5" : "py-1.5"
-      }`}
+      className={`group relative flex gap-x-2 px-4 hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529] transition-colors ${isCompact ? "py-0.5" : "py-1.5"
+        }`}
       onMouseEnter={() => onHoverChange?.(message.id, true)}
       onMouseLeave={() => onHoverChange?.(message.id, false)}
     >
@@ -197,23 +196,22 @@ export default function MessageItem({
         {isCompact ? (
           /* Compact: chỉ hiện giờ khi hover */
           <span
-            className={`text-[11px] text-[#797c81] mt-0.5 transition-opacity ${
-              isHovered ? "opacity-100" : "opacity-0"
-            }`}
+            className={`text-[11px] dark:text-[#797c81] mt-0.5 transition-opacity ${isHovered ? "opacity-100" : "opacity-0"
+              }`}
           >
             {formatCompactTime(message.createdAt)}
           </span>
         ) : (
           <div className=""
-          onClick={() => {
-            openProfilePanel({ userData: message.user, workspaceId })
-          }}
+            onClick={() => {
+              openProfilePanel({ userData: message.user, workspaceId })
+            }}
           >
             <Avatar
-            src={message.user.avatar ?? ""}
-            className="w-9 h-9 rounded-lg cursor-pointer mt-0.5"
-            alt={message.user.name ?? message.user.email}
-          />
+              src={message.user.avatar ?? ""}
+              className="w-9 h-9 rounded-lg cursor-pointer mt-0.5"
+              alt={message.user.name ?? message.user.email}
+            />
           </div>
         )}
       </div>
@@ -223,10 +221,10 @@ export default function MessageItem({
         {/* Header: tên + timestamp (chỉ non-compact) */}
         {!isCompact && (
           <div className="flex items-baseline gap-x-2 mb-0.5">
-            <span className="text-[15px] font-bold text-white cursor-pointer hover:underline">
+            <span className="text-[15px] font-bold  cursor-pointer hover:underline">
               {message.user.name ?? message.user.email}
             </span>
-            <span className="text-[11px] text-[#797c81]">
+            <span className="text-[11px] dark:text-[#797c81]">
               {formatTimestamp(message.createdAt)}
             </span>
           </div>
@@ -235,14 +233,14 @@ export default function MessageItem({
         {/* Nội dung message — ẩn placeholder "Đang tải file" khi đã có attachments */}
         {shouldShowContent && (
           <div
-            className="text-[15px] text-[#d1d2d3] leading-relaxed message-content"
+            className="text-[15px] dark:text-[#d1d2d3] leading-relaxed message-content"
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         )}
 
         {/* Badge "đã chỉnh sửa" */}
         {isEdited && (
-          <span className="text-[11px] text-[#797c81] ml-1">
+          <span className="text-[11px] dark:text-[#797c81] ml-1">
             (đã chỉnh sửa)
           </span>
         )}
@@ -271,11 +269,10 @@ export default function MessageItem({
               <button
                 key={reaction.emoji}
                 onClick={() => onReact?.(message.id, reaction.emoji)}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] border transition-colors ${
-                  hasReacted(reaction)
-                    ? "bg-[#1d9bd1]/20 border-[#1d9bd1]/50 text-[#1d9bd1]"
-                    : "bg-[#2a2d31] border-[#797c814d] text-[#d1d2d3] hover:border-[#797c81]"
-                }`}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] border transition-colors ${hasReacted(reaction)
+                  ? "bg-[#1d9bd1]/20 border-[#1d9bd1]/50 text-[#1d9bd1]"
+                  : "bg-[#2a2d31] border-[#797c814d] dark:text-[#d1d2d3] hover:border-[#797c81]"
+                  }`}
               >
                 <span>{reaction.emoji}</span>
                 <span className="font-medium">{reaction.count}</span>
@@ -287,7 +284,7 @@ export default function MessageItem({
 
       {/* Hover action toolbar — xuất hiện khi hover (góc trên phải) */}
       {isHovered && (
-        <div className="absolute right-4 top-0 -translate-y-1/2 flex items-center gap-0.5 bg-[#1a1d21] border border-[#797c814d] rounded-lg shadow-lg px-1 py-0.5 z-10">
+        <div className="absolute right-4 top-0 -translate-y-1/2 flex items-center gap-0.5 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-lg shadow-lg px-1 py-0.5 z-10">
           {/* React với emoji — Popover (portal) giữ picker khi di chuột ra ngoài */}
           <Popover
             open={emojiPickerOpen}
@@ -297,7 +294,9 @@ export default function MessageItem({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <button className={TOOLBAR_ITEM_STYLE}>
-                    <MdOutlineAddReaction size={20} />
+                    <MdOutlineAddReaction size={20}
+                      className={ICON_TRANSITION}
+                    />
                   </button>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -318,7 +317,7 @@ export default function MessageItem({
                 theme={Theme.DARK}
                 width={320}
                 height={380}
-                searchPlaceHolder="Tìm emoji..."
+                searchPlaceHolder="Search emoji..."
                 previewConfig={{ showPreview: false }}
               />
             </PopoverContent>
@@ -331,7 +330,9 @@ export default function MessageItem({
                 onClick={() => onReply?.(message)}
                 className={TOOLBAR_ITEM_STYLE}
               >
-                <BiMessageRoundedDetail size={20} />
+                <BiMessageRoundedDetail size={20}
+                  className={ICON_TRANSITION}
+                />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -342,7 +343,9 @@ export default function MessageItem({
           <Tooltip>
             <TooltipTrigger asChild>
               <button className={TOOLBAR_ITEM_STYLE}>
-                <RiShareForwardLine size={20} />
+                <RiShareForwardLine size={20}
+                  className={ICON_TRANSITION}
+                />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -353,7 +356,9 @@ export default function MessageItem({
           <Tooltip>
             <TooltipTrigger asChild>
               <button className={TOOLBAR_ITEM_STYLE}>
-                <MdBookmarkBorder size={20} />
+                <MdBookmarkBorder size={20}
+                  className={ICON_TRANSITION}
+                />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -367,13 +372,15 @@ export default function MessageItem({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <p
-                    className="cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
+                    className={TOOLBAR_ITEM_STYLE}
                     onClick={(e) => {
                       e.stopPropagation();
                       // onMoreActions?.()
                     }}
                   >
-                    <MdMoreVert size={20} />
+                    <MdMoreVert size={20}
+                      className={ICON_TRANSITION}
+                    />
                   </p>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -385,7 +392,7 @@ export default function MessageItem({
               side="left"
               align="start"
               sideOffset={8}
-              className="w-auto border-[#797c814d] bg-[#1a1d21]"
+              className="w-auto border-[#797c814d] bg-white dark:bg-[#1A1D21]"
               withOverlay={true}
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
@@ -438,7 +445,7 @@ export default function MessageItem({
                       <MdOutlineKeyboardArrowRight size={13} />
                     </div>
                     {isRemindMeOpen && (
-                      <div className="absolute bottom-2 right-65 w-full border border-[#797c814d] bg-[#1a1d21] py-2 shadow-lg rounded-md">
+                      <div className="absolute bottom-2 right-65 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md">
                         <div className={SUBMENU_ITEM_STYLE}>
                           <Typography variant="p" text="In 5 minutes" />
                         </div>
@@ -502,7 +509,7 @@ export default function MessageItem({
                       <MdOutlineKeyboardArrowRight size={13} />
                     </div>
                     {isAddToFolderOpen && (
-                      <div className="absolute bottom-2 right-65 w-full border border-[#797c814d] bg-[#1a1d21] py-2 shadow-lg rounded-md">
+                      <div className="absolute bottom-2 right-65 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md">
                         <div className={SUBMENU_ITEM_STYLE}>
                           <Typography variant="p" text="Pin this message" />
                         </div>

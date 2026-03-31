@@ -31,6 +31,7 @@ import "prismjs/components/prism-python";
 import "prismjs/components/prism-yaml";
 import "prismjs/components/prism-markup";
 import FileToolbar from "./file-toolbar";
+import { useTheme } from "next-themes";
 
 interface CodePreviewProps {
   message: Message;
@@ -88,6 +89,7 @@ export default function CodePreview({
   onDownload,
   formDetailPanel = false,
 }: CodePreviewProps) {
+  const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const lang = getLanguage(attachment.name);
@@ -194,7 +196,7 @@ export default function CodePreview({
 
   return (
     <div
-      className="group relative rounded-lg border border-[#797c814d] bg-[#0d1117] overflow-hidden w-full"
+      className="group relative rounded-lg border dark:border-[#797c814d] dark:bg-[#0d1117] overflow-hidden w-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -208,13 +210,13 @@ export default function CodePreview({
         />
       ) : null}
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#797c814d] bg-[#161b22]">
+      <div className="flex items-center justify-between px-3 py-2 border-b dark:border-[#797c814d] dark:bg-[#161b22]">
         <div className="flex items-center gap-2 min-w-0">
-          <LuFileCode className="w-4 h-4 text-[#8b949e] shrink-0" />
-          <span className="text-sm text-[#c9d1d9] truncate">
+          <LuFileCode className="w-4 h-4 dark:text-[#8b949e] shrink-0" />
+          <span className="text-sm dark:text-[#c9d1d9] truncate">
             {attachment.name}
           </span>
-          <span className="text-xs text-[#8b949e] shrink-0">
+          <span className="text-xs dark:text-[#8b949e] shrink-0">
             {formatFileSize(attachment.size)}
           </span>
         </div>
@@ -225,11 +227,11 @@ export default function CodePreview({
           isCollapsed ? "max-h-[400px]" : "max-h-[70vh]"
         }`}
       >
-        <Highlight theme={themes.vsDark} code={displayContent} language={lang}>
+        <Highlight theme={resolvedTheme === "light" ? themes.vsLight : themes.vsDark} code={displayContent} language={lang}>
           {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
-              className={`${className} text-[12px] sm:text-[13px] leading-relaxed m-0 p-3 sm:p-4 bg-[#0d1117] whitespace-pre-wrap wrap-break-word!`}
-              style={{ ...style, background: "#0d1117" }}
+              className={`${className} text-[12px] sm:text-[13px] leading-relaxed m-0 p-3 sm:p-4 whitespace-pre-wrap wrap-break-word!`}
+              style={{ ...style}}
             >
               {tokens.map((line, i) => (
                 <div key={i} {...getLineProps({ line })} className="table-row">
@@ -250,7 +252,7 @@ export default function CodePreview({
                   <button
                     type="button"
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="cursor-pointer flex items-center gap-1.5 px-2 py-1 rounded text-xs text-[#58a6ff] hover:bg-[#21262d] transition-colors font-medium"
+                    className="cursor-pointer flex items-center gap-1.5 px-2 py-1 rounded text-xs text-[#0000FF] hover:bg-[#0000FF]/10 dark:text-[#58a6ff] dark:hover:bg-[#21262d] transition-colors font-medium"
                   >
                     {isCollapsed ? (
                       <>

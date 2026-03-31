@@ -31,32 +31,32 @@ function DateSeparator({ date }: { date: Date }) {
   else label = format(date, 'EEEE, MMMM d, yyyy', { locale: enUS })
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
-      <div className="w-full h-[0.5px] bg-[#35373B] relative">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 cursor-pointer absolute right-[50%] translate-x-1/2 bottom-[50%] translate-y-1/2 px-4 py-1 rounded-full bg-[#1A1D21] border border-[#797c814d] text-[13px] font-bold">{label}
-                <IoChevronDownOutline size={10} />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              withOverlay
-            >
-              <div className="flex flex-col py-2">
-                <span className="mx-4 text-[12px] text-[#E8E8E8B3]">Jump to...</span>
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Today</div>
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Yesterday</div>
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Last week</div>
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Last month</div>
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">The very beginning</div>
+    <div className="flex items-center gap-3 px-4 py-3 my-2 ">
+      <div className="w-full h-[0.5px] bg-[#DDDDDD] dark:bg-[#35373B] relative">
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-2 cursor-pointer absolute right-[50%] translate-x-1/2 bottom-[50%] translate-y-1/2 px-4 py-1 rounded-full bg-white dark:bg-[#1A1D21] border border-[#797c814d] text-[13px] font-bold">{label}
+              <IoChevronDownOutline size={10} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            withOverlay
+          >
+            <div className="flex flex-col py-2">
+              <span className="mx-4 text-[12px]">Jump to...</span>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Today</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Yesterday</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Last week</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Last month</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">The very beginning</div>
 
-                <Separator className="my-2" />
+              <Separator className="my-2" />
 
-                <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Jump to a specific date</div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+              <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Jump to a specific date</div>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   )
 }
@@ -88,7 +88,7 @@ function ChannelWelcome({ channelId }: { channelId: string }) {
     <div className="px-4 pt-6 pb-4">
       <div className="text-center text-[#797c81]">
         <div className="text-4xl mb-3">#</div>
-        <h3 className="text-xl font-bold text-white mb-1">
+        <h3 className="text-xl font-bold mb-1">
           Đây là đầu kênh
         </h3>
         <p className="text-sm">

@@ -23,9 +23,9 @@ import { cn } from "@/lib/utils"
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
 const MENU_ITEM_STYLE =
-  "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm"
+  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm"
+  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 
 export default function FileDetailPanel() {
   const { attachment, message, close } = useFileDetailStore()
@@ -56,7 +56,7 @@ export default function FileDetailPanel() {
     !isCodeOrTextFile(attachment.name, attachment.mimeType)
 
   return (
-    <div className="flex flex-col h-full bg-[#1A1D21] text-[#d1d2d3] overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
         <span className="font-semibold text-white text-[15px]">File</span>
@@ -194,7 +194,7 @@ export default function FileDetailPanel() {
             side="left"
             align="start"
             sideOffset={8}
-            className="w-auto border-[#797c814d] bg-[#1a1d21]"
+            className="w-auto border-[#797c814d] bg-white dark:bg-[#1A1D21]"
             withOverlay={true}
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
@@ -218,7 +218,7 @@ export default function FileDetailPanel() {
                     <Typography variant="p" text="Add to folder" />
                   </div>
                   {isAddToFolderOpen && (
-                    <div className="absolute bottom-2 right-35 w-full border border-[#797c814d] bg-[#1a1d21] rounded-md py-2 shadow-lg">
+                    <div className="absolute bottom-2 right-35 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
                       <div className={SUBMENU_ITEM_STYLE}>
                         <Typography variant="p" text="Folder 1" />
                       </div>

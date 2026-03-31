@@ -2,13 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
+  CustomDialog,
+  CustomDialogHeader,
+  CustomDialogTitle,
+  CustomDialogBody,
+  CustomDialogFooter
+} from "../custom-dialog"
 import { FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -19,6 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
+import { CustomSelect } from "../custom-select"
+
 import { User } from "@/lib/types"
 import { useForm } from "react-hook-form"
 import Avatar from "../avatar"
@@ -41,6 +43,36 @@ import { useProfilePanelStore } from "@/stores/useProfilePanelStore"
 import { useQueryClient } from "@tanstack/react-query"
 import { authKeys } from "@/lib/query-keys"
 import { TIMEZONE_OPTIONS } from "@/lib/timezone"
+
+// const TIMEZONE_OPTIONS = [
+//   { label: "(UTC-11:00) Midway Island, American Samoa", value: "(UTC-11:00)" },
+//   { label: "(UTC-10:00) Hawaii", value: "(UTC-10:00)" },
+//   { label: "(UTC-09:00) Alaska", value: "(UTC-09:00)" },
+//   { label: "(UTC-08:00) Pacific Time (US & Canada)", value: "(UTC-08:00)" },
+//   { label: "(UTC-07:00) Mountain Time (US & Canada)", value: "(UTC-07:00)" },
+//   { label: "(UTC-06:00) Central Time (US & Canada)", value: "(UTC-06:00)" },
+//   { label: "(UTC-05:00) Eastern Time (US & Canada)", value: "(UTC-05:00)" },
+//   { label: "(UTC-04:00) Atlantic Time (Canada)", value: "(UTC-04:00)" },
+//   { label: "(UTC-03:00) Argentina, Brazil", value: "(UTC-03:00)" },
+//   { label: "(UTC-02:00) South Georgia/South Sandwich Islands", value: "(UTC-02:00)" },
+//   { label: "(UTC-01:00) Azores", value: "(UTC-01:00)" },
+//   { label: "(UTC+00:00) London, Lisbon, Dublin", value: "(UTC+00:00)" },
+//   { label: "(UTC+01:00) Amsterdam, Berlin, Madrid", value: "(UTC+01:00)" },
+//   { label: "(UTC+02:00) Athens, Istanbul, Cairo", value: "(UTC+02:00)" },
+//   { label: "(UTC+03:00) Moscow, Nairobi", value: "(UTC+03:00)" },
+//   { label: "(UTC+04:00) Dubai, Abu Dhabi", value: "(UTC+04:00)" },
+//   { label: "(UTC+05:00) Karachi, Tashkent", value: "(UTC+05:00)" },
+//   { label: "(UTC+06:00) Dhaka, Novosibirsk", value: "(UTC+06:00)" },
+//   { label: "(UTC+07:00) Bangkok, Hanoi, Jakarta", value: "(UTC+07:00)" },
+//   { label: "(UTC+08:00) Beijing, Singapore, Hong Kong", value: "(UTC+08:00)" },
+//   { label: "(UTC+09:00) Tokyo, Seoul", value: "(UTC+09:00)" },
+//   { label: "(UTC+10:00) Sydney, Melbourne", value: "(UTC+10:00)" },
+//   { label: "(UTC+11:00) Solomon Islands, New Caledonia", value: "(UTC+11:00)" },
+//   { label: "(UTC+12:00) Auckland, Fiji", value: "(UTC+12:00)" },
+//   { label: "(UTC+13:00) Samoa, Tonga", value: "(UTC+13:00)" },
+//   { label: "(UTC+14:00) Kiribati", value: "(UTC+14:00)" },
+// ]
+
 
 const formSchema = z.object({
   name: z
@@ -163,84 +195,83 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none bg-[#1A1D21]">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-            <DialogHeader className="px-6 py-4 border-b border-[#2C2E33]">
-              <DialogTitle className="text-white text-xl font-bold">Edit your profile</DialogTitle>
-            </DialogHeader>
+    <CustomDialog open={open} onOpenChange={setOpen} maxWidth="720px">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+          <CustomDialogHeader onOpenChange={setOpen}>
+            <CustomDialogTitle>Edit your profile</CustomDialogTitle>
+          </CustomDialogHeader>
 
-            <div className="flex flex-1 p-6 space-x-8 overflow-y-auto">
-              <div className="flex-1 space-y-6">
-                <FieldGroup className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-white font-bold">Full name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field}
-                            className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-white font-bold">Display name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field}
-                            className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
-                          />
-                        </FormControl>
-                        <Typography 
-                          text="This could be your first name, or a nickname — however you’d like people to refer to you in Slack." 
-                          variant="p" 
-                          className="text-[#ABABAD] text-xs mt-1" 
+          <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6 flex space-x-8">
+            <div className="flex-1 space-y-6">
+              <FieldGroup className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white font-bold">Full name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
                         />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="namePronunciation"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-white font-bold">Name pronunciation</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field}
-                            placeholder="Kiuu (pronounced: KEE-uu)"
-                            className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </FieldGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
-                  name="timeZone"
+                  name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold">Time zone</FormLabel>
-                      <Select 
+                      <FormLabel className="text-white font-bold">Display name</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                        />
+                      </FormControl>
+                      <Typography
+                        text="This could be your first name, or a nickname — however you’d like people to refer to you in Slack."
+                        variant="p"
+                        className="text-[#ABABAD] text-xs mt-1"
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="namePronunciation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white font-bold">Name pronunciation</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Kiuu (pronounced: KEE-uu)"
+                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FieldGroup>
+
+              <FormField
+                control={form.control}
+                name="timeZone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-white font-bold">Time zone</FormLabel>
+                    {/* <Select 
                         onValueChange={field.onChange} 
-                        value={field.value}
+                        value={field.value} 
                       >
                         <FormControl>
                           <SelectTrigger className="w-full bg-transparent border-[#565856] text-white h-11">
@@ -251,7 +282,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                           position="popper" 
                           side="bottom" 
                           sideOffset={4}
-                          className="bg-[#1A1D21] border-[#565856] text-white w-(--radix-select-trigger-width) max-h-[300px] overflow-y-auto"
+                          className="z-1100 bg-white dark:bg-[#1A1D21] border-[#565856] text-white w-(--radix-select-trigger-width) max-h-[300px] overflow-y-auto"
                         >
                           <SelectGroup>
                             {TIMEZONE_OPTIONS.map((item) => (
@@ -265,81 +296,94 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                             ))}
                           </SelectGroup>
                         </SelectContent>
-                      </Select>
-                      <Typography 
-                        text="Your current time zone. Used to send summary emails, for Times Zone features and more." 
-                        variant="p" 
-                        className="text-[#ABABAD] text-xs mt-1" 
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      </Select> */}
 
-              <div className="space-y-4">
-                <Typography text="Profile photo" variant='p' className='text-white font-bold text-sm' />
-                <div className="relative group">
-                  <Avatar 
-                    src={previewUrl ?? ""} 
-                    alt={userData?.name ?? ""}
-                    className="w-48 h-48 rounded-lg object-cover border-2 border-[#565856]"
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </div>
-                <div className="flex flex-col space-y-2">
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    className="w-full border-[#565856] text-white hover:bg-[#2C2E33] hover:text-white"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Upload Photo
-                  </Button>
-                  {previewUrl && (
-                    <Button 
-                      type="button"
-                      variant="ghost" 
-                      className="w-full text-[#1264a3] hover:text-[#0b4d7a] hover:bg-transparent font-normal"
-                      onClick={handleRemovePhoto}
-                    >
-                      Remove Photo
-                    </Button>
-                  )}
-                </div>
-              </div>
+                    <CustomSelect
+                      options={TIMEZONE_OPTIONS}
+                      value={field.value}
+                      onChange={(value) => {
+                        field.onChange(value)
+                      }}
+                    />
+
+                    <Typography
+                      text="Your current time zone. Used to send summary emails, for Times Zone features and more."
+                      variant="p"
+                      className="text-[#ABABAD] text-xs mt-1"
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <DialogFooter className="px-6 py-4 border-t border-[#2C2E33] bg-[#1A1D21]">
-              <DialogClose asChild>
-                <Button variant="ghost" className="text-white hover:bg-[#2C2E33] hover:text-white mr-2">Cancel</Button>
-              </DialogClose>
-              <Button 
-                disabled={
-                  isUploading ||
-                  form.formState.isSubmitting ||
-                  !form.formState.isValid ||
-                  !(
-                    form.formState.isDirty ||
-                    selectedFile !== null ||
-                    (!!userData?.avatar && !previewUrl)
-                  )
-                }
-                type="submit" 
-                className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
-              >
-                {isUploading ? "Saving..." : "Save Changes"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            <div className="space-y-4">
+              <Typography text="Profile photo" variant='p' className='text-white font-bold text-sm' />
+              <div className="relative group">
+                <Avatar
+                  src={previewUrl ?? ""}
+                  alt={userData?.name ?? ""}
+                  className="w-48 h-48 rounded-lg object-cover border-2 border-[#565856]"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+              <div className="flex flex-col space-y-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full border-[#565856] text-white hover:bg-[#2C2E33] hover:text-white"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Upload Photo
+                </Button>
+                {previewUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full text-[#1264a3] hover:text-[#0b4d7a] hover:bg-transparent font-normal"
+                    onClick={handleRemovePhoto}
+                  >
+                    Remove Photo
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CustomDialogBody>
+
+          <CustomDialogFooter className="px-6 py-4">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                isUploading ||
+                form.formState.isSubmitting ||
+                !form.formState.isValid ||
+                !(
+                  form.formState.isDirty ||
+                  selectedFile !== null ||
+                  (!!userData?.avatar && !previewUrl)
+                )
+              }
+              type="submit"
+              className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+            >
+              {isUploading ? "Saving..." : "Save Changes"}
+            </Button>
+          </CustomDialogFooter>
+        </form>
+      </Form>
+    </CustomDialog>
   )
 }

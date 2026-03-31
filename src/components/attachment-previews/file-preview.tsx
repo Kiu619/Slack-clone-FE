@@ -41,7 +41,7 @@ export default function FilePreview({
 
   return (
     <div
-      className="group relative flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors w-full max-w-[400px] bg-[#1a1d21]"
+      className="group relative flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors w-full max-w-[400px] bg-white dark:bg-[#1A1D21]"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -62,7 +62,7 @@ export default function FilePreview({
 
       {/* File info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#d1d2d3] truncate">
+        <p className="text-sm font-medium dark:text-[#d1d2d3] truncate">
           {attachment.name}
         </p>
         <p className="text-xs text-[#797c81]">{fileSize}</p>

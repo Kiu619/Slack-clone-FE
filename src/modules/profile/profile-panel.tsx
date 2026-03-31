@@ -93,7 +93,7 @@ export default function ProfilePanel() {
     });
   };
   return (
-    <div className="flex flex-col h-full bg-[#1A1D21] text-[#d1d2d3] overflow-hidden">
+    <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
         <span className="font-semibold text-white text-[15px]">Profile</span>
@@ -174,7 +174,7 @@ export default function ProfilePanel() {
             <Typography
               text="Away"
               variant="p"
-              className="text-[#D1D2D3] font-normal"
+              className="dark:text-[#d1d2d3] font-normal"
             />
           </div>
         ) : (
@@ -183,7 +183,7 @@ export default function ProfilePanel() {
             <Typography
               text="Online"
               variant="p"
-              className="text-[#D1D2D3] font-normal"
+              className="dark:text-[#d1d2d3] font-normal"
             />
           </div>
         )}
@@ -198,7 +198,7 @@ export default function ProfilePanel() {
               <Typography
                 text={memberStatus.statusText}
                 variant="p"
-                className="text-[#D1D2D3] font-normal"
+                className="dark:text-[#d1d2d3] font-normal"
               />
             )}
           </div>
@@ -209,12 +209,12 @@ export default function ProfilePanel() {
           <Typography
             text={getLocalTime()}
             variant="p"
-            className="text-[#D1D2D3] font-normal"
+            className="dark:text-[#d1d2d3] font-normal"
           />
         </div>
 
         {showOwnerView ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
             <button
               className="flex-1 px-3 py-1 border border-[#797c81] rounded-md"
               onClick={() => setIsOpenSetStatusDialog(true)}
@@ -223,13 +223,13 @@ export default function ProfilePanel() {
                 <Typography
                   text="Edit status"
                   variant="p"
-                  className="text-[#D1D2D3] font-semibold"
+                  className="dark:text-[#d1d2d3] font-semibold"
                 />
               ) : (
                 <Typography
                   text="Set a status"
                   variant="p"
-                  className="text-[#D1D2D3] font-semibold"
+                  className="dark:text-[#d1d2d3] font-semibold"
                 />
               )}
             </button>
@@ -258,28 +258,28 @@ export default function ProfilePanel() {
               >
                 <div className="py-2">
                   <div className="flex flex-col space-y-1">
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="Copy display name" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="View preferences" />
                     </div>
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer flex items-center justify-between">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer flex items-center justify-between">
                       <Typography variant="p" text="Account settings" />
                       <MdOpenInNew size={16} />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="View your files" />
                     </div>
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer"
-                      
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+
                     >
                       <Typography variant="p" text="Set you away" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="Copy member ID" />
                     </div>
                   </div>
@@ -301,7 +301,7 @@ export default function ProfilePanel() {
               <Typography
                 text="Message"
                 variant="p"
-                className="text-[#D1D2D3] font-semibold"
+                className="dark:text-[#d1d2d3] font-semibold"
               />
             </button>
             <button className="flex-1 px-3 py-1 border border-[#797c81] rounded-md"
@@ -334,15 +334,15 @@ export default function ProfilePanel() {
               >
                 <div className="py-2">
                   <div className="flex flex-col space-y-1">
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="Copy display name" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="View files" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="Copy member ID" />
                     </div>
                     <Separator />
@@ -384,7 +384,7 @@ export default function ProfilePanel() {
             <Typography
               text="Email"
               variant="p"
-              className="text-[#D1D2D3] text-[13px] font-semibold"
+              className="dark:text-[#d1d2d3] text-[13px] font-semibold"
             />
             <Typography
               text={userData?.email ?? ""}
@@ -403,7 +403,7 @@ export default function ProfilePanel() {
               <Typography
                 text="Phone"
                 variant="p"
-                className="text-[#D1D2D3] text-[13px] font-semibold"
+                className="dark:text-[#d1d2d3] text-[13px] font-semibold"
               />
               <Typography
                 text={userData?.phone}
@@ -453,7 +453,7 @@ export default function ProfilePanel() {
 
         {userData?.description && userData?.description !== null && (
           <div
-            className="text-[15px] text-[#d1d2d3] leading-relaxed message-content"
+            className="text-[15px] dark:text-[#d1d2d3] leading-relaxed message-content"
             dangerouslySetInnerHTML={{ __html: sanitizedContent() || "" }}
           />
         )}

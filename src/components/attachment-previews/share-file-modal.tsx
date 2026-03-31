@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
+  CustomDialog,
+  CustomDialogHeader,
+  CustomDialogTitle,
+  CustomDialogBody,
+  CustomDialogFooter
+} from "../custom-dialog";
 import { Input } from "@/components/ui/input";
 import { MessageAttachment } from "@/lib/types";
 import { LuLink } from "react-icons/lu";
@@ -22,40 +22,54 @@ export function ShareFileModal({
   attachment: MessageAttachment;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="md:max-w-[600px] sm:max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle>Share this file</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col items-center gap-2 w-full">
+    <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="600px">
+      <CustomDialogHeader onOpenChange={onOpenChange}>
+        <CustomDialogTitle>Share this file</CustomDialogTitle>
+      </CustomDialogHeader>
+
+      <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6 space-y-4">
+        <div className="flex flex-col items-center gap-4 w-full">
           <Input
             id="link"
             defaultValue=""
             placeholder="Search for channel or person"
             readOnly
-            className="w-full"
+            className="w-full bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
           />
 
-          <div className="w-full my-2">
+          <div className="w-full">
             <ShareFileEditor />
           </div>
 
           <PillowFile attachment={attachment} />
         </div>
-        <div className="flex justify-between w-full">
-          <div className="flex items-center gap-2">
-            <LuLink size={15} className="text-[#43d0ff]" />
-            <Typography
-              variant="p"
-              text="Copy link"
-              className="text-[15px] text-[#43d0ff] cursor-pointer hover:underline"
-            />
-          </div>
-          <DialogClose asChild>
-            <Button type="button">Forward</Button>
-          </DialogClose>
+      </CustomDialogBody>
+
+      <CustomDialogFooter className="px-6 py-4 justify-between">
+        <div className="flex items-center gap-2 cursor-pointer group">
+          <LuLink size={16} className="text-[#1d9bd1] group-hover:text-[#1264a3] transition-colors" />
+          <Typography
+            variant="p"
+            text="Copy link"
+            className="text-sm text-[#1d9bd1] group-hover:text-[#1264a3] group-hover:underline transition-all"
+          />
         </div>
-      </DialogContent>
-    </Dialog>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            className="text-white hover:bg-[#2C2E33] hover:text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold"
+          >
+            Forward
+          </Button>
+        </div>
+      </CustomDialogFooter>
+    </CustomDialog>
   );
 }

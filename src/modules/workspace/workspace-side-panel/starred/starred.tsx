@@ -17,7 +17,7 @@ const Starred = () => {
     <Collapsible open={open} onOpenChange={setOpen}>
 
       <CollapsibleTrigger asChild>
-        <div className="flex items-center gap-x-2 px-3 py-1 hover:bg-[#312235] cursor-pointer rounded-md" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+        <div className="flex items-center gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
           {!hovered && <SlStar size={15} className="text-workspace-side-panel-text" />}
           {hovered && open && <FaCaretDown size={15} className="text-workspace-side-panel-text" />}
           {hovered && !open && <FaCaretRight size={15} className="text-workspace-side-panel-text" />}

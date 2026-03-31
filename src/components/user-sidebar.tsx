@@ -38,6 +38,7 @@ import { MdOutlinePersonAddAlt } from "react-icons/md";
 import { Separator } from "./ui/separator";
 import { useRouter } from "next/navigation";
 import { SetAStatusDialog } from "./dialogs/set-a-status-dialog";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
 
 const UserSidebar = ({
   userData,
@@ -47,7 +48,9 @@ const UserSidebar = ({
   currentWorkspaceData: Workspace;
 }) => {
   const [open, setOpen] = useState(false);
+  const [openAvatarPopover, setOpenAvatarPopover] = useState(false);
   const { open: openProfilePanel } = useProfilePanelStore();
+  const { open: openPreferences } = usePreferencesStore();
   const { clearUser } = useUserStore();
   const queryClient = useQueryClient();
 
@@ -79,7 +82,7 @@ const UserSidebar = ({
     <div className="flex flex-col space-y-3 items-center mb-3">
       <div
         className={`
-          bg-[rgba(139,132,132,0.3)] cursor-pointer transition-all duration-300
+          bg-[rgba(255,255,255,0.3)] cursor-pointer transition-all duration-300
           hover:scale-110 text-white grid place-content-center rounded-full w-9 h-9
           `}
       >
@@ -231,7 +234,7 @@ const UserSidebar = ({
       </div>
       <Tooltip>
         <div>
-          <Popover>
+          <Popover open={openAvatarPopover} onOpenChange={setOpenAvatarPopover} >
             <PopoverTrigger>
               <TooltipTrigger asChild>
                 <div className="h-9 w-9 relative cursor-pointer">
@@ -260,7 +263,7 @@ const UserSidebar = ({
                 </div>
               </TooltipTrigger>
             </PopoverTrigger>
-            <PopoverContent side="right" withOverlay={true} align="end">
+            <PopoverContent side="right" withOverlay={true} align="end" alignOffset={-2} sideOffset={10}>
               <div className="py-2">
                 <div className="flex space-x-3 px-5 py-2">
                   <Avatar
@@ -296,14 +299,14 @@ const UserSidebar = ({
                   {currentWorkspaceData?.statusText ? (
                     <>
                       <span
-                        className="text-[#D1D2D3] truncate"
+                        className="dark:text-[#d1d2d3] truncate"
                       >
                         {currentWorkspaceData?.statusEmoji ?? ""}
                       </span>
                       <Typography
                         text={currentWorkspaceData.statusText ?? undefined}
                         variant="p"
-                        className="text-sm font-medium text-[#D1D2D3] truncate"
+                        className="text-sm font-medium dark:text-[#d1d2d3] truncate"
                       />
                     </>
                   ) : (
@@ -319,7 +322,7 @@ const UserSidebar = ({
                       <Typography
                         text="Update your status"
                         variant="p"
-                        className="text-sm font-medium text-[#D1D2D3]"
+                        className="text-sm font-medium dark:text-[#d1d2d3]"
                       />
                     </>
                   )}
@@ -328,18 +331,18 @@ const UserSidebar = ({
                 <div className="flex flex-col space-y-1">
                   {currentWorkspaceData?.statusText && (
                     <div
-                    className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer"
-                    onClick={handleClearStatus}
-                  >
-                    <Typography
-                      variant="p"
-                      text="Clear status"
-                    />
-                  </div>
+                      className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={handleClearStatus}
+                    >
+                      <Typography
+                        variant="p"
+                        text="Clear status"
+                      />
+                    </div>
                   )}
 
                   <div
-                    className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer"
+                    className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                     onClick={handleUpdateStatus}
                   >
                     <Typography
@@ -351,30 +354,37 @@ const UserSidebar = ({
                       }
                     />
                   </div>
-                  <div className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer">
+                  <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                     <Typography variant="p" text="Pause notifications" />
                   </div>
 
                   <Separator />
                   <div
-                    className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer"
-                    onClick={() =>
+                    className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                    onClick={() => {
                       openProfilePanel({
                         userData,
                         workspaceId: currentWorkspaceData.id,
                       })
-                    }
+                      setOpenAvatarPopover(false)
+                    }}
                   >
                     <Typography variant="p" text="Profile" />
                   </div>
-                  <div className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer">
+                  <div
+                    className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                    onClick={() => {
+                      openPreferences()
+                      setOpenAvatarPopover(false)
+                    }}
+                  >
                     <Typography variant="p" text={"Preferences"} />
                   </div>
 
                   <Separator />
 
                   <div
-                    className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer"
+                    className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                     onClick={handleSignOut}
                   >
                     <Typography

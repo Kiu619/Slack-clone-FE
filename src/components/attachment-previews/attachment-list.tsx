@@ -67,7 +67,7 @@ export default function AttachmentList({
       <button
         type="button"
         onClick={handleToggle}
-        className="flex w-full gap-2 items-center text-left hover:opacity-80 transition-opacity text-[#d1d2d3] truncate!"
+        className="flex w-full gap-2 items-center text-left hover:opacity-80 transition-opacity dark:text-[#d1d2d3] truncate!"
       >
         {attachments.length > 1 ? (
           <Typography

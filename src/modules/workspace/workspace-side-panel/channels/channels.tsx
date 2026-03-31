@@ -34,13 +34,15 @@ import CreateChannelDialog from "@/components/create-channel-dialog"
 import { Channel, Workspace } from "@/lib/types"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { type Theme } from "@/stores/useThemeStore"
 
 interface Props {
+  theme: Theme
   currentWorkspaceData: Workspace
   userWorkspaceChannels: Channel[]
 }
 
-const Channels = ({ currentWorkspaceData, userWorkspaceChannels }: Props) => {
+const Channels = ({ theme, currentWorkspaceData, userWorkspaceChannels }: Props) => {
   const params = useParams<{ channelId?: string }>()
   const [open, setOpen] = useState(true)
   const [hovered, setHovered] = useState(false)
@@ -50,7 +52,7 @@ const Channels = ({ currentWorkspaceData, userWorkspaceChannels }: Props) => {
     <>
       <Collapsible open={open} onOpenChange={setOpen}>
         <div
-          className="flex items-center justify-between gap-x-2 px-3 py-1 hover:bg-[#312235] cursor-pointer rounded-md"
+          className="flex items-center justify-between gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md"
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
@@ -81,7 +83,7 @@ const Channels = ({ currentWorkspaceData, userWorkspaceChannels }: Props) => {
                       <DropdownMenuTrigger asChild>
                         <div className="cursor-pointer rounded-md hover:bg-[#423145] grid place-content-center p-0.5">
                           <IoMdMore
-                            size={20}
+                            size={18}
                             className="text-workspace-side-panel-text"
                           />
                         </div>
@@ -144,11 +146,11 @@ const Channels = ({ currentWorkspaceData, userWorkspaceChannels }: Props) => {
                 key={channel.id}
               >
                 <div
-                  className={`flex items-center gap-x-2 px-3 py-1 cursor-pointer rounded-md ${
-                    isActive
-                      ? 'bg-[#1164A3] text-white'
-                      : 'hover:bg-[#312235]'
-                  }`}
+                  className={`flex items-center gap-x-2 px-3 py-1 cursor-pointer rounded-md transition-colors ${isActive
+                    ? 'text-white'
+                    : 'hover:bg-[rgba(255,255,255,0.1)]'
+                    }`}
+                  style={isActive ? { backgroundColor: theme.selectedItems } : {}}
                 >
                   {channel.isPrivate ? (
                     <FiLock size={14} className="text-workspace-side-panel-text shrink-0" />
@@ -166,7 +168,7 @@ const Channels = ({ currentWorkspaceData, userWorkspaceChannels }: Props) => {
           })}
 
           <div
-            className="flex items-center gap-x-2 px-3 py-1 hover:bg-[#312235] cursor-pointer rounded-md"
+            className="flex items-center gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md"
             onClick={() => setDialogOpen(true)}
           >
             <FiPlus size={14} className="text-workspace-side-panel-text" />

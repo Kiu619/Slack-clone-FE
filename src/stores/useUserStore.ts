@@ -1,13 +1,13 @@
 import { create } from 'zustand'
-import type { AccountUser } from '@/lib/types'
+import type { User } from '@/lib/types'
 import { devtools, persist, createJSONStorage } from 'zustand/middleware'
 
 interface UserStore {
-  user: AccountUser | null
+  user: User | null
   isLoading: boolean
   isAuthenticated: boolean
   isProfilePanelOpen: boolean
-  setUser: (user: AccountUser | null) => void
+  setUser: (user: User | null) => void
   setLoading: (loading: boolean) => void
   clearUser: () => void
   setIsProfilePanelOpen: (isProfilePanelOpen: boolean) => void

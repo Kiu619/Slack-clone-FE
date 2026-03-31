@@ -30,7 +30,7 @@ export const TIMEZONE_OPTIONS = [
   { label: "(UTC+12:00) Auckland, Fiji", value: "(UTC+12:00)" },
   { label: "(UTC+13:00) Samoa, Tonga", value: "(UTC+13:00)" },
   { label: "(UTC+14:00) Kiribati", value: "(UTC+14:00)" },
-] as const
+] 
 
 export const TIMEZONE_VALUES = TIMEZONE_OPTIONS.map((o) => o.value)
 

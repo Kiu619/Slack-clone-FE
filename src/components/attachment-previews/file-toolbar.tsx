@@ -21,10 +21,11 @@ interface Props {
 }
 
 const MENU_ITEM_STYLE =
-  "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm"
+  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-blue-700 px-5 py-1 cursor-pointer text-sm"
-
+  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
+const TOOLBAR_ITEM_STYLE = "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
+const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
 
 const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Props) => {
 
@@ -35,19 +36,21 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
   return (
     <div
       className={cn(
-        "absolute top-0 right-0 translate-y-1/4 -translate-x-[10px] flex items-center gap-0.5 bg-[#1a1d21] border border-[#797c814d] rounded-lg shadow-lg px-1 py-0.5 z-10 transition-opacity duration-300",
+        "absolute top-0 right-0 translate-y-1/4 -translate-x-[10px] flex items-center gap-0.5 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-lg shadow-lg px-1 py-0.5 z-10 transition-opacity duration-300",
         isHovered ? "flex" : "hidden",
       )}
     >
       <Tooltip>
         <TooltipTrigger asChild>
-          <p className="cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
-          onClick={(e) => {
-            e.stopPropagation()
-            onDownload?.()
-          }}
+          <p className={TOOLBAR_ITEM_STYLE}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDownload?.()
+            }}
           >
-            <MdOutlineCloudDownload size={20} />
+            <MdOutlineCloudDownload size={20}
+              className={ICON_TRANSITION}
+            />
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -56,13 +59,15 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <p className="cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
-          onClick={(e) => {
-            e.stopPropagation()
-            setIsShareFileModalOpen(true);
-          }}
+          <p className={TOOLBAR_ITEM_STYLE}
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsShareFileModalOpen(true);
+            }}
           >
-            <RiShareForwardLine size={20} />
+            <RiShareForwardLine size={20}
+              className={ICON_TRANSITION}
+            />
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -70,14 +75,17 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
         </TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <p className="cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
-          onClick={(e) => {
-            e.stopPropagation()
-            openFileDetail({ attachment, message })
-          }}
+        <TooltipTrigger asChild
+        >
+          <p className={TOOLBAR_ITEM_STYLE}
+            onClick={(e) => {
+              e.stopPropagation()
+              openFileDetail({ attachment, message })
+            }}
           >
-            <RiInformationLine size={20} />
+            <RiInformationLine size={20}
+              className={ICON_TRANSITION}
+            />
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -88,13 +96,15 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <p className="cursor-pointer p-1.5 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
-              onClick={(e) => {
-                e.stopPropagation()
-                // onMoreActions?.()
-              }}
+              <p className={TOOLBAR_ITEM_STYLE}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  // onMoreActions?.()
+                }}
               >
-                <MdMoreVert size={20} />
+                <MdMoreVert size={20}
+                  className={ICON_TRANSITION}
+                />
               </p>
             </PopoverTrigger>
           </TooltipTrigger>
@@ -106,41 +116,40 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
           side="left"
           align="start"
           sideOffset={8}
-          className="w-auto border-[#797c814d] bg-[#1a1d21]"
+          className="w-auto border-[#797c814d] bg-white dark:bg-[#1A1D21]"
           withOverlay={true}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="py-2 ">
             <div className="flex flex-col space-y-1">
-              <div className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer">
+              <div className="hover:text-white hover:bg-selection-hover px-5 py-1 rounded cursor-pointer">
                 <Typography variant="p" text="Open in new tab" onClick={onOpen} />
               </div>
-              <div className="hover:text-white hover:bg-blue-700 px-5 py-1 rounded cursor-pointer">
+              <div className="hover:text-white hover:bg-selection-hover px-5 py-1 rounded cursor-pointer">
                 <Typography variant="p" text="Save for later" />
               </div>
 
               <Separator />
 
-              {/* Add to folder — code thuần, không dùng thư viện */}
               <div
-                  onMouseEnter={() => setIsAddToFolderOpen(true)}
-                  onMouseLeave={() => setIsAddToFolderOpen(false)}
-                >
-                  <div className={cn(MENU_ITEM_STYLE, "relative")}>
-                    <Typography variant="p" text="Add to folder" />
-                  </div>
-                  {isAddToFolderOpen && (
-                    <div className="absolute bottom-2 right-40 w-full border border-[#797c814d] bg-[#1a1d21] rounded-md py-2 shadow-lg">
-                      <div className={SUBMENU_ITEM_STYLE}>
-                        <Typography variant="p" text="Folder 1" />
-                      </div>
-                      <Separator className="my-1 bg-[#797c814d]" />
-                      <div className={SUBMENU_ITEM_STYLE}>
-                        <Typography variant="p" text="Add new folder" />
-                      </div>
-                    </div>
-                  )}
+                onMouseEnter={() => setIsAddToFolderOpen(true)}
+                onMouseLeave={() => setIsAddToFolderOpen(false)}
+              >
+                <div className={cn(MENU_ITEM_STYLE, "relative")}>
+                  <Typography variant="p" text="Add to folder" />
                 </div>
+                {isAddToFolderOpen && (
+                  <div className="absolute bottom-2 right-40 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
+                    <div className={SUBMENU_ITEM_STYLE}>
+                      <Typography variant="p" text="Folder 1" />
+                    </div>
+                    <Separator className="my-1 bg-[#797c814d]" />
+                    <div className={SUBMENU_ITEM_STYLE}>
+                      <Typography variant="p" text="Add new folder" />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <Separator />
               <Typography

@@ -25,6 +25,7 @@ import { Copy } from 'lucide-react'
 import { FaPlus } from 'react-icons/fa'
 import Link from 'next/link'
 import { MdBookmarkBorder } from 'react-icons/md'
+import { useThemeStore } from '@/stores/useThemeStore'
 
 interface WorkspaceSidebarProps {
   currentWorkspaceData: Workspace
@@ -38,6 +39,8 @@ const WorkspaceSidebar = ({ currentWorkspaceData, userWorkspacesData }: Workspac
   const [isClickedOpen, setIsClickedOpen] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false)
+
+  const { theme } = useThemeStore()
 
   const switchWorkspace = (id: string) => {
     setSwitchingWorkspace(true)
@@ -91,7 +94,7 @@ const WorkspaceSidebar = ({ currentWorkspaceData, userWorkspacesData }: Workspac
   }
   return (
     <nav>
-      <ul className='flex flex-col space-y-4 items-center mt-3'>
+      <ul className='flex flex-col space-y-4 items-center mt-3 bg'>
         <li>
           <div
             className='relative pb-2'

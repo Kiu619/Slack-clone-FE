@@ -2,13 +2,12 @@
 
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
+  CustomDialog,
+  CustomDialogHeader,
+  CustomDialogTitle,
+  CustomDialogBody,
+  CustomDialogFooter
+} from "../custom-dialog"
 import { FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { User } from "@/lib/types"
@@ -64,69 +63,72 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-[#1A1D21]">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-            <DialogHeader className="px-6 py-4 border-b border-[#2C2E33]">
-              <DialogTitle className="text-white text-xl font-bold">Edit contact information</DialogTitle>
-            </DialogHeader>
+    <CustomDialog open={open} onOpenChange={setOpen}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+          <CustomDialogHeader onOpenChange={setOpen}>
+            <CustomDialogTitle>Edit contact information</CustomDialogTitle>
+          </CustomDialogHeader>
 
-            <div className="flex flex-1 p-6 space-x-8 overflow-y-auto">
-              <div className="flex-1 space-y-6">
-                <FieldGroup className="space-y-4">
-                  <FormField
-                    name="email"
-                    disabled
-                    
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-white font-bold"><FaLock size={12} /> Email</FormLabel>
+          <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
+            <div className="flex-1 space-y-6">
+              <FieldGroup className="space-y-4">
+                <FormField
+                  name="email"
+                  disabled
+
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white font-bold flex items-center gap-1.5"><FaLock size={12} /> Email</FormLabel>
+                      <Input
+                        {...field}
+                        defaultValue={userData.email}
+                        className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                      />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white font-bold">Phone</FormLabel>
+                      <FormControl>
                         <Input
                           {...field}
-                          defaultValue={userData.email}
                           className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
                         />
-                      </FormItem>
-                    )}
-                  />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-white font-bold">Phone</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                </FieldGroup>
-              </div>
+              </FieldGroup>
             </div>
+          </CustomDialogBody>
 
-            <DialogFooter className="px-6 py-4 border-t border-[#2C2E33] bg-[#1A1D21]">
-              <DialogClose asChild>
-                <Button variant="ghost" className="text-white hover:bg-[#2C2E33] hover:text-white mr-2">Cancel</Button>
-              </DialogClose>
-              <Button
-                disabled={form.formState.isSubmitting || !form.formState.isValid || !form.formState.isDirty}
-                type="submit"
-                className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
-              >
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          <CustomDialogFooter className="px-6 py-4">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={form.formState.isSubmitting || !form.formState.isValid || !form.formState.isDirty}
+              type="submit"
+              className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+            >
+              Save Changes
+            </Button>
+          </CustomDialogFooter>
+        </form>
+      </Form>
+    </CustomDialog>
   )
 }

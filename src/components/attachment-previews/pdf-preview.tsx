@@ -96,24 +96,24 @@ export default function PdfPreview({
     // Fallback: card đơn giản khi không load được PDF (CORS, v.v.)
     return (
       <div
-        className="rounded-lg border border-[#797c814d] overflow-hidden bg-[#1a1d21] p-4 w-full max-w-[400px]"
+        className="rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] p-4 w-full max-w-[400px]"
       >
-        <p className="text-[#797c81] text-sm mb-2">Không thể xem trước PDF</p>
+        <p className="text-[#797c81] text-sm mb-2">Can't preview PDF</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => window.open(attachment.url, "_blank")}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] bg-[#222529] text-[#d1d2d3] hover:bg-[#2a2d31]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] dark:bg-[#222529] dark:text-[#d1d2d3] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#2a2d31]"
           >
-            Mở trong tab mới
+            Open in new tab
           </button>
           <button
             type="button"
             onClick={handleDownload}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] bg-[#222529] text-[#d1d2d3] hover:bg-[#2a2d31]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] dark:bg-[#222529] dark:text-[#d1d2d3] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#2a2d31]"
           >
             <LuDownload size={14} />
-            Tải xuống
+            Download
           </button>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function PdfPreview({
     <>
       {/* Preview card — trang đầu PDF */}
       <div
-        className="group relative rounded-lg border border-[#797c814d] overflow-hidden bg-[#1a1d21] hover:border-[#797c81] transition-colors w-full max-w-[400px]"
+        className="group relative rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] hover:border-[#797c81] transition-colors w-full max-w-[400px]"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -136,7 +136,7 @@ export default function PdfPreview({
         >
           <div className="px-4 py-3 border-t border-[#797c814d] flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-medium text-[#d1d2d3] truncate">
+              <p className="text-[15px] font-medium dark:text-[#d1d2d3] truncate">
                 {attachment.name}
               </p>
               <p className="text-[13px] text-[#797c81]">
@@ -169,18 +169,18 @@ export default function PdfPreview({
               </Document>
             ) : null}
           </div>
-          
+
         </button>
 
         {!formDetailPanel ? (
-        <FileToolbar
-          isHovered={isHovered}
-          message={message}
-          attachment={attachment}
-          onDownload={handleDownload}
-          onOpen={handleOpenInNewTab}
-        />
-      ) : null}
+          <FileToolbar
+            isHovered={isHovered}
+            message={message}
+            attachment={attachment}
+            onDownload={handleDownload}
+            onOpen={handleOpenInNewTab}
+          />
+        ) : null}
       </div>
 
       <PreviewModal

@@ -55,7 +55,8 @@ export type WorkspaceMembersRow = {
   statusText: string | null
   statusEmoji: string | null
   statusExpiration: IsoDateString | null
-  notificationsPausedUntil: IsoDateString | null
+  notificationsPausedUntil: IsoDateString | null,
+  theme: string | null
 }
 
 // ─── Schema: `channels` / `channel_members` ────────────────────────────────────
@@ -141,6 +142,7 @@ export type User = {
   description?: string | null
   timeZone?: string | null
   workspaceId?: string
+  theme?: string | null
 }
 
 /**

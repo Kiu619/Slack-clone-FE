@@ -6,24 +6,22 @@ import { Input } from "@/components/ui/input"
 import Typography from "@/components/ui/typography"
 
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  CustomDialog,
+  CustomDialogHeader,
+  CustomDialogTitle,
+  CustomDialogBody,
+  CustomDialogFooter
+} from "@/components/custom-dialog"
 import { useCreateWorkspaceValues } from '@/stores/useCreateWorkspaceStore'
 import { toast } from "sonner"
 import { v4 as uuidv4 } from 'uuid'
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 
 const Step3 = () => {
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false)
   const { name, emails, currentEmail, addEmail, removeEmail, setCurrentEmail, setCurrStep, updateInviteCode } = useCreateWorkspaceValues()
-  
+
   const invite_code = uuidv4()
   useEffect(() => {
     updateInviteCode(invite_code)
@@ -74,7 +72,7 @@ const Step3 = () => {
 
       {/* Email Input Area */}
       <div className="relative">
-        <div className="min-h-[120px] border border-gray-600 rounded-md bg-[#1A1D21] p-3 focus-within:border-blue-400">
+        <div className="min-h-[120px] border border-gray-600 rounded-md bg-white dark:bg-[#1A1D21] p-3 focus-within:border-blue-400">
           {/* Display added emails as tags */}
           <div className="flex flex-wrap gap-2 mb-2">
             {emails.map((email, index) => (
@@ -97,7 +95,7 @@ const Step3 = () => {
           <div className="mt-2">
             <Button
               onClick={handleAddEmail}
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              className="bg-blue-600 hover:bg-selection-hover text-white flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -132,19 +130,16 @@ const Step3 = () => {
           Copy Invite Link
         </Button>
 
-        <Dialog>
-          <DialogTrigger>
-            <span
-              className="text-gray-400 hover:text-gray-300 p-0 h-auto font-normal cursor-pointer"
-            >
-              Skip without inviting
-            </span>
-          </DialogTrigger>
+        <span
+          onClick={() => setSkipDialogOpen(true)}
+          className="text-gray-400 hover:text-gray-300 p-0 h-auto font-normal cursor-pointer"
+        >
+          Skip without inviting
+        </span>
 
-          <DialogContent className="bg-[#1A1D21]">
-            <SkipDialog />
-          </DialogContent>
-        </Dialog>
+        <CustomDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+          <SkipDialog setOpen={setSkipDialogOpen} />
+        </CustomDialog>
 
         <Button
           onClick={() => setCurrStep(2)}
@@ -168,7 +163,7 @@ const EmailTag = ({ email, onRemove }: { email: string; onRemove: (_email: strin
       <span>{email}</span>
       <button
         onClick={() => onRemove(email)}
-        className="ml-1 hover:bg-blue-700 rounded p-0.5"
+        className="ml-1 hover:bg-selection-hover rounded p-0.5"
       >
         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -178,26 +173,33 @@ const EmailTag = ({ email, onRemove }: { email: string; onRemove: (_email: strin
   )
 }
 
-const SkipDialog = () => {
+const SkipDialog = ({ setOpen }: { setOpen: (open: boolean) => void }) => {
   const { emails, setCurrStep } = useCreateWorkspaceValues()
 
   const handleSkip = () => {
     setCurrStep(4)
+    setOpen(false)
   }
   return (
     <>
-      <DialogHeader className="text-white">
-        <DialogTitle className="text-white">Skip without inviting?</DialogTitle>
-        <DialogDescription className="text-white">
+      <CustomDialogHeader onOpenChange={setOpen}>
+        <CustomDialogTitle>Skip without inviting?</CustomDialogTitle>
+      </CustomDialogHeader>
+      <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
+        <p className="text-[#ABABAD] text-sm leading-relaxed">
           {emails.length === 0 ? "To really get a feel for Slack — and to see all the ways it can simplify your team's work — you'll need a few coworkers here." : `Are you sure you want to skip without inviting ${emails.join(', ')}?`}
-        </DialogDescription>
-      </DialogHeader>
-      <DialogFooter>
-        <DialogClose asChild >
-          <Button variant="outline">Cancel</Button>
-        </DialogClose>
-        <Button onClick={handleSkip} className="bg-red-600 hover:bg-red-700 text-white font-bold w-30">Save changes</Button>
-      </DialogFooter>
+        </p>
+      </CustomDialogBody>
+      <CustomDialogFooter className="px-6 py-4">
+        <Button
+          variant="ghost"
+          onClick={() => setOpen(false)}
+          className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+        >
+          Cancel
+        </Button>
+        <Button onClick={handleSkip} className="bg-red-600 hover:bg-red-700 text-white font-bold">Skip</Button>
+      </CustomDialogFooter>
     </>
   )
 }

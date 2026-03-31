@@ -2,13 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  CustomDialog,
+  CustomDialogHeader,
+  CustomDialogTitle,
+  CustomDialogBody,
+  CustomDialogFooter
+} from "../custom-dialog";
 import { Input } from "@/components/ui/input";
 import type {
   User,
@@ -35,6 +34,7 @@ import { toast } from "sonner";
 import * as z from "zod";
 import Typography from "../ui/typography";
 import { DatePickerDropdown } from "../date-picker-dropdown";
+import { CustomSelect } from "../custom-select";
 
 const formSchema = z.object({
   status: z.string().max(100),
@@ -120,17 +120,17 @@ function isoHoursFromNow(hours: number): string {
 }
 
 const getNextAvailableTime = () => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMin = now.getMinutes();
-    
-    // Suggest the next 30-min block after 1 hour from now
-    let suggestHour = currentHour + 1;
-    const suggestMin = currentMin > 30 ? 0 : 30;
-    if (currentMin > 30) suggestHour += 1;
-    
-    if (suggestHour >= 24) suggestHour = 23; // Cap it
-    return `${suggestHour.toString().padStart(2, '0')}:${suggestMin.toString().padStart(2, '0')}`;
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+
+  // Suggest the next 30-min block after 1 hour from now
+  let suggestHour = currentHour + 1;
+  const suggestMin = currentMin > 30 ? 0 : 30;
+  if (currentMin > 30) suggestHour += 1;
+
+  if (suggestHour >= 24) suggestHour = 23; // Cap it
+  return `${suggestHour.toString().padStart(2, '0')}:${suggestMin.toString().padStart(2, '0')}`;
 }
 
 /** Snap thời gian local về một slot có trong `TIMES` (00 / 30). */
@@ -300,25 +300,25 @@ function deriveSyncFromProps(p: SetAStatusDialogProps) {
 
 export type SetAStatusDialogProps =
   | {
-      open: boolean;
-      setOpen: (open: boolean) => void;
-      userData: User;
-      workspaceId: string;
-      /** Mở từ user-sidebar — lấy status từ workspace hiện tại */
-      statusSource: "sidebar";
-      currentWorkspaceData: Workspace;
-    }
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    userData: User;
+    workspaceId: string;
+    /** Mở từ user-sidebar — lấy status từ workspace hiện tại */
+    statusSource: "sidebar";
+    currentWorkspaceData: Workspace;
+  }
   | {
-      open: boolean;
-      setOpen: (open: boolean) => void;
-      userData: User;
-      workspaceId: string;
-      /** Mở từ profile-panel — lấy status từ API member status */
-      statusSource: "profile";
-      memberStatus: WorkspaceMemberStatus | null | undefined;
-      /** Tên workspace cho dòng gợi ý "For …" */
-      workspaceName?: string;
-    };
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    userData: User;
+    workspaceId: string;
+    /** Mở từ profile-panel — lấy status từ API member status */
+    statusSource: "profile";
+    memberStatus: WorkspaceMemberStatus | null | undefined;
+    /** Tên workspace cho dòng gợi ý "For …" */
+    workspaceName?: string;
+  };
 
 export function SetAStatusDialog(props: SetAStatusDialogProps) {
   const { open, setOpen, userData, workspaceId, statusSource } = props;
@@ -461,201 +461,186 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none bg-[#1A1D21]">
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col h-full"
-          >
-            <DialogHeader className="px-6 py-4 border-b border-[#2C2E33]">
-              <DialogTitle className="text-white text-xl font-bold">
-                Set a status
-              </DialogTitle>
-            </DialogHeader>
+    <CustomDialog open={open} onOpenChange={setOpen}>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="flex flex-col h-full"
+        >
+          <CustomDialogHeader onOpenChange={setOpen}>
+            <CustomDialogTitle>
+              Set a status
+            </CustomDialogTitle>
+          </CustomDialogHeader>
 
-            <div className="flex flex-col flex-1 p-6 space-y-6 overflow-y-auto bg-[#1A1D21]">
-              {/* Input Area */}
-              <div className="relative border border-[#565856] rounded-md focus-within:border-[#1d9bd1] focus-within:ring-1 focus-within:ring-[#1d9bd1] bg-transparent flex items-center p-1">
-                <div className="relative" ref={emojiPickerRef}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 text-[#D1D2D3] hover:bg-[#2C2E33] hover:text-white shrink-0"
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  >
-                    <span className="text-xl">{selectedEmoji}</span>
-                  </Button>
+          <CustomDialogBody className="bg-white dark:bg-[#1A1D21] space-y-6">
+            {/* Input Area */}
+            <div className="relative border border-[#565856] rounded-md focus-within:border-[#1d9bd1] focus-within:ring-1 focus-within:ring-[#1d9bd1] bg-transparent flex items-center p-1">
+              <div className="relative" ref={emojiPickerRef}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 dark:text-[#d1d2d3] hover:bg-[#2C2E33] hover:text-white shrink-0"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                >
+                  <span className="text-xl">{selectedEmoji}</span>
+                </Button>
 
-                  {showEmojiPicker && (
-                    <div className="absolute top-full mt-2 left-0 z-50">
-                      <EmojiPicker
-                        onEmojiClick={handleEmojiSelect}
-                        theme={Theme.DARK}
-                        width={350}
-                        height={400}
-                        searchPlaceHolder="Search emojis..."
-                        previewConfig={{ showPreview: false }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem className="flex-1">
-                      <FormControl>
-                        <Input
-                          placeholder="What's your status?"
-                          className="border-none bg-transparent focus-visible:ring-0 text-white placeholder:text-[#ababad] h-9"
-                          {...field}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                {watchedStatus && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-[#ababad] hover:text-white shrink-0"
-                    onClick={clearStatus}
-                  >
-                    <LuX size={16} />
-                  </Button>
+                {showEmojiPicker && (
+                  <div className="absolute top-full mt-2 left-0 z-50">
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiSelect}
+                      theme={Theme.DARK}
+                      width={350}
+                      height={400}
+                      searchPlaceHolder="Search emojis..."
+                      previewConfig={{ showPreview: false }}
+                    />
+                  </div>
                 )}
               </div>
 
-              {/* Status specific options OR Suggestions */}
-              {watchedStatus ? (
-                <div className="flex flex-col space-y-4 animate-in fade-in duration-200">
-                  {/* Remove status after */}
-                  <div className="flex flex-col space-y-2">
-                    <Typography text="Remove status after" variant="p" className="text-white text-[13px] font-bold" />
-                    <FormField
-                      control={form.control}
-                      name="clearAfter"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <select 
-                              className="w-full bg-[#1A1D21] border border-[#565856] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-[#1d9bd1] hover:border-[#797c81] transition-colors"
-                              {...field}
-                            >
-                              {DURATIONS.map((d) => (
-                                <option key={d.value} value={d.value} className="bg-[#1A1D21]">
-                                  {d.label}
-                                </option>
-                              ))}
-                            </select>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl>
+                      <Input
+                        placeholder="What's your status?"
+                        className="border-none bg-transparent focus-visible:ring-0 text-white placeholder:text-[#ababad] h-9"
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-                    {watchedClearAfter === "custom" && (
-                      <div className="flex items-center space-x-2 w-full animate-in slide-in-from-top-2 duration-300">
+              {watchedStatus && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-[#ababad] hover:text-white shrink-0"
+                  onClick={clearStatus}
+                >
+                  <LuX size={16} />
+                </Button>
+              )}
+            </div>
+
+            {/* Status specific options OR Suggestions */}
+            {watchedStatus ? (
+              <div className="flex flex-col space-y-4 animate-in fade-in duration-200">
+                {/* Remove status after */}
+                <div className="flex flex-col space-y-2">
+                  <Typography text="Remove status after" variant="p" className="text-white text-[13px] font-bold" />
+                  <FormField
+                    control={form.control}
+                    name="clearAfter"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <CustomSelect
+                            options={DURATIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {watchedClearAfter === "custom" && (
+                    <div className="flex items-center space-x-2 w-full animate-in slide-in-from-top-2 duration-300">
+                      <FormField
+                        control={form.control}
+                        name="date"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <DatePickerDropdown date={field.value} setDate={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <div className="w-[120px]">
                         <FormField
                           control={form.control}
-                          name="date"
+                          name="time"
                           render={({ field }) => (
-                            <FormItem className="flex-1">
+                            <FormItem>
                               <FormControl>
-                                <DatePickerDropdown date={field.value} setDate={field.onChange} />
+                                <CustomSelect
+                                  options={filteredTimes}
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
                               </FormControl>
                             </FormItem>
                           )}
                         />
-                        <div className="w-[120px]">
-                          <FormField
-                            control={form.control}
-                            name="time"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormControl>
-                                  <select 
-                                    className="w-full h-[40px] bg-[#1A1D21] border border-[#565856] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-[#1d9bd1] hover:border-[#797c81] transition-colors"
-                                    {...field}
-                                  >
-                                    {filteredTimes.map((t) => (
-                                      <option key={t.value} value={t.value} className="bg-[#1A1D21]">
-                                        {t.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </FormControl>
-                              </FormItem>
-                            )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pause notifications */}
+                <div className="flex flex-col space-y-2">
+                  <Typography text="Pause notifications" variant="p" className="text-white text-[13px] font-bold" />
+                  <FormField
+                    control={form.control}
+                    name="pauseNotifications"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <CustomSelect
+                            options={PAUSE_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
                           />
-                        </div>
-                      </div>
+                        </FormControl>
+                      </FormItem>
                     )}
-                  </div>
-
-                  {/* Pause notifications */}
-                  <div className="flex flex-col space-y-2">
-                    <Typography text="Pause notifications" variant="p" className="text-white text-[13px] font-bold" />
-                    <FormField
-                      control={form.control}
-                      name="pauseNotifications"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <select 
-                              className="w-full bg-[#1A1D21] border border-[#565856] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-[#1d9bd1] hover:border-[#797c81] transition-colors"
-                              {...field}
-                            >
-                              {PAUSE_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value} className="bg-[#1A1D21]">
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  />
                 </div>
-              ) : (
-                /* Suggestions */
-                <div className="flex flex-col space-y-1 animate-in fade-in duration-200">
-                  <Typography text={`For ${workspaceLabel}`} variant="p" className="text-[#ababad] text-xs font-semibold mb-2" />
-                  <div className="space-y-0.5">
-                    {SUGGESTIONS.map((s, idx) => (
-                      <div
-                        key={idx}
-                        className="group flex items-center px-3 py-2 rounded cursor-pointer hover:bg-[#1264a3] hover:text-white text-[#D1D2D3]"
-                        onClick={() => handleSuggestionClick(s)}
-                      >
-                        <span className="mr-3 text-lg">{s.icon}</span>
-                        <div className="flex-1 flex items-center justify-between">
-                          <span className="text-sm font-medium">{s.text}</span>
-                          <span className="text-xs opacity-60 group-hover:opacity-100">{s.duration}</span>
-                        </div>
+              </div>
+            ) : (
+              /* Suggestions */
+              <div className="flex flex-col space-y-1 animate-in fade-in duration-200">
+                <Typography text={`For ${workspaceLabel}`} variant="p" className="text-[#ababad] text-xs font-semibold mb-2" />
+                <div className="space-y-0.5">
+                  {SUGGESTIONS.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="group flex items-center px-3 py-2 rounded cursor-pointer hover:bg-[#1264a3] hover:text-white dark:text-[#d1d2d3]"
+                      onClick={() => handleSuggestionClick(s)}
+                    >
+                      <span className="mr-3 text-lg">{s.icon}</span>
+                      <div className="flex-1 flex items-center justify-between">
+                        <span className="text-sm font-medium">{s.text}</span>
+                        <span className="text-xs opacity-60 group-hover:opacity-100">{s.duration}</span>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </CustomDialogBody>
 
-            <DialogFooter className="px-6 py-4 border-t border-[#2C2E33] bg-[#1A1D21] flex justify-between items-center">
-              {initialSnapshot.status.trim() ||
+          <CustomDialogFooter>
+            {initialSnapshot.status.trim() ||
               (initialSnapshot.emoji && initialSnapshot.emoji !== "💬") ? (
+              <div className="flex-1">
                 <Button
                   variant="ghost"
                   type="button"
                   onClick={async () => {
-                    await onSubmit({ 
-                      status: "", 
-                      emoji: "💬", 
-                      clearAfter: "never", 
+                    await onSubmit({
+                      status: "",
+                      emoji: "💬",
+                      clearAfter: "never",
                       pauseNotifications: "none",
                       date: new Date(),
                       time: "17:00"
@@ -665,39 +650,39 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                 >
                   Remove status
                 </Button>
-              ) : (
-                <div />
-              )}
-              
-              <div className="flex space-x-2">
-                <DialogClose asChild>
-                  <Button
-                    variant="ghost"
-                    className="text-white hover:bg-[#2C2E33] hover:text-white"
-                  >
-                    Cancel
-                  </Button>
-                </DialogClose>
-                <Button
-                  disabled={(() => {
-                    const s = (watchedStatus ?? "").trim();
-                    const submitting = form.formState.isSubmitting;
-                    const hasChanges =
-                      s !== initialSnapshot.status ||
-                      selectedEmoji !== initialSnapshot.emoji ||
-                      form.formState.isDirty;
-                    return submitting || !hasChanges;
-                  })()}
-                  type="submit"
-                  className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
-                >
-                  Save
-                </Button>
               </div>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+            ) : (
+              <div className="flex-1" />
+            )}
+
+            <div className="flex space-x-2">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-white hover:bg-[#2C2E33] hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={(() => {
+                  const s = (watchedStatus ?? "").trim();
+                  const submitting = form.formState.isSubmitting;
+                  const hasChanges =
+                    s !== initialSnapshot.status ||
+                    selectedEmoji !== initialSnapshot.emoji ||
+                    form.formState.isDirty;
+                  return submitting || !hasChanges;
+                })()}
+                type="submit"
+                className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+              >
+                Save
+              </Button>
+            </div>
+          </CustomDialogFooter>
+        </form>
+      </Form>
+    </CustomDialog>
   );
 }

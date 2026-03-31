@@ -27,49 +27,49 @@ export default function PreviewModal({
   return (
     <>
       <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm m-10 rounded-lg"
-    >
-      <div
-        className="flex items-center justify-between px-4 py-2 bg-[#1a1d21] border-b border-[#797c814d] shrink-0"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm m-10 rounded-lg"
       >
-        <span className="text-white font-medium truncate max-w-[70%]">
-          {title}
-        </span>
-        <div className="flex items-center gap-2">
-          {onDownload && (
+        <div
+          className="flex items-center justify-between px-4 py-2 bg-white dark:bg-[#1A1D21] border-b border-[#797c814d] shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="text-white font-medium truncate max-w-[70%]">
+            {title}
+          </span>
+          <div className="flex items-center gap-2">
+            {onDownload && (
+              <button
+                type="button"
+                onClick={onDownload}
+                className="p-2 dark:text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
+                aria-label="Tải xuống"
+              >
+                <LuDownload className="w-5 h-5" />
+              </button>
+            )}
             <button
               type="button"
-              onClick={onDownload}
-              className="p-2 text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
-              aria-label="Tải xuống"
+              onClick={onClose}
+              className="p-2 dark:text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
+              aria-label="Đóng"
             >
-              <LuDownload className="w-5 h-5" />
+              <LuX className="w-5 h-5" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
-            aria-label="Đóng"
-          >
-            <LuX className="w-5 h-5" />
-          </button>
+          </div>
+        </div>
+        <div
+          className="flex-1 min-h-0 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {children}
         </div>
       </div>
-      <div
-        className="flex-1 min-h-0 overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
 
-    <div
-      className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-      aria-hidden
-    />
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
     </>
   )
 }

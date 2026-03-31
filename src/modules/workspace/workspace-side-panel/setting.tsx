@@ -8,7 +8,7 @@ const Setting = () => {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button className="hover:bg-[#312235] p-2 rounded-md hover:cursor-pointer border">
+        <button className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded-md hover:cursor-pointer border">
           <FiSettings className="text-workspace-side-panel" size={16} />
         </button>
       </TooltipTrigger>

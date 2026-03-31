@@ -83,7 +83,7 @@ const Editor = ({
         },
         codeBlock: {
           HTMLAttributes: {
-            class: 'bg-[#1a1d21] text-[#e8e8e8] rounded p-2 font-mono text-sm',
+            class: 'bg-white dark:bg-[#1A1D21] text-[#e8e8e8] rounded p-2 font-mono text-sm',
           },
         },
         // Tắt inline code của StarterKit để dùng extension riêng với config
@@ -254,13 +254,12 @@ const Editor = ({
       />
 
       <div
-        className={`border rounded-lg bg-[#1a1d21] transition-colors ${
-          disabled
-            ? 'border-[#797c814d] opacity-60'
-            : 'border-[#797c814d] hover:border-[#797c81]'
-        }`}
+        className={`border rounded-lg bg-white dark:bg-[#1A1D21] transition-colors ${disabled
+          ? 'border-[#797c814d] opacity-60'
+          : 'border-[#797c814d] hover:border-[#797c81]'
+          }`}
         onDrop={handleFileDrop}
-        // onDragOver={handleDragOver}
+      // onDragOver={handleDragOver}
       >
         {/* Top Toolbar: Formatting */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
@@ -332,10 +331,10 @@ const Editor = ({
                 <div className="absolute bottom-full mb-2 left-0 z-50">
                   <EmojiPicker
                     onEmojiClick={handleEmojiSelect}
-                    theme={Theme.DARK}
+                    // theme={}
                     width={350}
                     height={400}
-                    searchPlaceHolder="Tìm emoji..."
+                    searchPlaceHolder="Search emoji..."
                     previewConfig={{ showPreview: false }}
                   />
                 </div>
@@ -362,11 +361,10 @@ const Editor = ({
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit || disabled}
-                className={`p-2 rounded transition-colors ${
-                  canSubmit && !disabled
-                    ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
-                    : 'bg-[#222529] text-[#797c81] cursor-not-allowed'
-                }`}
+                className={`p-2 rounded transition-colors ${canSubmit && !disabled
+                  ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
+                  : 'bg-[#222529] text-[#797c81] cursor-not-allowed'
+                  }`}
               >
                 <LuSend size={16} />
               </button>
@@ -409,9 +407,8 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
         <button
           onClick={onClick}
           disabled={disabled}
-          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${
-            active ? 'bg-[#222529] text-white' : 'text-[#d1d2d3]'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${active ? 'bg-[#222529] text-white' : 'dark:text-[#d1d2d3]'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {children}
         </button>

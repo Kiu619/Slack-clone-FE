@@ -42,6 +42,7 @@ export type UpdateProfilePayload = {
   avatar?: string | null
   isAway?: boolean
   status?: string | null
+  theme?: string | null
 }
 
 export type UpdateContactPayload = {
