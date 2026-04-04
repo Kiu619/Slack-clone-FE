@@ -143,6 +143,10 @@ export type User = {
   timeZone?: string | null
   workspaceId?: string
   theme?: string | null
+  statusText?: string | null
+  statusEmoji?: string | null
+  statusExpiration?: IsoDateString | null
+  notificationsPausedUntil?: IsoDateString | null
 }
 
 /**
@@ -152,10 +156,6 @@ export type User = {
 export type Workspace = WorkspacesRow & {
   role: WorkspaceMemberRole
   memberCount: number
-  statusText: string | null
-  statusEmoji: string | null
-  statusExpiration: string | null
-  notificationsPausedUntil: string | null
 }
 
 /** `GET /workspaces/:id/members` — join users + workspace_members (subset hiển thị danh sách) */

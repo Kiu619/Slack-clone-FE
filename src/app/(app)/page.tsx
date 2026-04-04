@@ -115,7 +115,7 @@ export default function Home() {
                   as="span"
                 />
               </Typography>
-              <Link href="/auth" className="text-[#1264A3] hover:underline">
+              <Link href="/auth" className="text-selection-hover hover:underline">
                 Change
               </Link>
             </div>
@@ -151,15 +151,15 @@ export default function Home() {
 
             <p className="text-xs leading-relaxed text-[#616061] max-w-md">
               By continuing, you&rsquo;re agreeing to our{' '}
-              <Link href="#" className="text-[#1264A3] hover:underline">
+              <Link href="#" className="text-selection-hover hover:underline">
                 Main Services Agreement
               </Link>
               ,{' '}
-              <Link href="#" className="text-[#1264A3] hover:underline">
+              <Link href="#" className="text-selection-hover hover:underline">
                 User Terms of Service
               </Link>
               , and{' '}
-              <Link href="#" className="text-[#1264A3] hover:underline">
+              <Link href="#" className="text-selection-hover hover:underline">
                 Slack Supplemental Terms
               </Link>
               .

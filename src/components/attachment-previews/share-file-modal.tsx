@@ -34,7 +34,7 @@ export function ShareFileModal({
             defaultValue=""
             placeholder="Search for channel or person"
             readOnly
-            className="w-full bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+            className="w-full bg-transparent border-[#565856] text-white focus:border-selection-hover transition-all"
           />
 
           <div className="w-full">
@@ -47,11 +47,11 @@ export function ShareFileModal({
 
       <CustomDialogFooter className="px-6 py-4 justify-between">
         <div className="flex items-center gap-2 cursor-pointer group">
-          <LuLink size={16} className="text-[#1d9bd1] group-hover:text-[#1264a3] transition-colors" />
+          <LuLink size={16} className="text-[#1d9bd1] group-hover:text-selection-hover transition-colors" />
           <Typography
             variant="p"
             text="Copy link"
-            className="text-sm text-[#1d9bd1] group-hover:text-[#1264a3] group-hover:underline transition-all"
+            className="text-sm text-[#1d9bd1] group-hover:text-selection-hover group-hover:underline transition-all"
           />
         </div>
         <div className="flex gap-2">

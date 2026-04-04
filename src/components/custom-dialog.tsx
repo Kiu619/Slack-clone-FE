@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "./ui/button";
 
 interface CustomDialogProps {
   open: boolean;
@@ -83,8 +84,9 @@ export const CustomDialogHeader = ({ children, className, showClose = true, onOp
     {children}
     {showClose && (
       <button
+        type="button"
         onClick={() => onOpenChange?.(false)}
-        className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#1264A3] "
+        className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-selection-hover "
       >
         <X size={20} />
       </button>

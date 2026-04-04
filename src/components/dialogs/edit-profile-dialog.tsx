@@ -210,11 +210,11 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold">Full name</FormLabel>
+                      <FormLabel className=" font-bold">Full name</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                          className="bg-transparent transition-all border-[#565856]"
                         />
                       </FormControl>
                       <FormMessage />
@@ -227,11 +227,11 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold">Display name</FormLabel>
+                      <FormLabel className=" font-bold">Display name</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                          className="bg-transparent border-[#565856] transition-all"
                         />
                       </FormControl>
                       <Typography
@@ -249,12 +249,12 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="namePronunciation"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold">Name pronunciation</FormLabel>
+                      <FormLabel className=" font-bold">Name pronunciation</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           placeholder="Kiuu (pronounced: KEE-uu)"
-                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                          className="bg-transparent border-[#565856]  focus:border-[#1264a3] transition-all"
                         />
                       </FormControl>
                       <FormMessage />
@@ -268,13 +268,13 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                 name="timeZone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-white font-bold">Time zone</FormLabel>
+                    <FormLabel className=" font-bold">Time zone</FormLabel>
                     {/* <Select 
                         onValueChange={field.onChange} 
                         value={field.value} 
                       >
                         <FormControl>
-                          <SelectTrigger className="w-full bg-transparent border-[#565856] text-white h-11">
+                          <SelectTrigger className="w-full bg-transparent border-[#565856]  h-11">
                             <SelectValue placeholder="Select a timezone" />
                           </SelectTrigger>
                         </FormControl>
@@ -282,14 +282,14 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                           position="popper" 
                           side="bottom" 
                           sideOffset={4}
-                          className="z-1100 bg-white dark:bg-[#1A1D21] border-[#565856] text-white w-(--radix-select-trigger-width) max-h-[300px] overflow-y-auto"
+                          className="z-1100 bg-white dark:bg-[#1A1D21] border-[#565856]  w-(--radix-select-trigger-width) max-h-[300px] overflow-y-auto"
                         >
                           <SelectGroup>
                             {TIMEZONE_OPTIONS.map((item) => (
                               <SelectItem 
                                 key={item.value} 
                                 value={item.value}
-                                className="focus:bg-[#1264a3] focus:text-white cursor-pointer"
+                                className="focus:bg-[#1264a3] focus: cursor-pointer"
                               >
                                 {item.label}
                               </SelectItem>
@@ -318,7 +318,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
             </div>
 
             <div className="space-y-4">
-              <Typography text="Profile photo" variant='p' className='text-white font-bold text-sm' />
+              <Typography text="Profile photo" variant='p' className=' font-bold text-sm' />
               <div className="relative group">
                 <Avatar
                   src={previewUrl ?? ""}
@@ -337,7 +337,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-[#565856] text-white hover:bg-[#2C2E33] hover:text-white"
+                  className="w-full border-[#565856]  dark:hover:bg-[#2C2E33]"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   Upload Photo
@@ -346,7 +346,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   <Button
                     type="button"
                     variant="ghost"
-                    className="w-full text-[#1264a3] hover:text-[#0b4d7a] hover:bg-transparent font-normal"
+                    className="w-full text-[#1264a3] hover:text-[#0b4d7a] dark:hover:bg-transparent font-normal"
                     onClick={handleRemovePhoto}
                   >
                     Remove Photo
@@ -361,7 +361,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
               variant="ghost"
               type="button"
               onClick={() => setOpen(false)}
-              className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+              className=" dark:hover:bg-[#2C2E33] mr-2"
             >
               Cancel
             </Button>
@@ -377,7 +377,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                 )
               }
               type="submit"
-              className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+              className="bg-[#007a5a] hover:bg-[#006248]  font-bold px-4 py-2"
             >
               {isUploading ? "Saving..." : "Save Changes"}
             </Button>

@@ -5,83 +5,75 @@ import { io, type Socket } from 'socket.io-client'
 
 const SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/chat'
+const USER_PROFILE_SOCKET_URL =
+  (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/user-profile'
 
-/** Singleton socket — tạo một lần, tái dùng toàn app */
+/** Singleton sockets — tạo một lần, tái dùng toàn app */
 let socketInstance: Socket | null = null
+let userProfileSocketInstance: Socket | null = null
 
 export function getSocket(): Socket {
   if (!socketInstance) {
     socketInstance = io(SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
-      /**
-       * autoConnect: false — ta tự gọi socket.connect() trong useSocket()
-       * Tránh connect trước khi user đã auth xong
-       */
       autoConnect: false,
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10,
     })
   }
   return socketInstance
+}
+
+export function getUserProfileSocket(): Socket {
+  if (!userProfileSocketInstance) {
+    userProfileSocketInstance = io(USER_PROFILE_SOCKET_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+      autoConnect: false,
+    })
+  }
+  return userProfileSocketInstance
 }
 
 export type SocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
 /**
  * useSocket — khởi tạo và duy trì kết nối WebSocket
- *
- * Gọi một lần ở top-level component (WorkspaceShell hoặc Main).
- * Trả về { socket, isConnected } để các hook con sử dụng.
  */
-
 export function useSocket() {
   const socket = getSocket()
-  const socketRef = useRef<Socket>(socket)
+  const profileSocket = getUserProfileSocket()
   const [isConnected, setIsConnected] = useState(socket.connected)
-
-
+  const [isProfileConnected, setIsProfileConnected] = useState(profileSocket.connected)
 
   useEffect(() => {
-    const socket = socketRef.current
-
     const onConnect = () => setIsConnected(true)
     const onDisconnect = () => setIsConnected(false)
-    const onConnectError = (err: Error) => {
-      console.error('[Socket] connect_error:', err.message)
-      setIsConnected(false)
-    }
+    
+    const onProfileConnect = () => setIsProfileConnected(true)
+    const onProfileDisconnect = () => setIsProfileConnected(false)
 
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
-    socket.on('connect_error', onConnectError)
+    
+    profileSocket.on('connect', onProfileConnect)
+    profileSocket.on('disconnect', onProfileDisconnect)
 
-    if (!socket.connected) {
-      socket.connect()
-    }
+    if (!socket.connected) socket.connect()
+    if (!profileSocket.connected) profileSocket.connect()
 
     return () => {
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
-      socket.off('connect_error', onConnectError)
+      profileSocket.off('connect', onProfileConnect)
+      profileSocket.off('disconnect', onProfileDisconnect)
     }
-  }, [])
+  }, [socket, profileSocket])
 
-  return { isConnected }
+  return { isConnected, isProfileConnected }
 }
 
 /**
  * useChannelSocket — join room + lắng nghe events của channel
- *
- * Vấn đề với code cũ:
- * - `socket.connected` là plain property, KHÔNG phải React state
- *   → useEffect không re-run khi socket kết nối xong
- *   → Nếu socket chưa connected khi mount → không join room, mất hết events
- *
- * Fix: nhận `isConnected` (boolean state) từ ngoài vào dependency array
- * Khi socket kết nối xong → isConnected = true → useEffect re-run → join room
  */
 export function useChannelSocket(
   channelId: string | null,
@@ -97,16 +89,10 @@ export function useChannelSocket(
   const socket = getSocket()
 
   useEffect(() => {
-    /**
-     * Guard: chỉ chạy khi đã connected VÀ có channelId
-     * isConnected là React state → useEffect re-run đúng lúc
-     */
     if (!channelId || !isConnected) return
 
-    // Join vào room của channel
     socket.emit('join-channel', { channelId })
 
-    // Đăng ký event listeners
     const { onMessage, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded } = callbacks
 
     if (onMessage) socket.on('message', onMessage)
@@ -124,6 +110,32 @@ export function useChannelSocket(
       if (onReactionUpdate) socket.off('reaction:update', onReactionUpdate)
       if (onAttachmentAdded) socket.off('attachment:added', onAttachmentAdded)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId, isConnected])
+  }, [channelId, isConnected, callbacks, socket])
+}
+
+/**
+ * useWorkspaceSocket — join room workspace + lắng nghe profile updates
+ */
+export function useWorkspaceSocket(
+  workspaceId: string | null,
+  isProfileConnected: boolean,
+  callbacks: {
+    onUserProfileUpdated?: (data: any) => void
+  },
+) {
+  const socket = getUserProfileSocket()
+
+  useEffect(() => {
+    if (!workspaceId || !isProfileConnected) return
+
+    socket.emit('join-workspace', { workspaceId })
+
+    const { onUserProfileUpdated } = callbacks
+    if (onUserProfileUpdated) socket.on('user_profile_updated', onUserProfileUpdated)
+
+    return () => {
+      socket.emit('leave-workspace', { workspaceId })
+      if (onUserProfileUpdated) socket.off('user_profile_updated', onUserProfileUpdated)
+    }
+  }, [workspaceId, isProfileConnected, callbacks, socket])
 }

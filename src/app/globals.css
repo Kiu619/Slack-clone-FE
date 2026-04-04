@@ -52,6 +52,7 @@
   --color-workspace-text-active: var(--color-workspace-text-active);
 
   --color-selection-hover: var(--color-selection-hover);
+  --color-focus-ring: var(--color-focus-ring);
 }
 
 :root {
@@ -97,6 +98,12 @@
   --color-workspace-text-active: #ffffff;
 
   --color-selection-hover: #1264A3;
+  --color-focus-ring: #B7D0E3;
+  
+  /* Theme-aware mixing variables for WorkspaceShell background */
+  --theme-mix-base: white;
+  --theme-mix-sysnav: 30%;
+  --theme-mix-sidepanel: 50%;
 }
 
 .dark {
@@ -141,7 +148,13 @@
   --color-workspace-text-active: #ffffff;
 
   --color-selection-hover: #1264A3;
+  --color-focus-ring: #1F4655;
   --font-family: "Lato", sans-serif;
+
+  /* Dark mode overrides for mixing variables */
+  --theme-mix-base: black;
+  --theme-mix-sysnav: 65%;
+  --theme-mix-sidepanel: 75%;
 }
 
 @layer base {

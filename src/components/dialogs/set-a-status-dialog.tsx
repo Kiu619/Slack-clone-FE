@@ -1,13 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  CustomDialog,
-  CustomDialogHeader,
-  CustomDialogTitle,
-  CustomDialogBody,
-  CustomDialogFooter
-} from "../custom-dialog";
 import { Input } from "@/components/ui/input";
 import type {
   User,
@@ -15,6 +8,13 @@ import type {
   WorkspaceMemberStatus,
 } from "@/lib/types";
 import { useForm, useWatch } from "react-hook-form";
+import {
+  CustomDialog,
+  CustomDialogBody,
+  CustomDialogFooter,
+  CustomDialogHeader,
+  CustomDialogTitle
+} from "../custom-dialog";
 import {
   Form,
   FormControl,
@@ -25,16 +25,16 @@ import {
 import { updateMemberStatusApi } from "@/apis";
 import { authKeys } from "@/lib/query-keys";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
-import { useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryClient } from "@tanstack/react-query";
 import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuX } from "react-icons/lu";
 import { toast } from "sonner";
 import * as z from "zod";
-import Typography from "../ui/typography";
-import { DatePickerDropdown } from "../date-picker-dropdown";
 import { CustomSelect } from "../custom-select";
+import { DatePickerDropdown } from "../date-picker-dropdown";
+import Typography from "../ui/typography";
 
 const formSchema = z.object({
   status: z.string().max(100),
@@ -247,13 +247,13 @@ function buildStatusExpirationFromForm(data: FormValues): string | null {
   }
 }
 
-/** Trạng thái hiển thị từ `GET /workspaces/:id` (sidebar — membership của user hiện tại) */
-function pickStatusFromWorkspace(w: Workspace) {
+/** Trạng thái hiển thị — lấy từ userData (profile của user hiện tại trong workspace) */
+function pickStatusFromUser(u: User) {
   return {
-    statusText: w.statusText?.trim() ?? "",
-    statusEmoji: w.statusEmoji ?? "💬",
-    statusExpiration: w.statusExpiration,
-    notificationsPausedUntil: w.notificationsPausedUntil,
+    statusText: u.statusText?.trim() ?? "",
+    statusEmoji: u.statusEmoji ?? "💬",
+    statusExpiration: u.statusExpiration,
+    notificationsPausedUntil: u.notificationsPausedUntil,
   };
 }
 
@@ -279,7 +279,7 @@ function pickStatusFromMember(m: WorkspaceMemberStatus | null | undefined) {
 function deriveSyncFromProps(p: SetAStatusDialogProps) {
   const picked =
     p.statusSource === "sidebar"
-      ? pickStatusFromWorkspace(p.currentWorkspaceData)
+      ? pickStatusFromUser(p.userData)
       : pickStatusFromMember(p.memberStatus);
   const statusPlain = picked.statusText.replace(/^\p{Emoji}\s*/u, "").trim();
   const derived = deriveClearAfterFromExpiration(picked.statusExpiration);
@@ -475,13 +475,13 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
 
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] space-y-6">
             {/* Input Area */}
-            <div className="relative border border-[#565856] rounded-md focus-within:border-[#1d9bd1] focus-within:ring-1 focus-within:ring-[#1d9bd1] bg-transparent flex items-center p-1">
+            <div className="relative border border-[#565856] rounded-md focus-within:border-selection-hover focus-within:ring-[3px] focus-within:ring-offset-0 focus-within:ring-focus-ring bg-transparent flex items-center p-1">
               <div className="relative" ref={emojiPickerRef}>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 dark:text-[#d1d2d3] hover:bg-[#2C2E33] hover:text-white shrink-0"
+                  className="h-9 w-9 shrink-0"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 >
                   <span className="text-xl">{selectedEmoji}</span>
@@ -509,7 +509,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                     <FormControl>
                       <Input
                         placeholder="What's your status?"
-                        className="border-none bg-transparent focus-visible:ring-0 text-white placeholder:text-[#ababad] h-9"
+                        className="border-none bg-transparent focus-visible:ring-0 placeholder:text-[#ababad] h-9"
                         {...field}
                       />
                     </FormControl>
@@ -522,7 +522,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-[#ababad] hover:text-white shrink-0"
+                  className="h-8 w-8 shrink-0"
                   onClick={clearStatus}
                 >
                   <LuX size={16} />
@@ -535,7 +535,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
               <div className="flex flex-col space-y-4 animate-in fade-in duration-200">
                 {/* Remove status after */}
                 <div className="flex flex-col space-y-2">
-                  <Typography text="Remove status after" variant="p" className="text-white text-[13px] font-bold" />
+                  <Typography text="Remove status after" variant="p" className="text-[13px] font-bold" />
                   <FormField
                     control={form.control}
                     name="clearAfter"
@@ -588,7 +588,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
 
                 {/* Pause notifications */}
                 <div className="flex flex-col space-y-2">
-                  <Typography text="Pause notifications" variant="p" className="text-white text-[13px] font-bold" />
+                  <Typography text="Pause notifications" variant="p" className="text-[13px] font-bold" />
                   <FormField
                     control={form.control}
                     name="pauseNotifications"
@@ -614,7 +614,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                   {SUGGESTIONS.map((s, idx) => (
                     <div
                       key={idx}
-                      className="group flex items-center px-3 py-2 rounded cursor-pointer hover:bg-[#1264a3] hover:text-white dark:text-[#d1d2d3]"
+                      className="group flex items-center px-3 py-2 rounded cursor-pointer hover:bg-selection-hover hover:text-white dark:text-[#d1d2d3]"
                       onClick={() => handleSuggestionClick(s)}
                     >
                       <span className="mr-3 text-lg">{s.icon}</span>
@@ -631,7 +631,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
 
           <CustomDialogFooter>
             {initialSnapshot.status.trim() ||
-              (initialSnapshot.emoji && initialSnapshot.emoji !== "💬") ? (
+              (initialSnapshot.status && initialSnapshot.emoji !== "💬") ? (
               <div className="flex-1">
                 <Button
                   variant="ghost"
@@ -646,7 +646,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                       time: "17:00"
                     });
                   }}
-                  className="text-[#ababad] hover:text-white hover:bg-transparent px-0 transition-colors"
+                  className="px-1 transition-colors"
                 >
                   Remove status
                 </Button>
@@ -660,7 +660,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                 variant="ghost"
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-white hover:bg-[#2C2E33] hover:text-white"
+                className="dark:hover:bg-[#2C2E33] mr-2"
               >
                 Cancel
               </Button>
@@ -675,7 +675,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                   return submitting || !hasChanges;
                 })()}
                 type="submit"
-                className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+                className="bg-[#007a5a] hover:bg-[#006248] font-bold px-4 py-2"
               >
                 Save
               </Button>

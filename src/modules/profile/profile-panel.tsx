@@ -4,11 +4,12 @@ import { EditAboutMeDialog } from "@/components/dialogs/edit-about-me-dialog";
 import { EditContactInforDialog } from "@/components/dialogs/edit-contact-infor-dialog";
 import { EditProfileDialog } from "@/components/dialogs/edit-profile-dialog";
 import { SetAStatusDialog } from "@/components/dialogs/set-a-status-dialog";
-import { getMemberStatusApi } from "@/apis";
+import { getMemberStatusApi, getWorkspaceProfileApi, updateProfileApi } from "@/apis";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
 import { useUserStore } from "@/stores/useUserStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { mergeAccountWithWorkspaceProfile } from "@/lib/merge-user";
 import DOMPurify from "dompurify";
 import { X } from "lucide-react";
 import { useState } from "react";
@@ -30,19 +31,36 @@ import {
 import { Separator } from "../../components/ui/separator";
 import Typography from "../../components/ui/typography";
 import { timeZoneValueToIana } from "@/lib/timezone";
+import { toast } from "sonner";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { authKeys } from "@/lib/query-keys";
+import { User } from "@/lib/types";
 
 export default function ProfilePanel() {
   const { user: currentUserData } = useUserStore();
-  const { userData, workspaceId, close } = useProfilePanelStore();
+  const { userData: storeUserData, workspaceId, close } = useProfilePanelStore();
   const [isOpenEditProfileDialog, setIsOpenEditProfileDialog] = useState(false);
   const [isOpenEditContactInforDialog, setIsOpenEditContactInforDialog] =
     useState(false);
   const [isOpenEditAboutMeDialog, setIsOpenEditAboutMeDialog] = useState(false);
   const [isOpenSetStatusDialog, setIsOpenSetStatusDialog] = useState(false);
   const [isViewAsCoworker, setIsViewAsCoworker] = useState(false);
+  const { open: openPreferencesDialog } = usePreferencesStore();
+  const queryClient = useQueryClient();
 
-  const isOwner = currentUserData?.id === userData?.id;
+  const isOwner = currentUserData?.id === storeUserData?.id;
   const showOwnerView = isOwner && !isViewAsCoworker;
+
+  const { data: workspaceProfile } = useQuery<User>({
+    queryKey: authKeys.workspaceProfile(workspaceId!),
+    queryFn: () => getWorkspaceProfileApi(workspaceId!),
+    enabled: !!workspaceId,
+    staleTime: 60 * 1000,
+  });
+
+  const userData = isOwner
+    ? (mergeAccountWithWorkspaceProfile(currentUserData as any, workspaceProfile) ?? storeUserData)
+    : storeUserData;
 
   // Fetch workspace-specific status (statusText, statusEmoji) cho user đang xem
   const { data: memberStatus } = useQuery({
@@ -52,7 +70,19 @@ export default function ProfilePanel() {
     staleTime: 30_000,
   });
 
-  console.log("memberstatus", memberStatus)
+  const handleUpdateStatus = async () => {
+    const updated = await updateProfileApi(workspaceId!, {
+      isAway: !userData?.isAway,
+    });
+    await queryClient.invalidateQueries({
+      queryKey: authKeys.workspaceProfile(workspaceId!),
+    });
+    if (userData?.id) {
+      await queryClient.invalidateQueries({
+        queryKey: ["workspace-member-status", workspaceId, userData.id],
+      });
+    }
+  };
 
   const { data: workspaceMeta } = useWorkspace(workspaceId ?? "");
 
@@ -96,10 +126,10 @@ export default function ProfilePanel() {
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-        <span className="font-semibold text-white text-[15px]">Profile</span>
+        <span className="font-semibold text-[15px]">Profile</span>
         <button
           onClick={close}
-          className="p-1 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
+          className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
         >
           <X size={18} />
         </button>
@@ -107,7 +137,7 @@ export default function ProfilePanel() {
 
       {/* Banner for View as coworker */}
       {isViewAsCoworker && (
-        <div className="bg-[#1264a3] text-white px-4 py-2 flex items-center justify-between shrink-0">
+        <div className="bg-selection-hover text-white px-4 py-2 flex items-center justify-between shrink-0">
           <span className="text-[13px]">
             This is how others see your profile
           </span>
@@ -132,7 +162,7 @@ export default function ProfilePanel() {
           <Typography
             text={userData?.name ?? ""}
             variant="h5"
-            className="text-white font-semibold"
+            className="font-semibold"
           />
           {showOwnerView && (
             <Typography
@@ -168,9 +198,9 @@ export default function ProfilePanel() {
             </button>
           )}
 
-        {(memberStatus?.isAway ?? userData?.isAway) ? (
+        {(memberStatus?.isAway) ? (
           <div className="flex items-center gap-2 ">
-            <GoDot className="text-white text-[12px]" />
+            <GoDot className="text-red-500 text-[12px]" />
             <Typography
               text="Away"
               variant="p"
@@ -189,7 +219,7 @@ export default function ProfilePanel() {
         )}
 
         {/* Workspace status (statusEmoji + statusText) */}
-        {(memberStatus?.statusText || memberStatus?.statusEmoji) && (
+        {(memberStatus?.statusText) && (
           <div className="flex items-center gap-2">
             {memberStatus.statusEmoji && (
               <span className="text-[18px]">{memberStatus.statusEmoji}</span>
@@ -258,11 +288,20 @@ export default function ProfilePanel() {
               >
                 <div className="py-2">
                   <div className="flex flex-col space-y-1">
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(userData?.displayName || '')
+                        toast.success('Display name copied to clipboard')
+                      }}
+                    >
                       <Typography variant="p" text="Copy display name" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        openPreferencesDialog()
+                      }}
+                    >
                       <Typography variant="p" text="View preferences" />
                     </div>
                     <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer flex items-center justify-between">
@@ -273,13 +312,26 @@ export default function ProfilePanel() {
                     <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
                       <Typography variant="p" text="View your files" />
                     </div>
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
-
+                    <div
+                      className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={handleUpdateStatus}
                     >
-                      <Typography variant="p" text="Set you away" />
+                      <Typography
+                        variant="p"
+                        text={
+                          userData?.isAway
+                            ? "Set yourself as active"
+                            : "Set yourself as away"
+                        }
+                      />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(userData?.id || '')
+                        toast.success('Member ID copied to clipboard')
+                      }}
+                    >
                       <Typography variant="p" text="Copy member ID" />
                     </div>
                   </div>
@@ -334,7 +386,12 @@ export default function ProfilePanel() {
               >
                 <div className="py-2">
                   <div className="flex flex-col space-y-1">
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(userData?.displayName || '')
+                        toast.success('Display name copied to clipboard')
+                      }}
+                    >
                       <Typography variant="p" text="Copy display name" />
                     </div>
                     <Separator />
@@ -342,12 +399,13 @@ export default function ProfilePanel() {
                       <Typography variant="p" text="View files" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        navigator.clipboard.writeText(userData?.id || '')
+                        toast.success('Member ID copied to clipboard')
+                      }}
+                    >
                       <Typography variant="p" text="Copy member ID" />
-                    </div>
-                    <Separator />
-                    <div className="hover:text-white hover:bg-red-500 px-5 py-1 cursor-pointer text-red-500">
-                      <Typography variant="p" text="Hide from you" />
                     </div>
                   </div>
                 </div>
@@ -364,7 +422,7 @@ export default function ProfilePanel() {
           <Typography
             text="Contact information"
             variant="p"
-            className="text-white font-semibold"
+            className="font-semibold"
           />
           {showOwnerView && (
             <Typography
@@ -377,7 +435,7 @@ export default function ProfilePanel() {
         </div>
 
         <div className="flex gap-2 items-center">
-          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-[#222529]">
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-[#e8e8e8] dark:bg-[#222529]">
             <MdOutlineMail size={20} />
           </div>
           <div className="flex flex-col">
@@ -396,7 +454,7 @@ export default function ProfilePanel() {
 
         {userData?.phone && userData?.phone !== null && (
           <div className="flex gap-2 items-center">
-            <div className="flex items-center justify-center w-9 h-9 rounded-md bg-[#222529]">
+            <div className="flex items-center justify-center w-9 h-9 rounded-md bg-[#e8e8e8] dark:bg-[#222529]">
               <MdOutlinePhone size={20} />
             </div>
             <div className="flex flex-col">
@@ -439,7 +497,7 @@ export default function ProfilePanel() {
           <Typography
             text="About me"
             variant="p"
-            className="text-white font-semibold"
+            className="font-semibold"
           />
           {showOwnerView && (
             <Typography

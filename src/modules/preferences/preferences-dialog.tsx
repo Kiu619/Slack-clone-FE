@@ -45,7 +45,7 @@ export const PreferencesDialog = () => {
   const { workspaceId } = useParams() as { workspaceId: string };
 
   const { theme, savedTheme, resetTheme, confirmTheme } = useThemeStore();
-  
+
   // Navigation interception state
   const [pendingTab, setPendingTab] = useState<string | null>(null);
   const [isClosingPending, setIsClosingPending] = useState(false);
@@ -111,10 +111,10 @@ export const PreferencesDialog = () => {
   };
 
   return (
-    <CustomDialog 
-      open={isOpen} 
-      onOpenChange={handleDialogClose} 
-      maxWidth="820px" 
+    <CustomDialog
+      open={isOpen}
+      onOpenChange={handleDialogClose}
+      maxWidth="820px"
       overlayTransparent={overlayTransparent}
     >
       <CustomDialogHeader onOpenChange={handleDialogClose}>
@@ -201,7 +201,7 @@ export const PreferencesDialog = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 text-sm font-bold bg-[#1264A3] hover:bg-[#0E4F82] text-white rounded-sm transition-colors"
+                  className="px-4 py-2 text-sm font-bold bg-selection-hover hover:bg-[#0E4F82] text-white rounded-sm transition-colors"
                 >
                   Save changes
                 </button>

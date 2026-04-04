@@ -81,7 +81,7 @@ export default function ImportThemeDialog({ open, onOpenChange, onImport }: Impo
                   <FormControl>
                     <Input
                       placeholder="#124426, #350D36"
-                      className="bg-white dark:bg-[#1A1D21] border-[#565856] focus:border-[#1264A3] transition-colors"
+                      className="bg-white dark:bg-[#1A1D21] border-[#565856] focus:border-selection-hover transition-colors"
                       {...field}
                     />
                   </FormControl>

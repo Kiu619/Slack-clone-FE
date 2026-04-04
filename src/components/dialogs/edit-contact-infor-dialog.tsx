@@ -79,11 +79,11 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
 
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold flex items-center gap-1.5"><FaLock size={12} /> Email</FormLabel>
+                      <FormLabel className="font-bold flex items-center gap-1.5"><FaLock size={12} /> Email</FormLabel>
                       <Input
                         {...field}
                         defaultValue={userData.email}
-                        className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                        className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
                       />
                     </FormItem>
                   )}
@@ -94,11 +94,11 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-white font-bold">Phone</FormLabel>
+                      <FormLabel className="font-bold">Phone</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          className="bg-transparent border-[#565856] text-white focus:border-[#1264a3] transition-all"
+                          className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
                         />
                       </FormControl>
                       <FormMessage />
@@ -115,14 +115,14 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
               variant="ghost"
               type="button"
               onClick={() => setOpen(false)}
-              className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+              className="dark:hover:bg-[#2C2E33] mr-2"
             >
               Cancel
             </Button>
             <Button
               disabled={form.formState.isSubmitting || !form.formState.isValid || !form.formState.isDirty}
               type="submit"
-              className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
+              className="bg-[#007a5a] hover:bg-[#006248] font-bold px-4 py-2"
             >
               Save Changes
             </Button>

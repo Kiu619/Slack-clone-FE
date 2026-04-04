@@ -21,7 +21,7 @@ export function useWorkspaces() {
   })
 }
 
-export function useWorkspace(id: string) {
+export function useWorkspace(id: string, initialData?: Workspace) {
   return useQuery<Workspace>({
     queryKey: workspaceKeys.detail(id),
     queryFn: async () => {
@@ -29,6 +29,7 @@ export function useWorkspace(id: string) {
       return res.data
     },
     enabled: !!id,
+    initialData,
     staleTime: 2 * 60 * 1000,
   })
 }

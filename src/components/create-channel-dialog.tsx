@@ -127,7 +127,7 @@ const CreateChannelDialog = ({ dialogOpen, setDialogOpen, workspaceId }: Props) 
                                 e.target.value.toLowerCase().replace(/\s+/g, '-'),
                               )
                             }
-                            className="pl-8 bg-transparent border-white/20 text-white placeholder:text-gray-500 focus-visible:ring-[#1264A3]"
+                            className="pl-8 bg-transparent border-white/20 text-white placeholder:text-gray-500 focus-visible:ring-selection-hover"
                           />
                         </div>
                       </FormControl>
@@ -226,7 +226,7 @@ const CreateChannelDialog = ({ dialogOpen, setDialogOpen, workspaceId }: Props) 
               </div>
 
               <div className="flex gap-6 px-1">
-                <button className="text-white font-bold text-sm pb-2 border-b-2 border-[#1264A3]">
+                <button className="text-white font-bold text-sm pb-2 border-b-2 border-selection-hover">
                   Messages
                 </button>
                 <button className="text-[#ABABAD] font-bold text-sm pb-2 hover:text-white transition-colors">
@@ -249,7 +249,7 @@ const CreateChannelDialog = ({ dialogOpen, setDialogOpen, workspaceId }: Props) 
                   ? 'This is a private channel — only invited members can see it.'
                   : 'This is the beginning of the channel. Anyone in the workspace can join.'}
               </p>
-              <Button variant="ghost" size="sm" className="mt-4 text-[#1264A3] hover:text-[#1264A3] hover:bg-white/5">
+              <Button variant="ghost" size="sm" className="mt-4 text-selection-hover hover:text-selection-hover hover:bg-white/5">
                 Learn about channels
               </Button>
             </div>

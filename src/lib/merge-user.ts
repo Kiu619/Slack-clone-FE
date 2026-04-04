@@ -19,6 +19,10 @@ export function mergeAccountWithWorkspaceProfile(
       phone: null,
       description: null,
       timeZone: null,
+      statusText: null,
+      statusEmoji: null,
+      statusExpiration: null,
+      notificationsPausedUntil: null,
     }
   }
   return {

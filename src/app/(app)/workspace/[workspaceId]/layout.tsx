@@ -68,8 +68,10 @@ export default async function WorkspaceLayout({
     channels,
   })
 
+  console.log("currentWorkspace", currentWorkspace)
+
   const cookieStore = await cookies()
-  const widthsCookie = cookieStore.get('panel-widths')?.value
+  const widthsCookie = cookieStore.get(`panel-widths-${workspaceId}`)?.value
   const initialWidths = widthsCookie ? JSON.parse(widthsCookie) : {
     sidebarWidth: 260,
     fileDetailWidth: 400,
@@ -92,13 +94,13 @@ export default async function WorkspaceLayout({
    * Sau khi hydrate, các hooks trong Channels.tsx đọc từ cache.
    */
   return (
-    <HydrationBoundary state={dehydratedState}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <HydrationBoundary state={dehydratedState}>
         <WorkspaceShell
           accountUser={account}
           initialSidebarUser={user}
@@ -110,7 +112,7 @@ export default async function WorkspaceLayout({
           <FontInjector />
           {children}
         </WorkspaceShell>
-      </ThemeProvider>
-    </HydrationBoundary>
+      </HydrationBoundary>
+    </ThemeProvider>
   )
 }

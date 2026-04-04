@@ -199,7 +199,7 @@ const Main = ({ currentChannelData }: MainProps) => {
     ],
   )
 
-  const handleEditMessage = useCallback((message: Message) => {
+  const  handleEditMessage = useCallback((message: Message) => {
     console.log('Edit message:', message.id)
   }, [])
 

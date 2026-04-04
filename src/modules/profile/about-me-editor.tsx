@@ -9,6 +9,7 @@ import Underline from '@tiptap/extension-underline'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { type EmojiClickData, Theme } from 'emoji-picker-react'
+import { useTheme } from 'next-themes'
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -34,10 +35,12 @@ interface AboutMeEditorProps {
 }
 
 const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorProps) => {
+  const {theme} = useTheme()
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [, forceUpdate] = useState({})
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+
 
   const editor = useEditor({
     extensions: [
@@ -55,7 +58,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
           HTMLAttributes: { class: 'list-decimal pl-6' },
         },
         listItem: {
-          HTMLAttributes: { class: 'text-white' },
+          HTMLAttributes: { },
         },
         codeBlock: {
           HTMLAttributes: {
@@ -84,7 +87,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
     editorProps: {
       attributes: {
         class:
-          'max-w-none focus:outline-none min-h-[100px] overflow-y-auto px-3 py-2 text-[15px] text-white leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
+          'max-w-none focus:outline-none min-h-[100px] overflow-y-auto px-3 py-2 text-[15px] leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
       },
     },
     content: initialContent,
@@ -236,7 +239,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
                 <div className="absolute bottom-full mb-2 left-0 z-50">
                   <EmojiPicker
                     onEmojiClick={handleEmojiSelect}
-                    theme={Theme.DARK}
+                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
                     width={350}
                     height={400}
                     searchPlaceHolder="Search emoji..."
@@ -281,7 +284,7 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
         <button
           onClick={onClick}
           disabled={disabled}
-          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${active ? 'bg-[#222529] text-white' : 'dark:text-[#d1d2d3]'
+          className={`cursor-pointer p-1.5 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#222529] transition-colors ${active ? 'bg-[#e8e8e8] dark:bg-[#222529] dark:text-white' : 'dark:text-[#d1d2d3]'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {children}

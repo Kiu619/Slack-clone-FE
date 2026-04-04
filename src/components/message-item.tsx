@@ -47,6 +47,7 @@ import { FiBellOff } from "react-icons/fi";
 import { RxText } from "react-icons/rx";
 import ProfilePanel from "@/modules/profile/profile-panel";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
+import { useTheme } from "next-themes";
 const EmojiPicker = dynamic(() => import("emoji-picker-react"));
 
 interface MessageItemProps {
@@ -102,6 +103,9 @@ export default function MessageItem({
   const { open: openProfilePanel } = useProfilePanelStore()
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false);
   const [isRemindMeOpen, setIsRemindMeOpen] = useState(false);
+
+  const { theme } = useTheme()
+
   const isDeleted = !!message.deletedAt;
   /** Ẩn "đã chỉnh sửa" khi là system update (thay placeholder upload bằng content rỗng) */
   const isFileOnlyPlaceholder =
@@ -210,7 +214,7 @@ export default function MessageItem({
             <Avatar
               src={message.user.avatar ?? ""}
               className="w-9 h-9 rounded-lg cursor-pointer mt-0.5"
-              alt={message.user.name ?? message.user.email}
+              alt={message.user.displayName ?? message.user.email}
             />
           </div>
         )}
@@ -222,7 +226,7 @@ export default function MessageItem({
         {!isCompact && (
           <div className="flex items-baseline gap-x-2 mb-0.5">
             <span className="text-[15px] font-bold  cursor-pointer hover:underline">
-              {message.user.name ?? message.user.email}
+              {message.user.displayName ?? message.user.email}
             </span>
             <span className="text-[11px] dark:text-[#797c81]">
               {formatTimestamp(message.createdAt)}
@@ -314,7 +318,7 @@ export default function MessageItem({
             >
               <EmojiPicker
                 onEmojiClick={handleEmojiSelect}
-                theme={Theme.DARK}
+                theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
                 width={320}
                 height={380}
                 searchPlaceHolder="Search emoji..."

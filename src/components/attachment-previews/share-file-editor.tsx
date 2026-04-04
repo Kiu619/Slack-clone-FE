@@ -9,6 +9,7 @@ import Underline from '@tiptap/extension-underline'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { type EmojiClickData, Theme } from 'emoji-picker-react'
+import { useTheme } from 'next-themes'
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -37,6 +38,8 @@ const ShareFileEditor = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [, forceUpdate] = useState({})
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+
+  const { theme } = useTheme()
 
   const editor = useEditor({
     extensions: [
@@ -241,7 +244,7 @@ const ShareFileEditor = ({
                 <div className="absolute bottom-full mb-2 left-0 z-50">
                   <EmojiPicker
                     onEmojiClick={handleEmojiSelect}
-                    theme={Theme.DARK}
+                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
                     width={350}
                     height={400}
                     searchPlaceHolder="Search emoji..."
@@ -289,7 +292,7 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
         <button
           onClick={onClick}
           disabled={disabled}
-          className={`cursor-pointer p-1.5 rounded hover:bg-[#222529] transition-colors ${active ? 'bg-[#222529] text-white' : 'dark:text-[#d1d2d3]'
+          className={`cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] transition-colors ${active ? 'bg-[#222529] text-white' : 'dark:text-[#d1d2d3]'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {children}

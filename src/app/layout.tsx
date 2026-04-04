@@ -4,6 +4,7 @@ import "./globals.css"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { QueryProvider } from "@/providers/query-provider"
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({
           <TooltipProvider>
             <Toaster />
             {children}
+            <ReactQueryDevtools initialIsOpen={false} />
           </TooltipProvider>
         </QueryProvider>
       </body>

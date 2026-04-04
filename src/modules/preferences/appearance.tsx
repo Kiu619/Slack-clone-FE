@@ -77,7 +77,7 @@ export default function PreferencesAppearance() {
   const themeButtonClass = (selected: boolean) =>
     cn(
       "border border-[#565856] p-2 rounded-md flex items-center gap-3 justify-start hover:bg-white/5 transition-colors text-left w-full",
-      selected && "ring-2 ring-[#1264A3] ring-offset-2 ring-offset-[#1A1D21]",
+      selected && "ring-2 ring-selection-hover ring-offset-2 ring-offset-[#1A1D21]",
     );
 
   const handleShareTheme = () => {
@@ -141,7 +141,7 @@ export default function PreferencesAppearance() {
             className={cn(
               "flex align-middle justify-center items-center gap-2 w-1/3 button-primary border border-[#565856] p-2 rounded-sm",
               colorMode === "light" &&
-              "ring-2 ring-[#1264A3] ring-offset-2 ring-offset-[#1A1D21]",
+              "ring-2 ring-selection-hover ring-offset-2 ring-offset-[#1A1D21]",
             )}
           >
             <MdOutlineLightMode size={18} />
@@ -157,7 +157,7 @@ export default function PreferencesAppearance() {
             className={cn(
               "flex align-middle justify-center items-center gap-2 w-1/3 button-primary border border-[#565856] p-2 rounded-sm",
               colorMode === "dark" &&
-              "ring-2 ring-[#1264A3] ring-offset-2 ring-offset-[#1A1D21]",
+              "ring-2 ring-selection-hover ring-offset-2 ring-offset-[#1A1D21]",
             )}
           >
             <MdOutlineDarkMode size={18} />
@@ -173,7 +173,7 @@ export default function PreferencesAppearance() {
             className={cn(
               "flex align-middle justify-center items-center gap-2 w-1/3 button-primary border border-[#565856] p-2 rounded-sm",
               colorMode === "system" &&
-              "ring-2 ring-[#1264A3] ring-offset-2 ring-offset-[#1A1D21]",
+              "ring-2 ring-selection-hover ring-offset-2 ring-offset-[#1A1D21]",
             )}
           >
             <MdComputer size={18} />
@@ -193,24 +193,24 @@ export default function PreferencesAppearance() {
           <button
             type="button"
             onClick={() => setActiveTab("slack-themes")}
-            className={`${activeTab === "slack-themes" ? "border-b-2 border-[#1264A3] pb-1" : "text-gray-500 pb-1"}`}
+            className={`${activeTab === "slack-themes" ? "border-b-2 border-selection-hover pb-1" : "text-gray-500 pb-1"}`}
           >
             <Typography
               text="Slack themes"
               variant="p"
-              className={`${activeTab === "slack-themes" ? "font-bold text-[#1264A3]" : "font-bold text-gray-500"}`}
+              className={`${activeTab === "slack-themes" ? "font-bold text-selection-hover" : "font-bold text-gray-500"}`}
             />
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("custom-theme")}
-            className={`${activeTab === "custom-theme" ? "border-b-2 border-[#1264A3] pb-1" : "text-gray-500 pb-1"}`}
+            className={`${activeTab === "custom-theme" ? "border-b-2 border-selection-hover pb-1" : "text-gray-500 pb-1"}`}
           >
             <Typography
               text="Custom theme"
               variant="p"
-              className={`${activeTab === "custom-theme" ? "font-bold text-[#1264A3]" : "font-bold text-gray-500"}`}
+              className={`${activeTab === "custom-theme" ? "font-bold text-selection-hover" : "font-bold text-gray-500"}`}
             />
           </button>
         </div>

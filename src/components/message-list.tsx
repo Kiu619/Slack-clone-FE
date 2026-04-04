@@ -43,16 +43,16 @@ function DateSeparator({ date }: { date: Date }) {
             withOverlay
           >
             <div className="flex flex-col py-2">
-              <span className="mx-4 text-[12px]">Jump to...</span>
-              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Today</div>
-              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Yesterday</div>
-              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Last week</div>
-              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">Last month</div>
-              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer">The very beginning</div>
+              <span className="mx-4 text-[12px] text-[#8e9297]">Jump to...</span>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Today</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Yesterday</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Last week</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Last month</div>
+              <div className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">The very beginning</div>
 
               <Separator className="my-2" />
 
-              <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer">Jump to a specific date</div>
+              <div className="px-4 py-1 hover:bg-selection-hover cursor-pointer text-sm">Jump to a specific date</div>
             </div>
           </PopoverContent>
         </Popover>

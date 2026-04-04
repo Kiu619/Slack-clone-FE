@@ -59,16 +59,31 @@ const UserSidebar = ({
   const router = useRouter();
 
   const handleUpdateStatus = async () => {
+    setOpenAvatarPopover(false)
     await updateProfileApi(currentWorkspaceData.id, {
       isAway: !userData?.isAway,
     });
     await queryClient.invalidateQueries({
       queryKey: authKeys.workspaceProfile(currentWorkspaceData.id),
     });
+    if (userData?.id) {
+      await queryClient.invalidateQueries({
+        queryKey: ["workspace-member-status", currentWorkspaceData.id, userData.id],
+      });
+    }
   };
 
   const handleClearStatus = async () => {
+    setOpenAvatarPopover(false)
     await clearMemberStatusApi(currentWorkspaceData.id);
+    await queryClient.invalidateQueries({
+      queryKey: authKeys.workspaceProfile(currentWorkspaceData.id),
+    });
+    if (userData?.id) {
+      await queryClient.invalidateQueries({
+        queryKey: ["workspace-member-status", currentWorkspaceData.id, userData.id],
+      });
+    }
   };
 
   const handleSignOut = async () => {
@@ -245,7 +260,7 @@ const UserSidebar = ({
                         userData?.avatar ||
                         "https://a.slack-edge.com/bv1-13-br/ava_0002-72-c702398.png"
                       }
-                      alt={userData?.name || "user"}
+                      alt={userData?.displayName || "user"}
                     />
                     <div
                       className={cn(
@@ -296,15 +311,15 @@ const UserSidebar = ({
                   className="border group cursor-pointer px-2 py-2 mx-5 my-2 rounded flex items-center space-x-2 hover:border hover:border-[#797c81]"
                   onClick={() => setOpenSetAStatusDialog(true)}
                 >
-                  {currentWorkspaceData?.statusText ? (
+                  {userData?.statusText ? (
                     <>
                       <span
                         className="dark:text-[#d1d2d3] truncate"
                       >
-                        {currentWorkspaceData?.statusEmoji ?? ""}
+                        {userData?.statusEmoji ?? ""}
                       </span>
                       <Typography
-                        text={currentWorkspaceData.statusText ?? undefined}
+                        text={userData.statusText ?? undefined}
                         variant="p"
                         className="text-sm font-medium dark:text-[#d1d2d3] truncate"
                       />
@@ -329,7 +344,7 @@ const UserSidebar = ({
                 </div>
 
                 <div className="flex flex-col space-y-1">
-                  {currentWorkspaceData?.statusText && (
+                  {userData?.statusText && (
                     <div
                       className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                       onClick={handleClearStatus}

@@ -85,7 +85,7 @@ const ColorPicker = ({ color, onChange, label }: ColorPickerProps) => {
                 value={inputValue.replace("#", "")}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                className="h-9 w-28 bg-[#222529] border-white/10 text-sm focus-visible:ring-1 focus-visible:ring-[#1264A3] text-white font-mono"
+                className="h-9 w-28 bg-[#222529] border-white/10 text-sm focus-visible:ring-1 focus-visible:ring-selection-hover text-white font-mono"
                 maxLength={6}
                 placeholder="FFFFFF"
               />

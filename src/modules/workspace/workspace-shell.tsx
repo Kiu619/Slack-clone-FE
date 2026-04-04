@@ -10,11 +10,12 @@ import FileDetailPanel from '@/components/attachment-previews/file-detail-panel'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import { useChannels } from '@/hooks/use-channel'
 import type { AccountUser, User, Workspace } from '@/lib/types'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ProfilePanel from '@/modules/profile/profile-panel'
 import { useProfilePanelStore } from '@/stores/useProfilePanelStore'
 import { authKeys } from '@/lib/query-keys'
 import { getUserApi, getWorkspaceProfileApi } from '@/apis'
+import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import { PreferencesDialog } from '@/modules/preferences/preferences-dialog'
 import { useThemeStore, type Theme } from '@/stores/useThemeStore'
@@ -45,9 +46,7 @@ export default function WorkspaceShell({
   initialWidths,
 }: Props) {
   const { theme: storeTheme, setTheme, confirmTheme } = useThemeStore()
-  const { resolvedTheme } = useTheme()
   const [hasSynced, setHasSynced] = useState(false)
-
   const theme = useMemo(() => {
     if (hasSynced) return storeTheme
 
@@ -62,28 +61,20 @@ export default function WorkspaceShell({
   }, [workspaceProfileData?.theme, storeTheme, hasSynced])
 
   const getSysNavBackground = () => {
-    const baseColor = resolvedTheme === 'light'
-      ? `color-mix(in srgb, ${theme.systemNav}, white 30%)`
-      : `color-mix(in srgb, ${theme.systemNav}, black 65%)`;
+    const baseColor = `color-mix(in srgb, ${theme.systemNav}, var(--theme-mix-base) var(--theme-mix-sysnav))`;
 
     if (theme.isGradient) {
-      const blendColor = resolvedTheme === 'light'
-        ? `color-mix(in srgb, ${theme.selectedItems}, white 30%)`
-        : `color-mix(in srgb, ${theme.selectedItems}, black 65%)`;
+      const blendColor = `color-mix(in srgb, ${theme.selectedItems}, var(--theme-mix-base) var(--theme-mix-sysnav))`;
       return `linear-gradient(to bottom right, ${baseColor}, ${blendColor})`;
     }
     return baseColor;
   };
 
   const getWorkspaceSidePanelBackground = () => {
-    const baseColor = resolvedTheme === 'light'
-      ? `color-mix(in srgb, ${theme.systemNav}, white 50%)`
-      : `color-mix(in srgb, ${theme.systemNav}, black 75%)`;
+    const baseColor = `color-mix(in srgb, ${theme.systemNav}, var(--theme-mix-base) var(--theme-mix-sidepanel))`;
 
     if (theme.isGradient) {
-      const blendColor = resolvedTheme === 'light'
-        ? `color-mix(in srgb, ${theme.selectedItems}, white 50%)`
-        : `color-mix(in srgb, ${theme.selectedItems}, black 75%)`;
+      const blendColor = `color-mix(in srgb, ${theme.selectedItems}, var(--theme-mix-base) var(--theme-mix-sidepanel))`;
       return `linear-gradient(to bottom, ${baseColor}, ${blendColor})`;
     }
     return baseColor;
@@ -98,6 +89,44 @@ export default function WorkspaceShell({
     initialData: accountUser,
     staleTime: 5 * 60 * 1000,
   })
+
+  const queryClient = useQueryClient();
+  const { isProfileConnected } = useSocket();
+
+  useWorkspaceSocket(workspaceId, isProfileConnected, {
+    onUserProfileUpdated: useCallback((data: any) => {
+      const { id: userId, workspaceId: updatedWsId } = data;
+      if (updatedWsId !== workspaceId) return;
+
+      // 1. Cập nhật cache Member Status (cho Profile Panel và các chỗ khác)
+      queryClient.setQueryData(['workspace-member-status', workspaceId, userId], (old: any) => {
+        return old ? { ...old, ...data } : old;
+      });
+
+      // 2. Nếu là chính mình, invalidate profile cache của workspace hiện tại
+      if (userId === account?.id) {
+        queryClient.invalidateQueries({
+          queryKey: authKeys.workspaceProfile(workspaceId),
+        });
+      }
+
+      // 3. Cập nhật Avatar/Tên hiển thị trong Message List (Infinite Query)
+      queryClient.setQueriesData({ queryKey: ['messages'] }, (oldData: any) => {
+        if (!oldData?.pages) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            messages: page.messages.map((msg: any) =>
+              msg.user.id === userId
+                ? { ...msg, user: { ...msg.user, ...data } }
+                : msg
+            )
+          }))
+        };
+      });
+    }, [workspaceId, account?.id, queryClient]),
+  });
 
   const { data: workspaceProfile } = useQuery({
     queryKey: authKeys.workspaceProfile(workspaceId),
@@ -141,12 +170,12 @@ export default function WorkspaceShell({
   const [profilePanelWidth, setProfilePanelWidth] = useState(initialWidths.profilePanelWidth)
 
   const saveWidthsToCookie = useCallback((sidebar: number, file: number, profile: number) => {
-    Cookies.set('panel-widths', JSON.stringify({
+    Cookies.set(`panel-widths-${workspaceId}`, JSON.stringify({
       sidebarWidth: sidebar,
       fileDetailWidth: file,
       profilePanelWidth: profile
     }), { expires: 365, path: '/' })
-  }, [])
+  }, [workspaceId])
   const isResizing = useRef<'sidebar' | 'file-detail' | 'profile' | null>(null)
 
   const startResizing = (type: 'sidebar' | 'file-detail' | 'profile') => {
@@ -190,6 +219,44 @@ export default function WorkspaceShell({
   }, [sidebarWidth, fileDetailWidth, profilePanelWidth, saveWidthsToCookie])
 
   const displayUser = sidebarUser ?? initialSidebarUser
+
+  const { userData: profileUserData, isOpen: isProfileOpen, open: openProfile } = useProfilePanelStore()
+  const isFileDetailOpenStore = useFileDetailStore((s) => s.isOpen)
+  const isInitialized = useRef(false)
+
+  // Lưu trạng thái vào cookie khi có thay đổi
+  useEffect(() => {
+    // Chỉ lưu nếu đã khởi tạo xong để tránh việc mount ban đầu (đang false) ghi đè lên cookie cũ (đang true)
+    if (!workspaceId || !isInitialized.current) return
+    const state = {
+      isProfileOpen,
+      profileUserId: profileUserData?.id,
+      isFileDetailOpen: isFileDetailOpenStore,
+    }
+    Cookies.set(`panel-state-${workspaceId}`, JSON.stringify(state), { expires: 7 })
+  }, [isProfileOpen, profileUserData?.id, isFileDetailOpenStore, workspaceId])
+
+  // Khôi phục trạng thái từ cookie khi mount
+  useEffect(() => {
+    if (isInitialized.current || !workspaceId) return
+    const stateStr = Cookies.get(`panel-state-${workspaceId}`)
+    if (stateStr) {
+      try {
+        const state = JSON.parse(stateStr)
+        if (state.isProfileOpen && state.profileUserId) {
+          // Re-open profile panel with minimal data (ProfilePanel will fetch the rest)
+          openProfile({ 
+            userData: { id: state.profileUserId } as any, 
+            workspaceId 
+          })
+        }
+        // Lưu ý: FileDetailPanel cần data message/attachment phức tạp nên tạm thời chỉ khôi phục Profile Panel
+      } catch (e) {
+        console.error('Failed to restore panel state', e)
+      }
+    }
+    isInitialized.current = true
+  }, [workspaceId, openProfile])
 
   return (
     <div className="flex flex-col w-screen h-screen"

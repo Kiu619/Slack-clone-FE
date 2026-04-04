@@ -131,18 +131,18 @@ export const CustomSelect = ({
                   className={cn(
                     "group flex w-full cursor-pointer items-center px-4 py-2.5 text-[14px] transition-colors",
                     currentValue === option.value
-                      ? "bg-[#1264A3] text-white"
-                      : "dark:text-[#d1d2d3] hover:bg-[#1264A3] hover:text-white"
+                      ? "bg-selection-hover"
+                      : " hover:bg-selection-hover hover:text-white"
                   )}
                 >
                   <span className="flex-1 truncate">{option.label}</span>
                   {currentValue === option.value && (
-                    <Check size={14} className="ml-2 text-white" />
+                    <Check size={14} className="ml-2" />
                   )}
                 </div>
               ))
             ) : (
-              <div className="px-4 py-8 text-[13px] text-[#ababad] text-center italic">
+              <div className="px-4 py-8 text-[13px] text-center italic">
                 No results found
               </div>
             )}
@@ -159,8 +159,8 @@ export const CustomSelect = ({
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex h-[40px] w-full items-center justify-between rounded-md border border-[#565856] bg-transparent px-3 py-2 text-sm transition-all focus:outline-none",
-          "cursor-pointer hover:border-[#797c81] select-none",
-          isOpen && "border-[#1d9bd1] ring-1 ring-[#1d9bd1]"
+          "cursor-pointer hover:border-selection-hover select-none",
+          isOpen && "border-selection-hover ring-[3px] ring-offset-0 ring-focus-ring"
         )}
       >
         <span>
@@ -168,7 +168,7 @@ export const CustomSelect = ({
         </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-[#ababad] transition-transform duration-200",
+            "h-4 w-4 transition-transform duration-200",
             isOpen && "rotate-180"
           )}
         />
