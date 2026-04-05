@@ -177,7 +177,31 @@ export function useMessages(channelId: string, isConnected: boolean) {
               ...page,
               messages: page.messages.map((m) =>
                 m.id === payload.messageId
-                  ? { ...m, attachments: [...m.attachments, payload.attachment] }
+                  ? { ...m, attachments: [...m.attachments, payload.attachment as any] }
+                  : m,
+              ),
+            })),
+          }
+        },
+      )
+    },
+    [channelId, queryClient],
+  )
+
+  const handleAttachmentDeleted = useCallback(
+    (data: unknown) => {
+      const payload = data as { messageId: string; attachmentId: string }
+      queryClient.setQueryData(
+        messageKeys.list(channelId),
+        (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === payload.messageId
+                  ? { ...m, attachments: m.attachments.filter((a) => a.id !== payload.attachmentId) }
                   : m,
               ),
             })),
@@ -194,6 +218,8 @@ export function useMessages(channelId: string, isConnected: boolean) {
     onMessageDeleted: handleMessageDeleted,
     onReactionUpdate: handleReactionUpdate,
     onAttachmentAdded: handleAttachmentAdded,
+    // @ts-ignore
+    onAttachmentDeleted: handleAttachmentDeleted,
   })
 
   return query
@@ -333,6 +359,132 @@ export function useAddReaction(channelId: string) {
                 }
                 return { ...msg, reactions: newReactions }
               }),
+            })),
+          }
+        },
+      )
+
+      return { previousData }
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(messageKeys.list(channelId), context.previousData)
+      }
+    },
+  })
+}
+
+/**
+ * useUpdateMessage — chỉnh sửa message với optimistic update
+ */
+export function useUpdateMessage(channelId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ messageId, content }: { messageId: string; content: string }) => {
+      return apiClient.patch(`/messages/${messageId}`, { content })
+    },
+
+    onMutate: async ({ messageId, content }) => {
+      const previousData = queryClient.getQueryData(messageKeys.list(channelId))
+
+      queryClient.setQueryData(
+        messageKeys.list(channelId),
+        (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === messageId ? { ...m, content, editedAt: new Date().toISOString() } : m,
+              ),
+            })),
+          }
+        },
+      )
+
+      return { previousData }
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(messageKeys.list(channelId), context.previousData)
+      }
+    },
+  })
+}
+
+/**
+ * useDeleteMessage - xóa message (soft delete)
+ */
+export function useDeleteMessage(channelId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (messageId: string) => {
+      return apiClient.delete(`/messages/${messageId}`)
+    },
+
+    onMutate: async (messageId) => {
+      const previousData = queryClient.getQueryData(messageKeys.list(channelId))
+
+      queryClient.setQueryData(
+        messageKeys.list(channelId),
+        (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) =>
+                m.id === messageId
+                  ? { ...m, deletedAt: new Date().toISOString(), content: '' }
+                  : m,
+              ),
+            })),
+          }
+        },
+      )
+
+      return { previousData }
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(messageKeys.list(channelId), context.previousData)
+      }
+    },
+  })
+}
+
+/**
+ * useDeleteAttachment - xóa attachment vĩnh viễn
+ */
+export function useDeleteAttachment(channelId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (attachmentId: string) => {
+      return apiClient.delete(`/attachments/${attachmentId}`)
+    },
+
+    onMutate: async (attachmentId) => {
+      const previousData = queryClient.getQueryData(messageKeys.list(channelId))
+
+      queryClient.setQueryData(
+        messageKeys.list(channelId),
+        (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => ({
+                ...m,
+                attachments: m.attachments.filter((a) => a.id !== attachmentId),
+              })),
             })),
           }
         },

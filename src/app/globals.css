@@ -169,6 +169,11 @@
 
 button {
   cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  /* dar
+  hover:bg-[#222529] text-[#797c81] hover:text-white */
+  @apply dark:hover:bg-[#222529] dark:text-[#797c81] dark:hover:text-white hover:bg-[#e8e8e8] hover:text-black
+
 }
 
 /* Tiptap Editor Styles */

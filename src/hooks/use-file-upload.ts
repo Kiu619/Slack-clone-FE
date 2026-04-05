@@ -105,11 +105,10 @@ export function useFileUpload() {
         })
       }
 
-      // Tạo attachment record trong DB
       const response = await apiClient.post<MessageAttachment>('/attachments', {
         messageId,
         url: uploadedUrl,
-        type: isImage ? 'image' : isVideo ? 'video' : 'file',
+        type: isImage ? 'image' : isVideo ? 'video' : mimeType.startsWith('audio/') ? 'audio' : 'file',
         name: file.name,
         size: file.size,
         mimeType: mimeType,

@@ -1,6 +1,6 @@
 "use client"
 
-import { MdMoreVert, MdOutlineCloudDownload } from "react-icons/md";
+import { MdMoreVert, MdOutlineCloudDownload, MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { RiInformationLine, RiShareForwardLine } from "react-icons/ri";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Separator } from "../ui/separator";
@@ -11,6 +11,10 @@ import { useState } from "react";
 import { Message, MessageAttachment } from "@/lib/types";
 import { ShareFileModal } from "./share-file-modal";
 import { useFileDetailStore } from "@/stores/useFileDetailStore";
+import { useDeleteAttachment } from "@/hooks/use-messages";
+import { toast } from "sonner";
+import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog";
+import { useUserStore } from "@/stores/useUserStore";
 
 interface Props {
   isHovered: boolean
@@ -21,17 +25,33 @@ interface Props {
 }
 
 const MENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
+  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 const SUBMENU_ITEM_STYLE =
   "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 const TOOLBAR_ITEM_STYLE = "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
 const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
 
 const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Props) => {
+  const currentUser = useUserStore((state) => state.user)
+  const isOwner = message.user.id === currentUser?.id
 
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState<boolean>(false);
+  const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState<boolean>(false);
   const openFileDetail = useFileDetailStore((s) => s.open);
+
+  const { mutate: deleteAttachment } = useDeleteAttachment(message.channelId);
+
+  const handleDelete = () => {
+    deleteAttachment(attachment.id, {
+      onSuccess: () => {
+        toast.success("File deleted successfully");
+      },
+      onError: () => {
+        toast.error("Failed to delete file. You might not have permission.");
+      }
+    });
+  }
 
   return (
     <div
@@ -135,11 +155,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
                 onMouseEnter={() => setIsAddToFolderOpen(true)}
                 onMouseLeave={() => setIsAddToFolderOpen(false)}
               >
-                <div className={cn(MENU_ITEM_STYLE, "relative")}>
+                <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
                   <Typography variant="p" text="Add to folder" />
+                  <MdOutlineKeyboardArrowRight size={13} />
                 </div>
                 {isAddToFolderOpen && (
-                  <div className="absolute bottom-2 right-40 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
+                  <div className="absolute left-35 bottom-0 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
                     <div className={SUBMENU_ITEM_STYLE}>
                       <Typography variant="p" text="Folder 1" />
                     </div>
@@ -152,11 +173,17 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
               </div>
 
               <Separator />
-              <Typography
-                variant="p"
-                text="Delete file"
-                className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 rounded cursor-pointer"
-              />
+              {isOwner && (
+                <Typography
+                  variant="p"
+                  text="Delete file"
+                  className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 cursor-pointer transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsConfirmDeleteFileDialogOpen(true);
+                  }}
+                />
+              )}
             </div>
           </div>
         </PopoverContent>
@@ -167,6 +194,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
         open={isShareFileModalOpen}
         onOpenChange={setIsShareFileModalOpen}
         attachment={attachment}
+      />
+
+      <ConfirmDeleteFileDialog
+        open={isConfirmDeleteFileDialogOpen}
+        onOpenChange={setIsConfirmDeleteFileDialogOpen}
+        onConfirm={handleDelete}
       />
     </div>
   );

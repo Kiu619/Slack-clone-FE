@@ -116,3 +116,29 @@ export const clearMemberStatusApi = async (workspaceId: string) => {
   )
   return res.data
 }
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+export const updateMessageApi = async (messageId: string, content: string) => {
+  const res = await apiClient.patch<{ id: string; content: string; editedAt: string }>(
+    `/messages/${messageId}`,
+    { content },
+  )
+  return res.data
+}
+
+export const deleteMessageApi = async (messageId: string) => {
+  const res = await apiClient.delete<{ messageId: string; channelId: string; deleted: boolean }>(
+    `/messages/${messageId}`,
+  )
+  return res.data
+}
+
+// ─── Attachments ──────────────────────────────────────────────────────────────
+
+export const deleteAttachmentApi = async (attachmentId: string) => {
+  const res = await apiClient.delete<{ success: boolean; messageId: string; channelId: string; attachmentId: string }>(
+    `/attachments/${attachmentId}`,
+  )
+  return res.data
+}

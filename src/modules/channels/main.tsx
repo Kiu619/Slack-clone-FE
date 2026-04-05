@@ -7,11 +7,19 @@ import { LuX } from 'react-icons/lu'
 import MessageList from '@/components/message-list'
 import Editor from '@/components/editor'
 import UploadingFileItem from '@/components/uploading-file-item'
-import { useSendMessage } from '@/hooks/use-messages'
+import { useSendMessage, useUpdateMessage, useDeleteMessage } from '@/hooks/use-messages'
 import { useSocket } from '@/hooks/use-socket'
 import { useFileUpload } from '@/hooks/use-file-upload'
 import { useUserStore } from '@/stores/useUserStore'
 import { messageKeys } from '@/lib/query-keys'
+import {
+  CustomDialog,
+  CustomDialogBody,
+  CustomDialogFooter,
+  CustomDialogHeader,
+  CustomDialogTitle,
+} from '@/components/custom-dialog'
+import { Button } from '@/components/ui/button'
 import { apiClient } from '@/lib/axios'
 import type { Channel, Message, MessageAttachment } from '@/lib/types'
 
@@ -50,8 +58,12 @@ const Main = ({ currentChannelData }: MainProps) => {
     currentUserForMutation,
   )
 
+  const { mutate: updateMessage } = useUpdateMessage(currentChannelData.id)
+  const { mutate: deleteMessage } = useDeleteMessage(currentChannelData.id)
+
   const { uploadFile, uploadingFiles, clearUploadingFiles } = useFileUpload()
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null)
 
   const addPendingFiles = useCallback((files: File[]) => {
     const newItems: PendingFile[] = files.map((file) => ({
@@ -199,12 +211,15 @@ const Main = ({ currentChannelData }: MainProps) => {
     ],
   )
 
-  const  handleEditMessage = useCallback((message: Message) => {
-    console.log('Edit message:', message.id)
-  }, [])
+  const handleEditMessage = useCallback(
+    (message: Message) => {
+      updateMessage({ messageId: message.id, content: message.content })
+    },
+    [updateMessage],
+  )
 
   const handleDeleteMessage = useCallback((messageId: string) => {
-    console.log('Delete message:', messageId)
+    setMessageToDelete(messageId)
   }, [])
 
   const handleReplyMessage = useCallback((message: Message) => {
@@ -237,35 +252,14 @@ const Main = ({ currentChannelData }: MainProps) => {
       />
 
       <div className="px-4 pb-4 shrink-0">
-        {/* Pending files — chưa gửi, nhấn Enter/Gửi để upload */}
-        {pendingFiles.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {pendingFiles.map(({ id, file }) => (
-              <div
-                key={id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#222529] border border-[#797c814d] text-sm"
-              >
-                <span className="text-gray-200 truncate max-w-[150px]">
-                  {file.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removePendingFile(id)}
-                  className="p-0.5 hover:dark:bg-[#35373B] rounded transition-colors"
-                >
-                  <LuX size={14} className="text-gray-400" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
         <Editor
           channelName={currentChannelData.name}
           onSubmit={handleSubmit}
           onFileAttach={handleFileAttach}
           disabled={isSending}
           hasPendingFiles={pendingFiles.length > 0}
+          pendingFiles={pendingFiles}
+          onRemoveFile={removePendingFile}
         />
 
         {/* Upload progress indicator */}
@@ -284,6 +278,40 @@ const Main = ({ currentChannelData }: MainProps) => {
           </div>
         )}
       </div>
+
+      <CustomDialog
+        open={!!messageToDelete}
+        onOpenChange={(open) => !open && setMessageToDelete(null)}
+      >
+        <CustomDialogHeader onOpenChange={() => setMessageToDelete(null)}>
+          <CustomDialogTitle>Delete message?</CustomDialogTitle>
+        </CustomDialogHeader>
+        <CustomDialogBody>
+          <p className="text-[15px] dark:text-[#d1d2d3]">
+            Are you sure you want to delete this message? This action cannot be undone.
+          </p>
+        </CustomDialogBody>
+        <CustomDialogFooter>
+          <Button
+            variant="outline"
+            className="dark:text-white"
+            onClick={() => setMessageToDelete(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (messageToDelete) {
+                deleteMessage(messageToDelete)
+                setMessageToDelete(null)
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </CustomDialogFooter>
+      </CustomDialog>
     </div>
   )
 }

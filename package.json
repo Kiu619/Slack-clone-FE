@@ -58,6 +58,7 @@
     "tailwind-merge": "^3.5.0",
     "uuid": "^13.0.0",
     "vaul": "^1.1.2",
+    "wavesurfer.js": "^7.12.5",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },

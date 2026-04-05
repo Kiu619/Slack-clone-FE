@@ -26,6 +26,7 @@ import {
   LuTrash2,
 } from "react-icons/lu";
 import { ArrowLeft } from "lucide-react";
+import Editor from "./editor";
 
 // Dynamic import EmojiPicker để tránh SSR
 import { formatTimestamp } from "@/helpers/format-time-stamp";
@@ -101,6 +102,7 @@ export default function MessageItem({
   onReply,
 }: MessageItemProps) {
   const { open: openProfilePanel } = useProfilePanelStore()
+  const [isEditing, setIsEditing] = useState(false);
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false);
   const [isRemindMeOpen, setIsRemindMeOpen] = useState(false);
 
@@ -231,23 +233,40 @@ export default function MessageItem({
             <span className="text-[11px] dark:text-[#797c81]">
               {formatTimestamp(message.createdAt)}
             </span>
+            {isEdited && (
+              <span className="text-[11px] dark:text-[#797c81]">
+                (edited)
+              </span>
+            )}
           </div>
         )}
 
-        {/* Nội dung message — ẩn placeholder "Đang tải file" khi đã có attachments */}
-        {shouldShowContent && (
-          <div
-            className="text-[15px] dark:text-[#d1d2d3] leading-relaxed message-content"
-            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-          />
+        {/* Nội dung message / Editor khi edit */}
+        {isEditing ? (
+          <div className="w-full mt-1">
+            <Editor
+              variant="update"
+              initialContent={message.content}
+              onCancel={() => setIsEditing(false)}
+              onSubmit={(content) => {
+                onEdit?.({ ...message, content });
+                setIsEditing(false);
+              }}
+              disabled={false}
+            />
+          </div>
+        ) : (
+          shouldShowContent && (
+            <div
+              className={`text-[15px] leading-relaxed message-content ${isDeleted ? 'text-[#797c81] italic' : 'dark:text-[#d1d2d3]'
+                }`}
+              dangerouslySetInnerHTML={{
+                __html: isDeleted ? "Message deleted" : sanitizedContent
+              }}
+            />
+          )
         )}
 
-        {/* Badge "đã chỉnh sửa" */}
-        {isEdited && (
-          <span className="text-[11px] dark:text-[#797c81] ml-1">
-            (đã chỉnh sửa)
-          </span>
-        )}
 
         {/* Attachments — hiển thị files/images/videos */}
         {message.attachments && message.attachments.length > 0 && (
@@ -402,16 +421,24 @@ export default function MessageItem({
             >
               <div className="py-2 ">
                 <div className="flex flex-col space-y-1">
-                  <div className={MENU_ITEM_STYLE}>
-                    <LuPencil size={16} />
-                    <Typography
-                      variant="p"
-                      text="Edit message"
-                      className="text-[15px]"
-                    />
-                  </div>
-
-                  <Separator />
+                  {isOwner && !isDeleted && (
+                    <>
+                      <div
+                        className={MENU_ITEM_STYLE}
+                        onClick={() => {
+                          setIsEditing(true);
+                        }}
+                      >
+                        <LuPencil size={16} />
+                        <Typography
+                          variant="p"
+                          text="Edit message"
+                          className="text-[15px]"
+                        />
+                      </div>
+                      <Separator />
+                    </>
+                  )}
 
                   <div className={MENU_ITEM_STYLE}>
                     <MdOutlineMarkChatUnread size={16} />
@@ -524,16 +551,21 @@ export default function MessageItem({
                     )}
                   </div>
 
-                  <Separator />
-                  <div
-                    className={cn(
-                      MENU_ITEM_STYLE,
-                      "text-red-500 hover:text-white hover:bg-red-700 cursor-pointer",
-                    )}
-                  >
-                    <LuTrash2 size={16} />
-                    <Typography variant="p" text="Delete message" />
-                  </div>
+                  {isOwner && !isDeleted && (
+                    <>
+                      <Separator />
+                      <div
+                        className={cn(
+                          MENU_ITEM_STYLE,
+                          "text-red-500 hover:text-white hover:bg-red-700 cursor-pointer",
+                        )}
+                        onClick={() => onDelete?.(message.id)}
+                      >
+                        <LuTrash2 size={16} />
+                        <Typography variant="p" text="Delete message" />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </PopoverContent>

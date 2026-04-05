@@ -9,6 +9,7 @@ import {
   FaFileWord,
 } from "react-icons/fa";
 import { LuFile, LuFileArchive, LuFileText, LuImage } from "react-icons/lu";
+import { getFileIcon } from "./file-preview";
 interface FilePreviewProps {
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
@@ -40,53 +41,6 @@ export default function PillowFile({
       </div>
     </div>
   );
-}
-
-/**
- * Get icon component dựa trên file extension
- */
-function getFileIcon(fileName: string): React.ReactElement {
-  const ext = fileName.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
-
-  const iconClass = "w-6 h-6";
-
-  switch (ext) {
-    case ".pdf":
-      return <FaFilePdf className={`${iconClass} text-red-500`} />;
-    case ".doc":
-    case ".docx":
-      return <FaFileWord className={`${iconClass} text-blue-500`} />;
-    case ".xls":
-    case ".xlsx":
-      return <FaFileExcel className={`${iconClass} text-green-500`} />;
-    case ".ppt":
-    case ".pptx":
-      return <FaFilePowerpoint className={`${iconClass} text-orange-500`} />;
-    case ".zip":
-    case ".rar":
-    case ".7z":
-    case ".tar":
-    case ".gz":
-      return <LuFileArchive className={`${iconClass} text-yellow-600`} />;
-    case ".txt":
-    case ".md":
-    case ".json":
-    case ".xml":
-    case ".csv":
-      return <LuFileText className={`${iconClass} text-gray-500`} />;
-    case ".png":
-    case ".jpg":
-    case ".jpeg":
-    case ".gif":
-    case ".webp":
-    case ".svg":
-    case ".ico":
-    case ".bmp":
-    case ".tiff":
-      return <LuImage className={`${iconClass} text-gray-400`} />;
-    default:
-      return <LuFile className={`${iconClass} text-gray-400`} />;
-  }
 }
 
 /**

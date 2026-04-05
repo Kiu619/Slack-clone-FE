@@ -7,6 +7,7 @@ import VideoPreview from "./video-preview";
 import FilePreview from "./file-preview";
 import CodePreview from "./code-preview";
 import OfficeFilePreview from "./office-file-preview";
+import AudioPreview from "./audio-preview";
 import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils";
 import Typography from "../ui/typography";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
@@ -40,12 +41,49 @@ export default function AttachmentList({
 
   if (!attachments.length) return null;
 
+  const isAllImages = attachments.every((a) => a.type === "image");
+  const isMixedOrFiles = attachments.length >= 2 && !isAllImages;
+
+  if (isMixedOrFiles) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={handleToggle}
+          className="flex w-full gap-2 items-center text-left hover:opacity-80 transition-opacity dark:text-[#d1d2d3] truncate!"
+        >
+          <Typography
+            variant="p"
+            className="text-[10px]"
+            text={`${attachments.length} files`}
+          />
+          {isExpanded ? (
+            <FaCaretDown className="w-3 h-3 shrink-0 text-[#797c81]" />
+          ) : (
+            <FaCaretRight className="w-3 h-3 shrink-0 text-[#797c81]" />
+          )}
+        </button>
+        {isExpanded && (
+          <div className="flex flex-wrap gap-2 w-full mt-1">
+            {attachments.map((file) => (
+              <FilePreview
+                key={file.id}
+                message={message}
+                attachment={file}
+                onDownload={onDownload}
+              />
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
   // Group theo type
   const images = attachments.filter((a) => a.type === "image");
   const videos = attachments.filter((a) => a.type === "video");
-  const allFiles = attachments.filter(
-    (a) => a.type === "file" || a.type === "audio",
-  );
+  const audioFiles = attachments.filter((a) => a.type === "audio");
+  const allFiles = attachments.filter((a) => a.type === "file");
 
   const officeFiles = allFiles.filter((a) => isOfficeFile(a.name));
   const pdfFiles = allFiles.filter((a) => isPdfFile(a.name, a.mimeType));
@@ -118,7 +156,20 @@ export default function AttachmentList({
             </div>
           )}
 
-          {officeFiles.length > 0 && (
+          {audioFiles.length > 0 && (
+            <div className="flex flex-col gap-2 w-full">
+              {audioFiles.map((audio) => (
+                <AudioPreview
+                  key={audio.id}
+                  message={message}
+                  attachment={audio}
+                  onDownload={onDownload}
+                />
+              ))}
+            </div>
+          )}
+
+          {officeFiles.length > 0  && (
             <div className="flex flex-wrap gap-2 w-full">
               {officeFiles.map((file) => (
                 <OfficeFilePreview

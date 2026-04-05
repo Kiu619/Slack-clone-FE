@@ -179,37 +179,30 @@ export default function MessageList({
 
   /** firstItemIndex — giữ scroll position khi prepend (load tin nhắn cũ hơn) */
   const prevLengthRef = useRef<number | null>(null)
+  const prevPagesRef = useRef<number | null>(null)
   const [firstItemIndex, setFirstItemIndex] = useState(10000)
 
   useEffect(() => {
-    const curr = listItems.length
-    if (prevLengthRef.current === null) {
-      prevLengthRef.current = curr
-      return
-    }
-    const prev = prevLengthRef.current
-    if (curr > prev) {
-      setFirstItemIndex((f) => f - (curr - prev))
-    }
-    prevLengthRef.current = curr
-  }, [listItems.length])
+    const currTotal = listItems.length
+    const currPages = data?.pages.length || 0
 
-  /** Auto scroll xuống bottom CHỈ khi load lần đầu xong (không chạy khi fetchNextPage) */
-  const hasInitiallyScrolledRef = useRef(false)
-  useEffect(() => {
-    hasInitiallyScrolledRef.current = false // Reset khi đổi channel
-  }, [channelId])
-  useEffect(() => {
-    if (isLoading || listItems.length === 0) return
-    if (hasInitiallyScrolledRef.current) return
-    hasInitiallyScrolledRef.current = true
-    setTimeout(() => {
-      virtuosoRef.current?.scrollToIndex({
-        index: listItems.length - 1,
-        behavior: 'auto',
-      })
-    }, 50)
-  }, [isLoading, listItems.length, channelId])
+    const prevTotal = prevLengthRef.current
+    const prevPages = prevPagesRef.current
+
+    // Cập nhật firstItemIndex CHỈ khi load thêm trang mới (prepend)
+    if (prevPages !== null && currPages > prevPages && prevTotal !== null) {
+      const diff = currTotal - prevTotal
+      setFirstItemIndex((f) => f - diff)
+    }
+
+    prevLengthRef.current = currTotal
+    prevPagesRef.current = currPages
+  }, [listItems.length, data?.pages.length])
+
+  /** Index cho initial scroll to bottom — dùng tọa độ của Virtuoso (firstItemIndex + len - 1) */
+  const initialTopMostItemIndex = useMemo(() => {
+    return firstItemIndex + listItems.length - 1
+  }, [firstItemIndex, listItems.length])
 
   /** Callback khi scroll lên đầu → load thêm messages cũ */
   const handleStartReached = useCallback(() => {
@@ -225,6 +218,23 @@ export default function MessageList({
     [addReaction, currentUserId],
   )
 
+  /** Header loader — nằm trong Virtuoso để tránh làm list nhảy khi xuất hiện/biến mất */
+  const components = useMemo(
+    () => ({
+      Header: () =>
+        isFetchingNextPage ? (
+          <div className="flex justify-center py-2">
+            <div className="text-[12px] text-[#797c81] animate-pulse">
+              Loading...
+            </div>
+          </div>
+        ) : (
+          <div className="h-4" />
+        ),
+    }),
+    [isFetchingNextPage],
+  )
+
   if (isLoading) {
     return <MessageSkeleton />
   }
@@ -235,27 +245,16 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-hidden">
-      {/* Loading spinner khi load thêm messages cũ */}
-      {isFetchingNextPage && (
-        <div className="flex justify-center py-2">
-          <div className="text-[12px] text-[#797c81] animate-pulse">
-            Đang tải tin nhắn cũ hơn...
-          </div>
-        </div>
-      )}
-
-      {/*
-       * Virtuoso: chỉ render items trong viewport
-       * followOutput: auto scroll xuống khi có message mới
-       * atTopStateChange + startReached: trigger load more khi scroll lên đầu
-       */}
       <Virtuoso
         ref={virtuosoRef}
         data={listItems}
         firstItemIndex={firstItemIndex}
-        increaseViewportBy={{ top: 600, bottom: 400 }}
-        followOutput="smooth"
-        atTopThreshold={100}
+        initialTopMostItemIndex={initialTopMostItemIndex}
+        components={components}
+        alignToBottom={true}
+        // increaseViewportBy={{ top: 1000, bottom: 400 }}
+        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        atTopThreshold={200}
         startReached={handleStartReached}
         style={{ height: '100%' }}
         computeItemKey={(_, item) =>

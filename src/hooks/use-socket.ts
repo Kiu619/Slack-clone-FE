@@ -84,6 +84,7 @@ export function useChannelSocket(
     onMessageDeleted?: (data: { messageId: string }) => void
     onReactionUpdate?: (data: unknown) => void
     onAttachmentAdded?: (data: { messageId: string; attachment: unknown }) => void
+    onAttachmentDeleted?: (data: { messageId: string; attachmentId: string }) => void
   },
 ) {
   const socket = getSocket()
@@ -93,13 +94,14 @@ export function useChannelSocket(
 
     socket.emit('join-channel', { channelId })
 
-    const { onMessage, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded } = callbacks
+    const { onMessage, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded, onAttachmentDeleted } = callbacks
 
     if (onMessage) socket.on('message', onMessage)
     if (onMessageUpdated) socket.on('message:updated', onMessageUpdated)
     if (onMessageDeleted) socket.on('message:deleted', onMessageDeleted)
     if (onReactionUpdate) socket.on('reaction:update', onReactionUpdate)
     if (onAttachmentAdded) socket.on('attachment:added', onAttachmentAdded)
+    if (onAttachmentDeleted) socket.on('attachment:deleted', onAttachmentDeleted)
 
     return () => {
       socket.emit('leave-channel', { channelId })
@@ -109,6 +111,7 @@ export function useChannelSocket(
       if (onMessageDeleted) socket.off('message:deleted', onMessageDeleted)
       if (onReactionUpdate) socket.off('reaction:update', onReactionUpdate)
       if (onAttachmentAdded) socket.off('attachment:added', onAttachmentAdded)
+      if (onAttachmentDeleted) socket.off('attachment:deleted', onAttachmentDeleted)
     }
   }, [channelId, isConnected, callbacks, socket])
 }

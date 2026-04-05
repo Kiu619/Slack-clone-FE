@@ -8,7 +8,7 @@ import {
   FaFilePowerpoint,
   FaFileWord,
 } from "react-icons/fa";
-import { LuFile, LuFileArchive, LuFileText } from "react-icons/lu";
+import { LuFile, LuFileArchive, LuFileAudio, LuFileImage, LuFileText, LuFileVideo } from "react-icons/lu";
 import FileToolbar from "./file-toolbar";
 
 interface FilePreviewProps {
@@ -56,7 +56,7 @@ export default function FilePreview({
       ) : null}
 
       {/* File icon */}
-      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded bg-[#2a2d31]">
+      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
         {fileIcon}
       </div>
 
@@ -74,7 +74,7 @@ export default function FilePreview({
 /**
  * Get icon component dựa trên file extension
  */
-function getFileIcon(fileName: string): React.ReactElement {
+export function getFileIcon(fileName: string): React.ReactElement {
   const ext = fileName.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
 
   const iconClass = "w-6 h-6";
@@ -103,6 +103,25 @@ function getFileIcon(fileName: string): React.ReactElement {
     case ".xml":
     case ".csv":
       return <LuFileText className={`${iconClass} text-gray-500`} />;
+    case ".jpg":
+    case ".jpeg":
+    case ".png":
+    case ".gif":
+    case ".svg":
+    case ".webp":
+      return <LuFileImage className={`${iconClass} text-purple-500`} />;
+    case ".mp4":
+    case ".mov":
+    case ".avi":
+    case ".mkv":
+    case ".webm":
+      return <LuFileVideo className={`${iconClass} text-rose-500`} />;
+    case ".mp3":
+    case ".wav":
+    case ".ogg":
+    case ".flac":
+    case ".m4a":
+      return <LuFileAudio className={`${iconClass} text-amber-600`} />;
     default:
       return <LuFile className={`${iconClass} text-gray-400`} />;
   }
@@ -111,7 +130,7 @@ function getFileIcon(fileName: string): React.ReactElement {
 /**
  * Format file size: bytes → "2.5 MB"
  */
-function formatFileSize(bytes: number): string {
+export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];

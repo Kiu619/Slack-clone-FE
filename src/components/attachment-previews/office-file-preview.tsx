@@ -1,8 +1,9 @@
 "use client"
 
 import type { Message, MessageAttachment } from "@/lib/types"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FaFileExcel, FaFilePowerpoint, FaFileWord } from "react-icons/fa"
+import { Loader2 } from "lucide-react"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
@@ -77,9 +78,30 @@ export default function OfficeFilePreview({
 }: OfficeFilePreviewProps) {
   const [isViewerOpen, setIsViewerOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const config = getOfficeConfig(attachment.name)
+  const [isInView, setIsInView] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const containerRef = useRef<HTMLDivElement>(null)
 
+  const config = getOfficeConfig(attachment.name)
   const viewerSrc = `${OFFICE_VIEWER_URL}?src=${encodeURIComponent(attachment.url)}`
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsInView(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
 
   const handleOpenInNewTab = () => {
     window.open(attachment.url, "_blank")
@@ -110,39 +132,57 @@ export default function OfficeFilePreview({
           />
         ) : null}
         {/* Info bar */}
-        <div className="px-4 py-3 border-t border-[#797c814d]">
+        <div className="px-4 py-3 border-b border-[#797c814d]">
           <p className="text-[15px] font-medium dark:text-[#d1d2d3] truncate mb-0.5">
             {attachment.name}
           </p>
-          <p className="text-[13px] text-[#797c81] mb-2">
+          <p className="text-[13px] text-[#797c81]">
             {config?.label ?? "Document"} · {formatFileSize(attachment.size)}
           </p>
         </div>
 
-        {/* Preview card — trang đầu Office file (iframe), click mở modal */}
-        <button
-          type="button"
-          onClick={() => setIsViewerOpen(true)}
-          className="block w-full shrink-0 relative overflow-hidden bg-[#2a2d31] hover:opacity-95 transition-opacity group h-[260px]"
+        {/* Preview card container */}
+        <div
+          ref={containerRef}
+          className="relative h-[260px] bg-[#F8F8F8] dark:bg-[#2a2d31]"
         >
-          <div
-            className="absolute inset-0 w-full h-full"
+          {isInView ? (
+            <>
+              {isLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 bg-[#F8F8F8] dark:bg-[#2a2d31]">
+                  {config?.icon}
+                  <div className="flex items-center gap-2 text-[#797c81] text-xs">
+                    Loading preview... <Loader2 className="w-3 h-3 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <iframe
+                src={viewerSrc}
+                title={`Preview: ${attachment.name}`}
+                className={`absolute inset-0 w-full h-full border-0 pointer-events-none transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                onLoad={() => setIsLoading(false)}
+                aria-hidden
+              />
+            </>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#F8F8F8] dark:bg-[#2a2d31]">
+              {config?.icon}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsViewerOpen(true)}
+            className="absolute inset-0 w-full h-full cursor-pointer z-20 group/btn hover:bg-transparent!"
           >
-            <iframe
-              src={viewerSrc}
-              title={`Preview: ${attachment.name}`}
-              className="absolute inset-0 w-full h-full border-0 pointer-events-none"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              aria-hidden
-            />
-            {/* Overlay hover — gợi ý click mở modal */}
-            <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-end justify-center pb-2">
-              <span className="text-[12px] text-white/90">
-                Nhấn để xem đầy đủ
+            <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity flex items-end justify-center pb-3">
+              <span className="text-[12px] text-white font-medium bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+                Click to expand
               </span>
             </div>
-          </div>
-        </button>
+          </button>
+        </div>
       </div>
 
       <PreviewModal
@@ -151,12 +191,14 @@ export default function OfficeFilePreview({
         title={attachment.name}
         onDownload={handleDownload}
       >
-        <iframe
-          src={viewerSrc}
-          title={attachment.name}
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        />
+        {isViewerOpen && (
+          <iframe
+            src={viewerSrc}
+            title={attachment.name}
+            className="w-full h-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          />
+        )}
       </PreviewModal>
     </>
   )

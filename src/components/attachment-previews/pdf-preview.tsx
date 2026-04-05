@@ -11,8 +11,8 @@ import "react-pdf/dist/Page/TextLayer.css"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
-// Worker cho PDF.js (phải set trong cùng file với Document/Page)
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+// Worker cho PDF.js — dùng unpkg chính thức theo version của pdfjs-dist
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PdfPreviewProps {
   message: Message;
@@ -38,35 +38,11 @@ export default function PdfPreview({
 
   const { data: pdfData, isPending, isError } = useFileCache(attachment.url)
 
-  /**
-   * PDF.js (worker) có thể detach ArrayBuffer — dùng blob URL từ slice mới.
-   * URL tạo trong render (useMemo); effect chỉ revoke (không setState trong effect).
-   */
-  const cardObjectUrl = useMemo(() => {
+  // Memoize bản copy để tránh việc Document load lại khi component re-render (như khi hover)
+  const memoizedPdfFile = useMemo(() => {
     if (!pdfData) return null
-    const blob = new Blob([pdfData.slice(0)], { type: "application/pdf" })
-    return URL.createObjectURL(blob)
+    return pdfData.slice(0)
   }, [pdfData])
-
-  const modalObjectUrl = useMemo(() => {
-    if (!pdfData || !isExpanded) return null
-    const blob = new Blob([pdfData.slice(0)], { type: "application/pdf" })
-    return URL.createObjectURL(blob)
-  }, [pdfData, isExpanded])
-
-  useEffect(() => {
-    if (!cardObjectUrl) return
-    return () => {
-      URL.revokeObjectURL(cardObjectUrl)
-    }
-  }, [cardObjectUrl])
-
-  useEffect(() => {
-    if (!modalObjectUrl) return
-    return () => {
-      URL.revokeObjectURL(modalObjectUrl)
-    }
-  }, [modalObjectUrl])
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
@@ -153,9 +129,9 @@ export default function PdfPreview({
               >
                 <div className="text-[#797c81] text-sm flex items-center gap-2">Loading PDF...<Loader2 className="w-4 h-4 animate-spin" /></div>
               </div>
-            ) : cardObjectUrl ? (
+            ) : memoizedPdfFile ? (
               <Document
-                file={cardObjectUrl}
+                file={memoizedPdfFile}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
               >
@@ -190,11 +166,11 @@ export default function PdfPreview({
         onDownload={handleDownload}
       >
         <div className="h-full overflow-auto p-4 flex flex-col items-center">
-          {modalObjectUrl ? (
+          {memoizedPdfFile ? (
             <Document
-              file={modalObjectUrl}
+              file={memoizedPdfFile}
               onLoadSuccess={onDocumentLoadSuccess}
-              loading={<div className="text-white">Đang tải...</div>}
+              loading={<div className="text-white">Loading document...</div>}
             >
               {numPages != null &&
                 Array.from({ length: numPages }, (_, i) => (
@@ -214,7 +190,7 @@ export default function PdfPreview({
                 ))}
             </Document>
           ) : (
-            <div className="text-white py-20">Đang tải...</div>
+            <div className="text-white py-20">Loading...</div>
           )}
         </div>
       </PreviewModal>

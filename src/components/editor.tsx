@@ -25,12 +25,19 @@ import {
   LuStrikethrough,
   LuUnderline,
   LuVideo,
+  LuX,
 } from 'react-icons/lu'
 import { MdFormatColorText } from 'react-icons/md'
 import { LinkInputDialog } from './dialogs/link-input-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useTheme } from 'next-themes'
+import { getFileIcon, formatFileSize } from './attachment-previews/file-preview'
+import { PendingFile } from '@/lib/types'
+import { useAudioRecorder } from '@/hooks/use-audio-recorder'
+import EditorAudioRecorder from './editor-audio-recorder'
+import AudioPreview from './attachment-previews/audio-preview'
 
+const RecordVideoDialog = dynamic(() => import('./dialogs/record-video-dialog'), { ssr: false })
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 interface EditorProps {
@@ -49,22 +56,42 @@ interface EditorProps {
   onFileAttach?: (files: File[]) => void
   /** Có file pending → cho phép gửi dù không có text */
   hasPendingFiles?: boolean
+  initialContent?: string
+  variant?: 'create' | 'update'
+  onCancel?: () => void
+  pendingFiles?: PendingFile[]
+  onRemoveFile?: (id: string) => void
 }
 
 const Editor = ({
   onSubmit,
+  onCancel,
   channelName,
   disabled = false,
   onFileAttach,
   hasPendingFiles = false,
+  initialContent = '',
+  variant = 'create',
+  pendingFiles = [],
+  onRemoveFile,
 }: EditorProps) => {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false)
   const [, forceUpdate] = useState({})
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { theme } = useTheme()
+
+  const {
+    isRecording,
+    recordingDuration,
+    stream,
+    startRecording,
+    stopRecording,
+    cancelRecording
+  } = useAudioRecorder()
 
   const editor = useEditor({
     extensions: [
@@ -100,7 +127,7 @@ const Editor = ({
         },
       }),
       Placeholder.configure({
-        placeholder: `Nhắn tin tới #${channelName || 'channel'}`,
+        placeholder: `Message #${channelName || 'channel'}`,
       }),
       Link.configure({
         openOnClick: false,
@@ -111,10 +138,10 @@ const Editor = ({
     editorProps: {
       attributes: {
         class:
-          'max-w-none focus:outline-none max-h-[200px] overflow-y-auto px-3 py-2 text-[15px] text-white leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
+          'max-w-none focus:outline-none max-h-[200px] overflow-y-auto px-3 py-2 text-[15px] leading-tight scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900',
       },
     },
-    content: '',
+    content: initialContent,
     immediatelyRender: false,
     editable: !disabled,
     onUpdate: () => {
@@ -127,8 +154,8 @@ const Editor = ({
 
   // Sync editable state với disabled prop
   useEffect(() => {
-    editor?.setEditable(!disabled)
-  }, [editor, disabled])
+    editor?.setEditable(!disabled && !isRecording)
+  }, [editor, disabled, isRecording])
 
   // Close emoji picker khi click outside
   useEffect(() => {
@@ -210,6 +237,9 @@ const Editor = ({
       handleSubmit()
       return
     }
+    if (e.key === 'Escape') {
+      onCancel?.()
+    }
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault()
       if (editor?.isActive('bulletList') || editor?.isActive('orderedList')) {
@@ -239,6 +269,14 @@ const Editor = ({
   const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run()
   const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run()
 
+  const handleConfirmAudio = async () => {
+    const blob = await stopRecording()
+    if (blob) {
+      const file = new File([blob], `audio_message_${new Date().getTime()}.webm`, { type: 'audio/webm' })
+      onFileAttach?.([file])
+    }
+  }
+
   const hasContent = !!editor?.getText().trim()
   const canSubmit = hasContent || hasPendingFiles
 
@@ -265,53 +303,79 @@ const Editor = ({
       // onDragOver={handleDragOver}
       >
         {/* Top Toolbar: Formatting */}
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
-          <ToolbarButton onClick={toggleBold} active={isMarkActive('bold')} tooltip="Bold (Ctrl+B)">
-            <LuBold size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleItalic} active={isMarkActive('italic')} tooltip="Italic (Ctrl+I)">
-            <LuItalic size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleStrike} active={isMarkActive('strike')} tooltip="Strikethrough">
-            <LuStrikethrough size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleUnderline} active={isMarkActive('underline')} tooltip="Underline (Ctrl+U)">
-            <LuUnderline size={16} />
-          </ToolbarButton>
+        {!isRecording && (
+          <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
+            <ToolbarButton onClick={toggleBold} active={isMarkActive('bold')} tooltip="Bold (Ctrl+B)">
+              <LuBold size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleItalic} active={isMarkActive('italic')} tooltip="Italic (Ctrl+I)">
+              <LuItalic size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleStrike} active={isMarkActive('strike')} tooltip="Strikethrough">
+              <LuStrikethrough size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleUnderline} active={isMarkActive('underline')} tooltip="Underline (Ctrl+U)">
+              <LuUnderline size={16} />
+            </ToolbarButton>
 
-          <Divider />
+            <Divider />
 
-          <ToolbarButton onClick={toggleBulletList} active={editor.isActive('bulletList')} tooltip="Bullet list">
-            <LuList size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleOrderedList} active={editor.isActive('orderedList')} tooltip="Ordered list">
-            <LuListOrdered size={16} />
-          </ToolbarButton>
+            <ToolbarButton onClick={toggleBulletList} active={editor.isActive('bulletList')} tooltip="Bullet list">
+              <LuList size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleOrderedList} active={editor.isActive('orderedList')} tooltip="Ordered list">
+              <LuListOrdered size={16} />
+            </ToolbarButton>
 
-          <Divider />
+            <Divider />
 
-          <ToolbarButton onClick={() => setShowLinkInput(!showLinkInput)} active={editor.isActive('link')} tooltip="Insert link">
-            <LuLink size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleCode} active={isMarkActive('code')} tooltip="Inline code">
-            <LuCode size={16} />
-          </ToolbarButton>
-          <ToolbarButton onClick={toggleCodeBlock} active={editor.isActive('codeBlock')} tooltip="Code block">
-            <LuSquareCode size={16} />
-          </ToolbarButton>
-        </div>
+            <ToolbarButton onClick={() => setShowLinkInput(!showLinkInput)} active={editor.isActive('link')} tooltip="Insert link">
+              <LuLink size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleCode} active={isMarkActive('code')} tooltip="Inline code">
+              <LuCode size={16} />
+            </ToolbarButton>
+            <ToolbarButton onClick={toggleCodeBlock} active={editor.isActive('codeBlock')} tooltip="Code block">
+              <LuSquareCode size={16} />
+            </ToolbarButton>
+          </div>
+        )}
 
         {/* Editor Content */}
-        <div onKeyDown={handleKeyDown}>
-          <EditorContent editor={editor} />
-        </div>
+        {isRecording ? (
+          <EditorAudioRecorder
+            isRecording={isRecording}
+            recordingDuration={recordingDuration}
+            stream={stream}
+            onCancel={cancelRecording}
+            onConfirm={handleConfirmAudio}
+          />
+        ) : (
+          <div onKeyDown={handleKeyDown}>
+            <EditorContent editor={editor} />
+          </div>
+        )}
+
+        {/* Pending Files Preview */}
+        {pendingFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 p-3">
+            {pendingFiles.map((pf) => (
+              <PendingFilePreview
+                key={pf.id}
+                file={pf.file}
+                onRemove={() => onRemoveFile?.(pf.id)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Bottom Toolbar: Media + Send */}
-        <div className="flex items-center justify-between px-2 py-1.5">
+        {!isRecording && (
+          <div className="flex items-center justify-between px-2 py-1.5">
           <div className="flex items-center gap-0.5">
             <ToolbarButton
               onClick={() => fileInputRef.current?.click()}
-              tooltip="Đính kèm file"
+              tooltip="Attach file"
             >
               <LuPaperclip size={16} />
             </ToolbarButton>
@@ -350,33 +414,52 @@ const Editor = ({
 
             <Divider />
 
-            <ToolbarButton tooltip="Record video clip">
+            <ToolbarButton onClick={() => setShowVideoRecorder(true)} tooltip="Record video clip">
               <LuVideo size={16} />
             </ToolbarButton>
-            <ToolbarButton tooltip="Record audio clip">
+            <ToolbarButton disabled={isRecording} onClick={startRecording} tooltip="Record audio clip">
               <LuMic size={16} />
             </ToolbarButton>
           </div>
 
-          {/* Send button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
+          {variant === 'update' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onCancel}
+                className="px-3 py-1.5 rounded dark:bg-transparent dark:text-white dark:border-[#797c814d] border bg-white text-black hover:bg-gray-50 dark:hover:bg-[#222529] text-sm font-semibold transition-colors"
+                disabled={disabled}
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit || disabled}
-                className={`p-2 rounded transition-colors ${canSubmit && !disabled
-                  ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
-                  : 'bg-[#222529] text-[#797c81] cursor-not-allowed'
-                  }`}
+                className="px-3 py-1.5 rounded bg-[#007a5a] text-white hover:bg-[#148567] text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <LuSend size={16} />
+                Save Changes
               </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p className="text-xs">Gửi (Enter)</p>
-            </TooltipContent>
-          </Tooltip>
+            </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || disabled}
+                  className={`p-2 rounded transition-colors ${canSubmit && !disabled
+                    ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
+                    : 'dark:bg-[#222529] bg-[#e8e8e8] text-[#797c81] cursor-not-allowed'
+                    }`}
+                >
+                  <LuSend size={16} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p className="text-xs">Send (Enter)</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
+        )}
       </div>
 
       {showLinkInput && (
@@ -385,6 +468,15 @@ const Editor = ({
           setOpen={setShowLinkInput}
         />
       )}
+
+      <RecordVideoDialog
+        open={showVideoRecorder}
+        onOpenChange={setShowVideoRecorder}
+        onFileAttach={(files) => {
+          onFileAttach?.(files)
+          setShowVideoRecorder(false)
+        }}
+      />
     </div>
   )
 }
@@ -420,6 +512,50 @@ function ToolbarButton({ onClick, active, tooltip, children, disabled }: Toolbar
         <p className="text-xs">{tooltip}</p>
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+function PendingFilePreview({ file, onRemove }: { file: File, onRemove: () => void }) {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (file.type.startsWith('audio/')) {
+       const url = URL.createObjectURL(file)
+       setAudioUrl(url)
+       return () => URL.revokeObjectURL(url)
+    }
+  }, [file])
+
+  if (file.type.startsWith('audio/') && audioUrl) {
+    return <AudioPreview fileUrl={audioUrl} onRemove={onRemove} />
+  }
+
+  const fileIcon = getFileIcon(file.name)
+  const fileSize = formatFileSize(file.size)
+
+  return (
+    <div className="group relative flex items-center gap-3 p-2 pr-8 rounded-lg border border-[#797c814d] bg-white dark:bg-[#1A1D21] w-full max-w-[240px]">
+      {/* File icon */}
+      <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded bg-[#2a2d31]">
+        {fileIcon}
+      </div>
+
+      {/* File info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium dark:text-[#d1d2d3] truncate">
+          {file.name}
+        </p>
+        <p className="text-[10px] text-[#797c81]">{fileSize}</p>
+      </div>
+
+      {/* Remove button */}
+      <button
+        onClick={onRemove}
+        className="absolute top-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-[#797c81] hover:text-red-500 transition-all"
+      >
+        <LuX size={14} />
+      </button>
+    </div>
   )
 }
 

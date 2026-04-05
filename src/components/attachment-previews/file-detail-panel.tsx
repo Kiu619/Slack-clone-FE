@@ -19,6 +19,14 @@ import OfficeFilePreview from "./office-file-preview"
 import { ShareFileModal } from "./share-file-modal"
 import VideoPreview from "./video-preview"
 import { cn } from "@/lib/utils"
+import AudioPreview from "./audio-preview"
+import { useDeleteAttachment } from "@/hooks/use-messages"
+import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { messageKeys } from "@/lib/query-keys"
+import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
+import { useUserStore } from "@/stores/useUserStore"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -28,9 +36,52 @@ const SUBMENU_ITEM_STYLE =
   "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 
 export default function FileDetailPanel() {
+  const currentUser = useUserStore((state) => state.user)
   const { attachment, message, close } = useFileDetailStore()
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState(false)
+  const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState(false);
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
+
+  const { mutate: deleteAttachment } = useDeleteAttachment(message?.channelId ?? "");
+  const [isDeleted, setIsDeleted] = useState(false);
+  const queryClient = useQueryClient();
+
+  const isOwner = message?.user.id === currentUser?.id
+
+  useEffect(() => {
+    if (!message || !attachment) return;
+
+    // Check initial state
+    const data = queryClient.getQueryData<any>(messageKeys.list(message.channelId));
+    if (data) {
+      const msg = data.pages?.flatMap((p: any) => p.messages).find((m: any) => m.id === message.id);
+      if (!msg || !msg.attachments.find((a: any) => a.id === attachment.id)) {
+        setIsDeleted(true);
+      }
+    }
+
+    // Subscribe to real-time cache updates
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event.query.queryKey[0] === "messages" &&
+        event.query.queryKey[1] === message.channelId
+      ) {
+        const queryData = event.query.state.data as any;
+        if (!queryData) return;
+
+        const msg = queryData.pages?.flatMap((p: any) => p.messages).find((m: any) => m.id === message.id);
+        if (!msg) {
+          setIsDeleted(true);
+        } else {
+          const att = msg.attachments.find((a: any) => a.id === attachment.id);
+          if (!att) setIsDeleted(true);
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [message, attachment, queryClient]);
+
 
   const handleDownload = () => {
     window.open(attachment?.url ?? "", "_blank")
@@ -40,10 +91,23 @@ export default function FileDetailPanel() {
     window.open(attachment?.url ?? "", "_blank")
   }
 
+  const handleDelete = () => {
+    if (!attachment) return;
+    deleteAttachment(attachment.id, {
+      onSuccess: () => {
+        toast.success("File deleted successfully");
+      },
+      onError: () => {
+        toast.error("Failed to delete file. You might not have permission.");
+      }
+    });
+  }
+
   if (!attachment) return null
   // Group theo type
   const images = attachment?.type === "image"
   const videos = attachment?.type === "video"
+  const audioFiles = attachment?.type === "audio"
   const officeFiles = isOfficeFile(attachment.name)
   const pdfFiles = isPdfFile(attachment.name, attachment.mimeType)
   const codeFiles =
@@ -53,42 +117,54 @@ export default function FileDetailPanel() {
   const otherFiles =
     !isOfficeFile(attachment.name) &&
     !isPdfFile(attachment.name, attachment.mimeType) &&
-    !isCodeOrTextFile(attachment.name, attachment.mimeType)
+    !isCodeOrTextFile(attachment.name, attachment.mimeType) &&
+    !images &&
+    !videos &&
+    !audioFiles
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-        <span className="font-semibold text-white text-[15px]">File</span>
+        <span className="font-semibold text-[15px]">File</span>
         <button
           onClick={close}
-          className="p-1 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
+          className="p-1 rounded text-[#797c81] transition-colors"
         >
           <X size={18} />
         </button>
       </div>
 
       {/* Body — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      {isDeleted === false ? (<div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* File name */}
         <div>
-          <p className="text-white font-semibold text-[15px] break-all leading-snug">
-            {attachment.name}
-          </p>
+          <Typography
+            variant="large"
+            text={attachment.name}
+            className="font-semibold break-all leading-snug"
+          />
         </div>
 
         <div className="">
           <Typography
             variant="p"
             text={`Owned by ${message?.user?.name}`}
-            className="text-[15px] font-semibold text-white"
+            className="font-semibold"
           />
           <Typography
             variant="p"
             text={`Uploaded on ${formatTimestamp(message?.createdAt ?? "")}`}
-            className="text-[15px] font-semibold text-white"
+            className="font-semibold"
           />
         </div>
+
+        {audioFiles && (
+          <AudioPreview
+            attachment={attachment}
+            message={message!}
+          />
+        )}
 
         {images && (
           <ImagePreview
@@ -142,11 +218,18 @@ export default function FileDetailPanel() {
           <Separator className="" />
         </div>
       </div>
+      ) : (
+        <div className="flex flex-col w-full justify-center items-center gap-2 mt-2">
+          <Typography variant="h3" className="font-bold text-lg" text="Attachment was deleted" />
+          <Typography variant="p" className="text-sm text-[#797c81] text-center px-8"
+            text="This file is no longer available because it has been deleted." />
+        </div>
+      )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-[#797c814d] shrink-0 gap-2">
+      {isDeleted === false && (<div className="flex items-center justify-between px-4 py-3 border-t border-[#797c814d] shrink-0 gap-2">
         <button
-          className="flex flex-1 items-center gap-2 p-1 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors cursor-pointer border border-[#797c814d]"
+          className="flex flex-1 items-center gap-2 p-1 text-[#797c81] rounded border border-[#797c814d]"
           onClick={() => setIsShareFileModalOpen(true)}
         >
           <RiShareForwardLine size={20} />
@@ -160,7 +243,7 @@ export default function FileDetailPanel() {
         <Tooltip>
           <TooltipTrigger asChild>
             <p
-              className="cursor-pointer p-1 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors border border-[#797c814d]"
+              className="cursor-pointer p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] transition-colors border border-[#797c814d]"
               onClick={(e) => {
                 e.stopPropagation()
                 handleDownload()
@@ -179,7 +262,7 @@ export default function FileDetailPanel() {
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <p
-                  className="cursor-pointer p-1 rounded hover:bg-[#222529] text-[#797c81] hover:text-white transition-colors"
+                  className="cursor-pointer p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] transition-colors"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MdMoreVert size={20} />
@@ -231,18 +314,30 @@ export default function FileDetailPanel() {
                 </div>
 
                 <Separator className="bg-[#797c814d]" />
-                <div className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 rounded cursor-pointer">
-                  <Typography variant="p" text="Delete file" />
-                </div>
+                {isOwner && (
+                  <div
+                    className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 rounded cursor-pointer transition-colors"
+                    onClick={handleDelete}
+                  >
+                    <Typography variant="p" text="Delete file" />
+                  </div>
+                )}
               </div>
             </div>
           </PopoverContent>
         </Popover>
       </div>
+      )}
       <ShareFileModal
         open={isShareFileModalOpen}
         onOpenChange={setIsShareFileModalOpen}
         attachment={attachment}
+      />
+
+      <ConfirmDeleteFileDialog
+        open={isConfirmDeleteFileDialogOpen}
+        onOpenChange={setIsConfirmDeleteFileDialogOpen}
+        onConfirm={handleDelete}
       />
     </div>
   )

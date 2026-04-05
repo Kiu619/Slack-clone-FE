@@ -260,3 +260,8 @@ export type WorkspaceMemberStatus = {
   statusExpiration: string | null
   notificationsPausedUntil: string | null
 }
+
+export type PendingFile = {
+  id: string
+  file: File
+}
