@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import dynamic from "next/dynamic"
@@ -51,32 +53,39 @@ export default function FileDetailPanel() {
   useEffect(() => {
     if (!message || !attachment) return;
 
-    // Check initial state
+    // Check initial state (chỉ infinite messages — không nhầm với attachments / files-search)
     const data = queryClient.getQueryData<any>(messageKeys.list(message.channelId));
-    if (data) {
-      const msg = data.pages?.flatMap((p: any) => p.messages).find((m: any) => m.id === message.id);
-      if (!msg || !msg.attachments.find((a: any) => a.id === attachment.id)) {
+    if (data?.pages?.length) {
+      const msg = data.pages
+        .flatMap((p: any) => p.messages ?? [])
+        .find((m: any) => m?.id === message.id);
+      // Chỉ đánh dấu xóa khi đã thấy message trong cache mà không còn attachment — tránh false positive khi mở từ Files/search (message chưa nằm trong infinite messages đã tải).
+      if (msg && !msg.attachments?.find((a: any) => a.id === attachment.id)) {
         setIsDeleted(true);
       }
     }
 
-    // Subscribe to real-time cache updates
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (
-        event.query.queryKey[0] === "messages" &&
-        event.query.queryKey[1] === message.channelId
-      ) {
-        const queryData = event.query.state.data as any;
-        if (!queryData) return;
+    const channelId = message.channelId;
 
-        const msg = queryData.pages?.flatMap((p: any) => p.messages).find((m: any) => m.id === message.id);
-        if (!msg) {
-          setIsDeleted(true);
-        } else {
-          const att = msg.attachments.find((a: any) => a.id === attachment.id);
-          if (!att) setIsDeleted(true);
-        }
+    // Subscribe — chỉ infinite messages: ['messages', channelId] (đúng 2 phần tử).
+    // Không khớp lỏng prefix: channelAttachments & files-search cũng bắt đầu bằng 'messages' + channelId nhưng pages có `results`, không có `messages` → crash khi đọc m.id.
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      const key = event.query.queryKey;
+      if (key.length !== 2 || key[0] !== "messages" || key[1] !== channelId) {
+        return;
       }
+
+      const queryData = event.query.state.data as any;
+      if (!queryData?.pages) return;
+
+      const msg = queryData.pages
+        .flatMap((p: any) => p.messages ?? [])
+        .find((m: any) => m?.id === message.id);
+      if (msg) {
+        const att = msg.attachments?.find((a: any) => a.id === attachment.id);
+        setIsDeleted(!att);
+      }
+      // Không set isDeleted khi không thấy msg — có thể message chưa nằm trong các trang messages đã fetch (mở file từ tab Files).
     });
 
     return unsubscribe;
@@ -140,7 +149,7 @@ export default function FileDetailPanel() {
         {/* File name */}
         <div>
           <Typography
-            variant="large"
+            variant="h4"
             text={attachment.name}
             className="font-semibold break-all leading-snug"
           />

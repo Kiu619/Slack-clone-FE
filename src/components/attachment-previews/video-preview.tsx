@@ -2,8 +2,16 @@
 
 import type { Message, MessageAttachment } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import FileToolbar from "./file-toolbar";
-import { LuPlay, LuPause, LuVolume2, LuVolumeX, LuMaximize, LuMinimize } from "react-icons/lu";
+import {
+  LuPlay,
+  LuPause,
+  LuVolume2,
+  LuVolumeX,
+  LuMaximize,
+  LuMinimize,
+} from "react-icons/lu";
 import { MdPictureInPictureAlt } from "react-icons/md";
 
 // Helper
@@ -19,6 +27,8 @@ interface VideoPreviewProps {
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
   formDetailPanel?: boolean;
+  /** Ô lưới nhỏ (tab Files) — ẩn thanh điều khiển dưới, video full khung */
+  compact?: boolean;
 }
 
 export default function VideoPreview({
@@ -26,6 +36,7 @@ export default function VideoPreview({
   attachment,
   onDownload,
   formDetailPanel = false,
+  compact = false,
 }: VideoPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -149,9 +160,14 @@ export default function VideoPreview({
   return (
     <div
       ref={containerRef}
-      className={`group relative w-full h-[260px] rounded-lg overflow-hidden border border-[#797c814d] bg-black ${
-        isFullscreen ? "h-screen flex items-center justify-center" : "max-w-[500px]"
-      }`}
+      className={cn(
+        "group relative w-full rounded-lg overflow-hidden border border-[#797c814d] bg-black",
+        compact && !isFullscreen
+          ? "h-full max-w-full min-h-0 min-w-0 overflow-hidden border-[#dddddd] dark:border-[#35373B]"
+          : isFullscreen
+            ? "h-screen flex items-center justify-center"
+            : "h-[260px] max-w-[500px]",
+      )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -169,7 +185,15 @@ export default function VideoPreview({
       <video
         ref={videoRef}
         src={attachment.url}
-        className={`w-full h-auto cursor-pointer ${isFullscreen ? "max-h-screen object-contain" : ""}`}
+        className={cn(
+          "cursor-pointer",
+          compact && !isFullscreen
+            ? "absolute inset-0 h-full w-full object-cover"
+            : cn(
+                "w-full h-auto",
+                isFullscreen && "max-h-screen object-contain",
+              ),
+        )}
         onClick={togglePlay}
         preload="metadata"
       >
@@ -178,11 +202,17 @@ export default function VideoPreview({
 
       {/* Big Play Button Overlay */}
       {!isPlaying && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        >
-          <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center text-white backdrop-blur-sm transition-transform group-hover:scale-110">
-            <LuPlay size={32} className="ml-1" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div
+            className={cn(
+              "rounded-full bg-black/50 flex items-center justify-center text-white backdrop-blur-sm transition-transform group-hover:scale-110",
+              compact ? "w-10 h-10" : "w-16 h-16",
+            )}
+          >
+            <LuPlay
+              className={compact ? "ml-0.5" : "ml-1"}
+              size={compact ? 22 : 32}
+            />
           </div>
         </div>
       )}
@@ -194,50 +224,72 @@ export default function VideoPreview({
         }`}
       >
         {/* Progress Bar */}
-        <div className="flex items-center gap-3">
-          <span className="text-white text-xs font-mono font-medium">{fmtTime(currentTime)}</span>
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            value={currentTime}
-            onChange={handleSeek}
-            className="flex-1 h-1.5 bg-white/30 rounded-full appearance-none cursor-pointer
+        {!compact || isFullscreen && (
+          <div className="flex items-center gap-3">
+            <span className="text-white text-xs font-mono font-medium">
+              {fmtTime(currentTime)}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={duration || 100}
+              value={currentTime}
+              onChange={handleSeek}
+              className="flex-1 h-1.5 bg-white/30 rounded-full appearance-none cursor-pointer
               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
               [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white transition-all hover:[&::-webkit-slider-thumb]:scale-125"
-            style={{
-              background: `linear-gradient(to right, white ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.3) ${(currentTime / (duration || 1)) * 100}%)`,
-            }}
-          />
-          <span className="text-white/80 text-xs font-mono">{fmtTime(duration)}</span>
-        </div>
+              style={{
+                background: `linear-gradient(to right, white ${(currentTime / (duration || 1)) * 100}%, rgba(255,255,255,0.3) ${(currentTime / (duration || 1)) * 100}%)`,
+              }}
+            />
+            <span className="text-white/80 text-xs font-mono">
+              {fmtTime(duration)}
+            </span>
+          </div>
+        )}
 
         {/* Controls Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={togglePlay} className="text-white hover:text-[#1d9bd1] transition-colors">
-              {isPlaying ? <LuPause size={20} className="fill-current" /> : <LuPlay size={20} className="fill-current" />}
+            <button
+              onClick={togglePlay}
+              className="text-white hover:text-[#1d9bd1] transition-colors"
+            >
+              {isPlaying ? (
+                <LuPause size={20} className="fill-current" />
+              ) : (
+                <LuPlay size={20} className="fill-current" />
+              )}
             </button>
 
-            <div className="flex items-center gap-1 group/vol">
-              <button onClick={toggleMute} className="text-white hover:text-[#1d9bd1] transition-colors">
-                {isMuted || volume === 0 ? <LuVolumeX size={18} /> : <LuVolume2 size={18} />}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300 h-1.5 bg-white/30 rounded-full appearance-none cursor-pointer
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
-                  [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white opacity-0 group-hover/vol:opacity-100 ml-2"
-                style={{
-                  background: `linear-gradient(to right, white ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) ${(isMuted ? 0 : volume) * 100}%)`,
-                }}
-              />
-            </div>
+            {(!compact || isFullscreen) && (
+              <div className="flex items-center gap-1 group/vol">
+                <button
+                  onClick={toggleMute}
+                  className="text-white hover:text-[#1d9bd1] transition-colors"
+                >
+                  {isMuted || volume === 0 ? (
+                    <LuVolumeX size={18} />
+                  ) : (
+                    <LuVolume2 size={18} />
+                  )}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300 h-1.5 bg-white/30 rounded-full appearance-none cursor-pointer
+                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3
+                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white opacity-0 group-hover/vol:opacity-100 ml-2"
+                  style={{
+                    background: `linear-gradient(to right, white ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) ${(isMuted ? 0 : volume) * 100}%)`,
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -260,7 +312,11 @@ export default function VideoPreview({
               className="text-white hover:text-[#1d9bd1] transition-colors"
               title="Fullscreen"
             >
-              {isFullscreen ? <LuMinimize size={18} /> : <LuMaximize size={18} />}
+              {isFullscreen ? (
+                <LuMinimize size={18} />
+              ) : (
+                <LuMaximize size={18} />
+              )}
             </button>
           </div>
         </div>

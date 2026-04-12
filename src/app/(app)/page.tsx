@@ -104,9 +104,8 @@ export default function Home() {
           {user && (
             <div className="mt-3 flex items-center gap-2 text-sm">
               <Typography
-                variant="muted"
                 as="span"
-                className="text-[#616061]"
+                className="text-muted-foreground"
               >
                 Confirmed as
                 <Typography

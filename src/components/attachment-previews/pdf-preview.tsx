@@ -38,11 +38,22 @@ export default function PdfPreview({
 
   const { data: pdfData, isPending, isError } = useFileCache(attachment.url)
 
-  // Memoize bản copy để tránh việc Document load lại khi component re-render (như khi hover)
-  const memoizedPdfFile = useMemo(() => {
+  /**
+   * PDF.js / worker có thể transfer ArrayBuffer → detach. Dùng chung một ArrayBuffer
+   * cho preview thẻ + modal sẽ gây "Cannot perform Construct on a detached ArrayBuffer".
+   * Blob + object URL: Blob copy dữ liệu, Document đọc qua URL — an toàn cho nhiều instance.
+   */
+  const pdfBlobUrl = useMemo(() => {
     if (!pdfData) return null
-    return pdfData.slice(0)
+    const blob = new Blob([pdfData], { type: "application/pdf" })
+    return URL.createObjectURL(blob)
   }, [pdfData])
+
+  useEffect(() => {
+    return () => {
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
+    }
+  }, [pdfBlobUrl])
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
@@ -74,7 +85,7 @@ export default function PdfPreview({
       <div
         className="rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] p-4 w-full max-w-[400px]"
       >
-        <p className="text-[#797c81] text-sm mb-2">Can't preview PDF</p>
+        <p className="text-[#797c81] text-sm mb-2">Can&rsquo;t preview PDF</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -129,9 +140,9 @@ export default function PdfPreview({
               >
                 <div className="text-[#797c81] text-sm flex items-center gap-2">Loading PDF...<Loader2 className="w-4 h-4 animate-spin" /></div>
               </div>
-            ) : memoizedPdfFile ? (
+            ) : pdfBlobUrl ? (
               <Document
-                file={memoizedPdfFile}
+                file={pdfBlobUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={onDocumentLoadError}
               >
@@ -166,9 +177,9 @@ export default function PdfPreview({
         onDownload={handleDownload}
       >
         <div className="h-full overflow-auto p-4 flex flex-col items-center">
-          {memoizedPdfFile ? (
+          {pdfBlobUrl ? (
             <Document
-              file={memoizedPdfFile}
+              file={pdfBlobUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={<div className="text-white">Loading document...</div>}
             >

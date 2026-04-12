@@ -1,6 +1,9 @@
 import { apiClient } from "@/lib/axios"
-import {
+import type {
   AccountUser,
+  ChannelAttachmentsPage,
+  Message,
+  MessageAttachment,
   User,
   WorkspaceMemberStatus,
 } from "@/lib/types"
@@ -130,6 +133,38 @@ export const updateMessageApi = async (messageId: string, content: string) => {
 export const deleteMessageApi = async (messageId: string) => {
   const res = await apiClient.delete<{ messageId: string; channelId: string; deleted: boolean }>(
     `/messages/${messageId}`,
+  )
+  return res.data
+}
+
+export type ChannelFileSearchHit = {
+  attachment: MessageAttachment
+  message: Message
+}
+
+/** GET /channels/:channelId/attachments?cursor= */
+export const listChannelAttachmentsApi = async (
+  channelId: string,
+  cursor?: string,
+) => {
+  const params: Record<string, string> = {}
+  if (cursor) params.cursor = cursor
+  const res = await apiClient.get<ChannelAttachmentsPage>(
+    `/channels/${channelId}/attachments`,
+    { params },
+  )
+  return res.data
+}
+
+export type ChannelFileSearchResponse = {
+  results: ChannelFileSearchHit[]
+}
+
+/** GET /channels/:channelId/files/search?q= — tìm attachment theo tên trong channel */
+export const searchChannelFilesApi = async (channelId: string, q: string) => {
+  const res = await apiClient.get<ChannelFileSearchResponse>(
+    `/channels/${channelId}/files/search`,
+    { params: { q: q.trim() } },
   )
   return res.data
 }

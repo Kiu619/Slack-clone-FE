@@ -11,6 +11,7 @@ import {
   getCloudinarySrcSet,
 } from '@/lib/cloudinary-url'
 import FileToolbar from './file-toolbar'
+import { cn } from '@/lib/utils'
 
 interface ImagePreviewProps {
   attachment: MessageAttachment
@@ -19,6 +20,8 @@ interface ImagePreviewProps {
   allImages?: MessageAttachment[]
   onDownload?: (url: string, name: string) => void
   formDetailPanel?: boolean
+  /** Ô lưới vuông (vd. tab Files — 6 cột) */
+  compact?: boolean
 }
 
 export default function ImagePreview({
@@ -27,6 +30,7 @@ export default function ImagePreview({
   allImages = [],
   onDownload,
   formDetailPanel = false,
+  compact = false,
 }: ImagePreviewProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -105,20 +109,32 @@ export default function ImagePreview({
         onClick={openLightbox}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="cursor-pointer group relative block w-fit max-w-full rounded-lg overflow-hidden border border-[#797c814d] hover:border-[#797c81] transition-colors"
+        className={cn(
+          'cursor-pointer group relative rounded-lg overflow-hidden border border-[#797c814d] hover:border-[#797c81] transition-colors',
+          compact
+            ? 'block h-full w-full min-h-0 min-w-0 border-[#dddddd] dark:border-[#35373B]'
+            : 'block w-fit max-w-full',
+        )}
       >
         <img
           src={getCloudinaryThumbnailUrl(attachment.url)}
           {...(thumbSrcSet
             ? {
                 srcSet: thumbSrcSet,
-                sizes: '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px',
+                sizes: compact
+                  ? '16vw'
+                  : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px',
               }
             : {})}
           alt={attachment.name}
           loading="lazy"
           decoding="async"
-          className="max-w-full h-auto max-h-[300px] object-contain block"
+          className={cn(
+            'block',
+            compact
+              ? 'h-full w-full min-h-0 min-w-0 max-w-full object-cover'
+              : 'max-w-full h-auto max-h-[300px] object-contain',
+          )}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
         {!formDetailPanel ? (

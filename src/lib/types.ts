@@ -228,6 +228,19 @@ export type MessagesPage = {
   hasMore: boolean
 }
 
+/** Một dòng trong GET /channels/:id/attachments hoặc files/search */
+export type ChannelFileHit = {
+  attachment: MessageAttachment
+  message: Message
+}
+
+/** Response GET /channels/:channelId/attachments (infinite query tab Files) */
+export type ChannelAttachmentsPage = {
+  results: ChannelFileHit[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 export type SendMessagePayload = {
   content: string
   parentId?: string

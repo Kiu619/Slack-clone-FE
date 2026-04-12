@@ -236,7 +236,7 @@ const Main = ({ currentChannelData }: MainProps) => {
 
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col justify-between h-full overflow-hidden">
       {/**
        * MessageList nhận isConnected để useMessages có thể join room
        * ngay khi socket connected (thay vì chờ re-render)

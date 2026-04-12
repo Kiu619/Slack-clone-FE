@@ -1,6 +1,7 @@
 "use client";
 
 import type { Message, MessageAttachment } from "@/lib/types";
+import { enUS } from "date-fns/locale";
 import React, { useState } from "react";
 import {
   FaFileExcel,
@@ -8,14 +9,31 @@ import {
   FaFilePowerpoint,
   FaFileWord,
 } from "react-icons/fa";
-import { LuFile, LuFileArchive, LuFileAudio, LuFileImage, LuFileText, LuFileVideo } from "react-icons/lu";
+import {
+  LuFile,
+  LuFileArchive,
+  LuFileAudio,
+  LuFileImage,
+  LuFileText,
+  LuFileVideo,
+} from "react-icons/lu";
 import FileToolbar from "./file-toolbar";
+
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 interface FilePreviewProps {
   message: Message;
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
   formDetailPanel?: boolean;
+  fromFilesTab?: boolean;
+}
+
+function sharerLabel(message: Message): string {
+  return (
+    message.user.displayName?.trim() || message.user.name?.trim() || "Someone"
+  );
 }
 
 export default function FilePreview({
@@ -23,6 +41,7 @@ export default function FilePreview({
   attachment,
   onDownload,
   formDetailPanel = false,
+  fromFilesTab = false,
 }: FilePreviewProps) {
   const [isHovered, setIsHovered] = useState(false);
   const handleDownload = () => {
@@ -31,7 +50,7 @@ export default function FilePreview({
     } else {
       window.open(attachment.url, "_blank");
     }
-  }
+  };
   const handleOpenInNewTab = () => {
     window.open(attachment.url, "_blank");
   };
@@ -39,35 +58,56 @@ export default function FilePreview({
   const fileIcon = getFileIcon(attachment.name);
   const fileSize = formatFileSize(attachment.size);
 
+  console.log("attachment", attachment);
+
   return (
-    <div
-      className="group relative flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors w-full max-w-[400px] bg-white dark:bg-[#1A1D21]"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {!formDetailPanel ? (
-        <FileToolbar
-          isHovered={isHovered}
-          message={message}
-          attachment={attachment}
-          onDownload={handleDownload}
-          onOpen={handleOpenInNewTab}
-        />
-      ) : null}
+    <>
+      <div
+        className={cn(
+          "group relative flex items-center max-w-[400px] gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors  bg-white dark:bg-[#1A1D21]",
+          fromFilesTab ? "max-w-full" : "",
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={(event) => {
+          event.stopPropagation();
+          console.log("clicked");
+        }}
+      >
+        {!formDetailPanel ? (
+          <FileToolbar
+            isHovered={isHovered}
+            message={message}
+            attachment={attachment}
+            onDownload={handleDownload}
+            onOpen={handleOpenInNewTab}
+          />
+        ) : null}
 
-      {/* File icon */}
-      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
-        {fileIcon}
-      </div>
+        {/* File icon */}
+        <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
+          {fileIcon}
+        </div>
 
-      {/* File info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium dark:text-[#d1d2d3] truncate">
-          {attachment.name}
-        </p>
-        <p className="text-xs text-[#797c81]">{fileSize}</p>
+        {/* File info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium dark:text-[#d1d2d3] truncate">
+            {attachment.name}
+          </p>
+          {!fromFilesTab && (
+            <p className="text-xs text-[#797c81]">{fileSize}</p>
+          )}
+          {fromFilesTab && (
+            <p className="text-[13px] text-[#616061] dark:text-[#ababad] truncate">
+              Shared by {sharerLabel(message)} on{" "}
+              {format(new Date(attachment.createdAt), "MMM do", {
+                locale: enUS,
+              })}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -125,6 +165,10 @@ export function getFileIcon(fileName: string): React.ReactElement {
     default:
       return <LuFile className={`${iconClass} text-gray-400`} />;
   }
+}
+
+export function getFileExtension(fileName: string): string {
+  return fileName.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
 }
 
 /**

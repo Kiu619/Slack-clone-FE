@@ -8,7 +8,7 @@ import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
 /** Microsoft Office Online Viewer — xem Word, Excel, PowerPoint trong iframe */
-const OFFICE_VIEWER_URL = "https://view.officeapps.live.com/op/embed.aspx"
+export const OFFICE_VIEWER_URL = "https://view.officeapps.live.com/op/embed.aspx"
 
 interface OfficeFilePreviewProps {
   message: Message;

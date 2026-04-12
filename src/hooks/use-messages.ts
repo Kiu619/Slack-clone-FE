@@ -490,6 +490,10 @@ export function useDeleteAttachment(channelId: string) {
         },
       )
 
+      void queryClient.invalidateQueries({
+        queryKey: messageKeys.channelAttachments(channelId),
+      })
+
       return { previousData }
     },
 

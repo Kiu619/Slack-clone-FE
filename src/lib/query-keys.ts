@@ -48,6 +48,12 @@ export const messageKeys = {
   list: (channelId: string) => ['messages', channelId] as const,
   /** Thread messages của một message */
   thread: (messageId: string) => ['messages', 'thread', messageId] as const,
+  /** Infinite list attachment trong channel: useChannelAttachments(channelId) */
+  channelAttachments: (channelId: string) =>
+    ['messages', channelId, 'attachments'] as const,
+  /** Tìm file trong channel (tab Files) — query string `q` đã trim */
+  channelFilesSearch: (channelId: string, q: string) =>
+    ['messages', channelId, 'files-search', q] as const,
 }
 
 // ─── Attachment content (code preview cache) ─────────────────────────────────────

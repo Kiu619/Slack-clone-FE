@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import { useUserStore } from '@/stores/useUserStore'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
 import Sidebar from '@/components/sidebar'
@@ -58,7 +60,7 @@ export default function WorkspaceShell({
       }
     }
     return storeTheme
-  }, [workspaceProfileData?.theme, storeTheme, hasSynced])
+  }, [workspaceProfileData, storeTheme, hasSynced])
 
   const getSysNavBackground = () => {
     const baseColor = `color-mix(in srgb, ${theme.systemNav}, var(--theme-mix-base) var(--theme-mix-sysnav))`;
@@ -178,22 +180,7 @@ export default function WorkspaceShell({
   }, [workspaceId])
   const isResizing = useRef<'sidebar' | 'file-detail' | 'profile' | null>(null)
 
-  const startResizing = (type: 'sidebar' | 'file-detail' | 'profile') => {
-    isResizing.current = type
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', stopResizing)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }
-
-  const stopResizing = useCallback(() => {
-    isResizing.current = null
-    document.removeEventListener('mousemove', handleMouseMove)
-    document.removeEventListener('mouseup', stopResizing)
-    document.body.style.cursor = 'default'
-    document.body.style.userSelect = 'auto'
-  }, [])
-
+  const handleMouseMoveRef = useRef<(e: MouseEvent) => void>(() => {})
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isResizing.current) return
 
@@ -217,6 +204,36 @@ export default function WorkspaceShell({
       }
     }
   }, [sidebarWidth, fileDetailWidth, profilePanelWidth, saveWidthsToCookie])
+
+  useLayoutEffect(() => {
+    handleMouseMoveRef.current = handleMouseMove
+  }, [handleMouseMove])
+
+  const stableMouseMove = useCallback((e: MouseEvent) => {
+    handleMouseMoveRef.current(e)
+  }, [])
+
+  const stopResizingRef = useRef<(() => void) | null>(null)
+  const stopResizing = useCallback(() => {
+    isResizing.current = null
+    document.removeEventListener('mousemove', stableMouseMove)
+    const onUp = stopResizingRef.current
+    if (onUp) document.removeEventListener('mouseup', onUp)
+    document.body.style.cursor = 'default'
+    document.body.style.userSelect = 'auto'
+  }, [stableMouseMove])
+
+  useLayoutEffect(() => {
+    stopResizingRef.current = stopResizing
+  }, [stopResizing])
+
+  const startResizing = (type: 'sidebar' | 'file-detail' | 'profile') => {
+    isResizing.current = type
+    document.addEventListener('mousemove', stableMouseMove)
+    document.addEventListener('mouseup', stopResizing)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
 
   const displayUser = sidebarUser ?? initialSidebarUser
 

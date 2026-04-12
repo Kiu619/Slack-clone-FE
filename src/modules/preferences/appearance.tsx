@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { CustomSelect } from "@/components/custom-select";
@@ -45,8 +46,6 @@ export default function PreferencesAppearance() {
 
   const [shareThemeClick, setShareThemeClick] = useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
   const { theme: customColors, setTheme: setCustomColors } = useThemeStore();
 
   const [activeTab, setActiveTab] = useState<"slack-themes" | "custom-theme">(
@@ -55,10 +54,6 @@ export default function PreferencesAppearance() {
 
   const [slackThemePreview, setSlackThemePreview] =
     useState(customColors.id || "aubergine");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Sync state if customColors.id changes from outside (e.g. navigation undo/save)
   useEffect(() => {
@@ -419,9 +414,8 @@ export default function PreferencesAppearance() {
                     <Typography text="Window gradient" className="text-sm font-semibold" />
                   </label>
                   <Typography
-                    variant="muted"
                     text="Blend Window background and Selected items colors together in window backgrounds."
-                    className="text-[13px] leading-normal pr-8"
+                    className="text-[13px] leading-normal pr-8 text-muted-foreground"
                   />
                 </div>
               </div>
