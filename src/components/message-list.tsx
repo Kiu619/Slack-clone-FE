@@ -112,10 +112,11 @@ type ListItem =
   | { type: 'welcome' }
 
 function buildListItems(pages: { messages: Message[] }[]): ListItem[] {
-  // Flatten tất cả messages, cũ nhất trước
+  // Flatten tất cả messages, cũ nhất trước (bỏ tin `system` — carrier upload vào folder)
   const allMessages = pages
     .flatMap((p) => p.messages)
     .reverse() // pages[0] = mới → reverse để cũ lên trên
+    .filter((m) => m.type !== 'system')
 
   const items: ListItem[] = []
   let lastDate: Date | null = null

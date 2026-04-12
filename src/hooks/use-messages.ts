@@ -45,6 +45,7 @@ export function useMessages(channelId: string, isConnected: boolean) {
   const handleNewMessage = useCallback(
     (newMessage: unknown) => {
       const msg = newMessage as Message
+      if (msg.type === 'system') return
       queryClient.setQueryData(
         messageKeys.list(channelId),
         (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {

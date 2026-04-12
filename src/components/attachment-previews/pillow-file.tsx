@@ -15,20 +15,14 @@ interface FilePreviewProps {
   onDownload?: (url: string, name: string) => void;
 }
 
-export default function PillowFile({
-  attachment,
-}: FilePreviewProps) {
-
+export default function PillowFile({ attachment }: FilePreviewProps) {
   const fileIcon = getFileIcon(attachment.name);
   const fileSize = formatFileSize(attachment.size);
 
   return (
-    <div
-      className="group relative w-full flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors bg-white dark:bg-[#1A1D21]"
-    >
-
+    <div className="group relative w-full flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors bg-white dark:bg-[#1A1D21]">
       {/* File icon */}
-      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded bg-[#2a2d31]">
+      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
         {fileIcon}
       </div>
 

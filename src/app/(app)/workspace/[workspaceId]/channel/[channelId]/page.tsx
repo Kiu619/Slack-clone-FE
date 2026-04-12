@@ -7,6 +7,9 @@ import Main from "@/modules/channels/main";
 import FilesTab from "@/modules/channels/files-tab";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Channel } from "@/lib/types";
+import FolderTab from "@/modules/channels/folder-tab";
+import { CreateFolderDialog } from "@/components/dialogs/create-folder-dialog";
+import { ChannelFolderActionsProvider } from "@/contexts/channel-folder-actions";
 
 interface ChannelPageProps {
   params: Promise<{ channelId: string; workspaceId: string }>;
@@ -14,23 +17,46 @@ interface ChannelPageProps {
 
 function ChannelWorkspaceBody({ channel }: { channel: Channel }) {
   const [activeTab, setActiveTab] = useState<ChannelViewTab>("messages");
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col h-full">
-      <Header
-        currentChannelData={channel}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {activeTab === "messages" ? (
-          <Main currentChannelData={channel} />
-        ) : (
-          <FilesTab currentChannelData={channel} />
-          // <Main currentChannelData={channel} />
-        )}
+    <ChannelFolderActionsProvider
+      value={{
+        requestNewFolder: () => {
+          setActiveTab("folders");
+          setCreateFolderOpen(true);
+        },
+      }}
+    >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col h-full">
+        <Header
+          currentChannelData={channel}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onOpenCreateFolderDialog={() => setCreateFolderOpen(true)}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {activeTab === "messages" && (
+            <Main currentChannelData={channel} />
+          )}
+          {activeTab === "files" && (
+            <FilesTab currentChannelData={channel} />
+          )}
+          {activeTab === "folders" && (
+            <FolderTab
+              currentChannelData={channel}
+              onOpenCreateFolderDialog={() => setCreateFolderOpen(true)}
+              onGoToFilesTab={() => setActiveTab("files")}
+            />
+          )}
+        </div>
+        <CreateFolderDialog
+          open={createFolderOpen}
+          onOpenChange={setCreateFolderOpen}
+          channelId={channel.id}
+        />
       </div>
-    </div>
+    </ChannelFolderActionsProvider>
   );
 }
 

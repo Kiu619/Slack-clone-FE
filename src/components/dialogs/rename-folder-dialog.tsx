@@ -1,6 +1,6 @@
 "use client";
 
-import { createChannelFolderApi } from "@/apis";
+import { renameChannelFolderApi } from "@/apis";
 import { folderKeys } from "@/lib/query-keys";
 import type { ChannelFolder } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
-import { isAxiosError } from "axios";
 import { Button } from "../ui/button";
 import { FieldGroup } from "../ui/field";
 import {
@@ -27,112 +26,111 @@ import {
   CustomDialogHeader,
   CustomDialogTitle,
 } from "../custom-dialog";
+import { isAxiosError } from "axios";
+import { useEffect } from "react";
 
-const formSchema = z.object({
+const schema = z.object({
   name: z
     .string()
     .min(2, "Folder name must be at least 2 characters")
     .max(80, "Folder name must be at most 80 characters")
+    .regex(
+      /^[a-z0-9-_]+$/,
+      "Folder name can only contain lowercase letters, numbers, hyphens and underscores",
+    ),
 });
 
-export function CreateFolderDialog({
+type FormValues = z.infer<typeof schema>;
+
+export function RenameFolderDialog({
   open,
   onOpenChange,
   channelId,
-  onCreated,
+  folder,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   channelId: string;
-  onCreated?: (folder: ChannelFolder) => void;
+  folder: ChannelFolder | null;
 }) {
   const queryClient = useQueryClient();
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: { name: "" },
   });
 
+  useEffect(() => {
+    if (folder) {
+      form.reset({ name: folder.name });
+    }
+  }, [folder, form]);
+
   const { mutate, isPending } = useMutation({
     mutationFn: (name: string) =>
-      createChannelFolderApi(channelId, name.trim()),
-    onSuccess: (data) => {
-      toast.success("Folder created");
+      renameChannelFolderApi(channelId, folder!.id, name),
+    onSuccess: () => {
+      toast.success("Folder renamed");
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(channelId),
       });
-      onCreated?.(data.folder);
       onOpenChange(false);
-      form.reset({ name: "" });
     },
     onError: (err: unknown) => {
       const msg = isAxiosError(err)
         ? (err.response?.data as { message?: string })?.message ??
           err.message
-        : "Failed to create folder";
-      toast.error(typeof msg === "string" ? msg : "Failed to create folder");
+        : "Rename failed";
+      toast.error(typeof msg === "string" ? msg : "Rename failed");
     },
   });
 
+  if (!folder) return null;
+
   return (
-    <CustomDialog
-      open={open}
-      onOpenChange={(o) => {
-        onOpenChange(o);
-        if (!o) form.reset({ name: "" });
-      }}
-    >
+    <CustomDialog open={open} onOpenChange={onOpenChange}>
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit((data) => mutate(data.name.trim()))}
+          onSubmit={form.handleSubmit((v) => mutate(v.name.trim()))}
           className="flex flex-col h-full"
         >
           <CustomDialogHeader onOpenChange={onOpenChange}>
-            <CustomDialogTitle>Create a folder</CustomDialogTitle>
+            <CustomDialogTitle>Rename folder</CustomDialogTitle>
           </CustomDialogHeader>
-
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
-            <div className="flex-1 space-y-6">
-              <FieldGroup className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-bold">Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Ex. project-tracker"
-                          className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </FieldGroup>
-            </div>
+            <FieldGroup className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </FieldGroup>
           </CustomDialogBody>
-
           <CustomDialogFooter className="px-6 py-4">
             <Button
-              variant="ghost"
               type="button"
+              variant="ghost"
               onClick={() => onOpenChange(false)}
               className="dark:hover:bg-[#2C2E33] mr-2 font-bold"
             >
               Cancel
             </Button>
             <Button
-              disabled={
-                isPending ||
-                !form.formState.isDirty ||
-                !form.formState.isValid
-              }
               type="submit"
               variant="success"
+              disabled={isPending || !form.formState.isDirty}
             >
-              {isPending ? "Saving…" : "Create folder"}
+              Save
             </Button>
           </CustomDialogFooter>
         </form>

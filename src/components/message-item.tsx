@@ -190,6 +190,11 @@ export default function MessageItem({
     );
   }
 
+  /** Tin carrier (upload folder, v.v.) — không render trong timeline */
+  if (message.type === "system") {
+    return null;
+  }
+
   return (
     <div
       className={`group relative flex gap-x-2 px-4 hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529] transition-colors ${isCompact ? "py-0.5" : "py-1.5"
@@ -522,7 +527,6 @@ export default function MessageItem({
                   </div>
 
                   <Separator />
-                  {/* Add to folder — code thuần, không dùng thư viện */}
                   <div
                     onMouseEnter={() => setIsAddToFolderOpen(true)}
                     onMouseLeave={() => setIsAddToFolderOpen(false)}

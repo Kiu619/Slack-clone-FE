@@ -28,6 +28,7 @@ interface FilePreviewProps {
   onDownload?: (url: string, name: string) => void;
   formDetailPanel?: boolean;
   fromFilesTab?: boolean;
+  effectiveFolderId?: string | null;
 }
 
 function sharerLabel(message: Message): string {
@@ -42,6 +43,7 @@ export default function FilePreview({
   onDownload,
   formDetailPanel = false,
   fromFilesTab = false,
+  effectiveFolderId = null,
 }: FilePreviewProps) {
   const [isHovered, setIsHovered] = useState(false);
   const handleDownload = () => {
@@ -81,6 +83,7 @@ export default function FilePreview({
             attachment={attachment}
             onDownload={handleDownload}
             onOpen={handleOpenInNewTab}
+            effectiveFolderId={effectiveFolderId}
           />
         ) : null}
 

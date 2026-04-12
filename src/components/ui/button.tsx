@@ -23,9 +23,11 @@ const buttonVariants = cva(
         success: "bg-[#007a5a]! text-white! hover:bg-[#006E51]!",
         warning: "bg-yellow-500! text-white! hover:bg-yellow-600!",
         error: "bg-[#de1f5a]! text-white! hover:bg-[#c4174e]!",
+
+        submenu: "hover:text-white! hover:bg-selection-hover! w-full rounded-none justify-start! py-1! px-5!"
       },
       size: {
-        default: "",
+        default: "px-3 py-2 has-[>svg]:px-3",
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",

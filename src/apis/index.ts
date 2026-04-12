@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/axios"
 import type {
   AccountUser,
   ChannelAttachmentsPage,
+  ChannelFolder,
   Message,
   MessageAttachment,
   User,
@@ -165,6 +166,84 @@ export const searchChannelFilesApi = async (channelId: string, q: string) => {
   const res = await apiClient.get<ChannelFileSearchResponse>(
     `/channels/${channelId}/files/search`,
     { params: { q: q.trim() } },
+  )
+  return res.data
+}
+
+// ─── Channel folders ──────────────────────────────────────────────────────────
+
+export type ChannelFoldersListResponse = { folders: ChannelFolder[] }
+
+export const listChannelFoldersApi = async (channelId: string) => {
+  const res = await apiClient.get<ChannelFoldersListResponse>(
+    `/channels/${channelId}/folders`,
+  )
+  return res.data
+}
+
+export const createChannelFolderApi = async (channelId: string, name: string) => {
+  const res = await apiClient.post<{ folder: ChannelFolder }>(
+    `/channels/${channelId}/folders`,
+    { name },
+  )
+  return res.data
+}
+
+export const renameChannelFolderApi = async (
+  channelId: string,
+  folderId: string,
+  name: string,
+) => {
+  const res = await apiClient.patch<{ folder: ChannelFolder }>(
+    `/channels/${channelId}/folders/${folderId}`,
+    { name },
+  )
+  return res.data
+}
+
+export const deleteChannelFolderApi = async (
+  channelId: string,
+  folderId: string,
+) => {
+  const res = await apiClient.delete<{ deleted: boolean; folderId: string }>(
+    `/channels/${channelId}/folders/${folderId}`,
+  )
+  return res.data
+}
+
+export const listFolderAttachmentsApi = async (
+  channelId: string,
+  folderId: string,
+  cursor?: string,
+) => {
+  const params: Record<string, string> = {}
+  if (cursor) params.cursor = cursor
+  const res = await apiClient.get<ChannelAttachmentsPage>(
+    `/channels/${channelId}/folders/${folderId}/attachments`,
+    { params },
+  )
+  return res.data
+}
+
+export const addAttachmentToFolderApi = async (
+  channelId: string,
+  folderId: string,
+  attachmentId: string,
+) => {
+  const res = await apiClient.post<{ ok: boolean; folderId: string; attachmentId: string }>(
+    `/channels/${channelId}/folders/${folderId}/attachments`,
+    { attachmentId },
+  )
+  return res.data
+}
+
+export const removeAttachmentFromFolderApi = async (
+  channelId: string,
+  folderId: string,
+  attachmentId: string,
+) => {
+  const res = await apiClient.delete<{ ok: boolean }>(
+    `/channels/${channelId}/folders/${folderId}/attachments/${attachmentId}`,
   )
   return res.data
 }

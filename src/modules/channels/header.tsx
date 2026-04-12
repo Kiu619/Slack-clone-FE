@@ -27,23 +27,24 @@ import { Separator } from "@/components/ui/separator";
 import { BsCardChecklist } from "react-icons/bs";
 import { FaRegFolderClosed } from "react-icons/fa6";
 import { LuSquareChartGantt } from "react-icons/lu";
-import { CreateFolderDialog } from "@/components/dialogs/create-folder-dialog";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/stores/useThemeStore";
+import { FaRegFolderOpen } from "react-icons/fa";
 
-export type ChannelViewTab = "messages" | "files";
+export type ChannelViewTab = "messages" | "files" | "folders";
 
 const Header = ({
   currentChannelData,
   activeTab,
   onTabChange,
+  onOpenCreateFolderDialog,
 }: {
   currentChannelData: Channel;
   activeTab: ChannelViewTab;
   onTabChange: (tab: ChannelViewTab) => void;
+  onOpenCreateFolderDialog: () => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const [openCreateFolderDialog, setOpenCreateFolderDialog] = useState(false);
 
   const { theme: storeTheme } = useThemeStore()
   return (
@@ -178,6 +179,21 @@ const Header = ({
           <Typography text="Files" variant="p" className="text-[13px]!" />
         </button>
 
+        <button
+          type="button"
+          onClick={() => onTabChange("folders")}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-2 -mb-px border-b-2 transition-colors rounded-t-md font-bold",
+            activeTab === "folders"
+              ? ``
+              : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
+          )}
+          style={activeTab === "folders" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
+        >
+          {activeTab === "folders" ? <FaRegFolderOpen size={17} /> : <FaRegFolderClosed size={16} />}
+          <Typography text="Folders" variant="p" className="text-[13px]!" />
+        </button>
+
         <Tooltip>
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -203,7 +219,7 @@ const Header = ({
               <div className="flex flex-col py-2">
                 <div className="flex items-center gap-x-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                   onClick={() => {
-                    setOpenCreateFolderDialog(true)
+                    onOpenCreateFolderDialog()
                     setOpen(false)
                   }}
                 >
@@ -249,7 +265,6 @@ const Header = ({
         </Tooltip>
       </div>
 
-      <CreateFolderDialog open={openCreateFolderDialog} setOpen={setOpenCreateFolderDialog} channelId={currentChannelData.id} />
     </div>
   );
 };

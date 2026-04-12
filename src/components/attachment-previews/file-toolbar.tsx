@@ -15,6 +15,9 @@ import { useDeleteAttachment } from "@/hooks/use-messages";
 import { toast } from "sonner";
 import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog";
 import { useUserStore } from "@/stores/useUserStore";
+import { AddToFolderSubmenu } from "./add-to-folder-submenu";
+import { useChannelFolderActions } from "@/contexts/channel-folder-actions";
+import { Button } from "../ui/button";
 
 interface Props {
   isHovered: boolean
@@ -22,6 +25,7 @@ interface Props {
   message: Message
   onDownload?: () => void
   onOpen?: () => void
+  effectiveFolderId?: string | null 
 }
 
 const MENU_ITEM_STYLE =
@@ -31,8 +35,9 @@ const SUBMENU_ITEM_STYLE =
 const TOOLBAR_ITEM_STYLE = "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
 const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
 
-const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Props) => {
+const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effectiveFolderId = null }: Props) => {
   const currentUser = useUserStore((state) => state.user)
+  const { requestNewFolder } = useChannelFolderActions()
   const isOwner = message.user.id === currentUser?.id
 
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
@@ -142,12 +147,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
         >
           <div className="py-2 ">
             <div className="flex flex-col space-y-1">
-              <div className="hover:text-white hover:bg-selection-hover px-5 py-1 rounded cursor-pointer">
+              <Button variant="submenu" onClick={onOpen}>
                 <Typography variant="p" text="Open in new tab" onClick={onOpen} />
-              </div>
-              <div className="hover:text-white hover:bg-selection-hover px-5 py-1 rounded cursor-pointer">
+              </Button>
+              <Button variant="submenu" onClick={onOpen}>
                 <Typography variant="p" text="Save for later" />
-              </div>
+              </Button>
 
               <Separator />
 
@@ -156,18 +161,17 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen }: Pro
                 onMouseLeave={() => setIsAddToFolderOpen(false)}
               >
                 <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
-                  <Typography variant="p" text="Add to folder" />
+                  {effectiveFolderId ? <Typography variant="p" text="Move to folder" /> : <Typography variant="p" text="Add to folder" />}
                   <MdOutlineKeyboardArrowRight size={13} />
                 </div>
                 {isAddToFolderOpen && (
-                  <div className="absolute left-35 bottom-0 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
-                    <div className={SUBMENU_ITEM_STYLE}>
-                      <Typography variant="p" text="Folder 1" />
-                    </div>
-                    <Separator className="my-1 bg-[#797c814d]" />
-                    <div className={SUBMENU_ITEM_STYLE}>
-                      <Typography variant="p" text="Add new folder" />
-                    </div>
+                  <div className="absolute left-35 bottom-0 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
+                    <AddToFolderSubmenu
+                      channelId={message.channelId}
+                      attachmentId={attachment.id}
+                      onRequestCreateFolder={requestNewFolder}
+                      effectiveFolderId={effectiveFolderId}
+                    />
                   </div>
                 )}
               </div>

@@ -29,6 +29,8 @@ import { useEffect } from "react"
 import { messageKeys } from "@/lib/query-keys"
 import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
 import { useUserStore } from "@/stores/useUserStore"
+import { AddToFolderSubmenu } from "./add-to-folder-submenu"
+import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -39,6 +41,7 @@ const SUBMENU_ITEM_STYLE =
 
 export default function FileDetailPanel() {
   const currentUser = useUserStore((state) => state.user)
+  const { requestNewFolder } = useChannelFolderActions()
   const { attachment, message, close } = useFileDetailStore()
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState(false)
   const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState(false);
@@ -309,15 +312,13 @@ export default function FileDetailPanel() {
                   <div className={cn(MENU_ITEM_STYLE, "relative")}>
                     <Typography variant="p" text="Add to folder" />
                   </div>
-                  {isAddToFolderOpen && (
-                    <div className="absolute bottom-2 right-35 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
-                      <div className={SUBMENU_ITEM_STYLE}>
-                        <Typography variant="p" text="Folder 1" />
-                      </div>
-                      <Separator className="my-1 bg-[#797c814d]" />
-                      <div className={SUBMENU_ITEM_STYLE}>
-                        <Typography variant="p" text="Add new folder" />
-                      </div>
+                  {isAddToFolderOpen && message && (
+                    <div className="absolute bottom-2 right-35 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
+                      <AddToFolderSubmenu
+                        channelId={message.channelId}
+                        attachmentId={attachment.id}
+                        onRequestCreateFolder={requestNewFolder}
+                      />
                     </div>
                   )}
                 </div>

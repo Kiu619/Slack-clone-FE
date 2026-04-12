@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import axios from 'axios'
 import { apiClient } from '@/lib/axios'
 import type { MessageAttachment } from '@/lib/types'
@@ -24,6 +24,13 @@ function getResolvedFileType(file: File): string {
   return mimeByExt[ext ?? ''] ?? 'application/octet-stream'
 }
 
+function attachmentTypeFromMime(mimeType: string): 'image' | 'video' | 'audio' | 'file' {
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('video/')) return 'video'
+  if (mimeType.startsWith('audio/')) return 'audio'
+  return 'file'
+}
+
 /**
  * File đang upload với progress
  */
@@ -36,82 +43,87 @@ export interface UploadingFile {
   attachment?: MessageAttachment
 }
 
+type SetUploadingFiles = Dispatch<SetStateAction<UploadingFile[]>>
+
+/**
+ * Upload binary lên S3 hoặc Cloudinary (bước chung chat + folder).
+ */
+async function uploadBinaryToStorage(
+  file: File,
+  tempId: string,
+  setUploadingFiles: SetUploadingFiles,
+): Promise<{
+  uploadedUrl: string
+  width?: number
+  height?: number
+  duration?: number
+  mimeType: string
+}> {
+  const mimeType = getResolvedFileType(file)
+  const isImage = mimeType.startsWith('image/')
+  const isVideo = mimeType.startsWith('video/')
+  const useCloudinary = isImage || isVideo
+
+  let uploadedUrl: string
+  let width: number | undefined
+  let height: number | undefined
+  let duration: number | undefined
+
+  if (useCloudinary) {
+    const result = await uploadToCloudinary(file, (progress) => {
+      setUploadingFiles((prev) =>
+        prev.map((f) => (f.id === tempId ? { ...f, progress } : f)),
+      )
+    })
+    uploadedUrl = result.url
+    width = result.width
+    height = result.height
+    duration = result.duration
+  } else {
+    uploadedUrl = await uploadToS3(file, (progress) => {
+      setUploadingFiles((prev) =>
+        prev.map((f) => (f.id === tempId ? { ...f, progress } : f)),
+      )
+    })
+  }
+
+  return { uploadedUrl, width, height, duration, mimeType }
+}
+
 /**
  * useFileUpload — Hook để upload files lên S3/Cloudinary
  *
- * Flow:
- * 1. Detect file type (image/video → Cloudinary, others → S3)
- * 2. Request presigned URL từ backend
- * 3. Upload trực tiếp lên S3/Cloudinary với progress tracking
- * 4. Tạo attachment record trong DB
- * 5. Return attachment object
- *
- * Usage:
- * ```tsx
- * const { uploadFile, uploadingFiles } = useFileUpload()
- * const attachment = await uploadFile(file, messageId)
- * ```
+ * Flow chat: tạo message trước → uploadFile(file, messageId) → POST /attachments
+ * Flow folder: uploadFileToFolder(file, channelId, folderId) → POST .../folders/:id/files
+ *   (backend tạo message ẩn + attachment + folder link)
  */
 export function useFileUpload() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
 
-  /**
-   * Upload một file lên S3 hoặc Cloudinary
-   */
   const uploadFile = async (
     file: File,
     messageId: string,
   ): Promise<MessageAttachment> => {
     const tempId = Math.random().toString(36).substring(7)
 
-    // Add vào uploading list
     setUploadingFiles((prev) => [
       ...prev,
       { id: tempId, file, progress: 0, status: 'uploading' },
     ])
 
     try {
-      const mimeType = getResolvedFileType(file)
-      const isImage = mimeType.startsWith('image/')
-      const isVideo = mimeType.startsWith('video/')
-      const useCloudinary = isImage || isVideo
+      const { uploadedUrl, width, height, duration, mimeType } =
+        await uploadBinaryToStorage(file, tempId, setUploadingFiles)
 
-      let uploadedUrl: string
-      let width: number | undefined
-      let height: number | undefined
-      let duration: number | undefined
-
-      if (useCloudinary) {
-        // Upload lên Cloudinary
-        const result = await uploadToCloudinary(file, (progress) => {
-          setUploadingFiles((prev) =>
-            prev.map((f) =>
-              f.id === tempId ? { ...f, progress } : f,
-            ),
-          )
-        })
-        uploadedUrl = result.url
-        width = result.width
-        height = result.height
-        duration = result.duration
-      } else {
-        // Upload lên S3
-        uploadedUrl = await uploadToS3(file, (progress) => {
-          setUploadingFiles((prev) =>
-            prev.map((f) =>
-              f.id === tempId ? { ...f, progress } : f,
-            ),
-          )
-        })
-      }
+      const type = attachmentTypeFromMime(mimeType)
 
       const response = await apiClient.post<MessageAttachment>('/attachments', {
         messageId,
         url: uploadedUrl,
-        type: isImage ? 'image' : isVideo ? 'video' : mimeType.startsWith('audio/') ? 'audio' : 'file',
+        type,
         name: file.name,
         size: file.size,
-        mimeType: mimeType,
+        mimeType,
         width,
         height,
         duration,
@@ -119,7 +131,6 @@ export function useFileUpload() {
 
       const attachment = response.data
 
-      // Update status
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.id === tempId
@@ -130,7 +141,6 @@ export function useFileUpload() {
 
       return attachment
     } catch (error) {
-      // Update error status
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.id === tempId
@@ -146,22 +156,76 @@ export function useFileUpload() {
     }
   }
 
-  /**
-   * Remove file khỏi uploading list (sau khi upload xong hoặc cancel)
-   */
+  const uploadFileToFolder = async (
+    file: File,
+    channelId: string,
+    folderId: string,
+  ): Promise<MessageAttachment> => {
+    const tempId = Math.random().toString(36).substring(7)
+
+    setUploadingFiles((prev) => [
+      ...prev,
+      { id: tempId, file, progress: 0, status: 'uploading' },
+    ])
+
+    try {
+      const { uploadedUrl, width, height, duration, mimeType } =
+        await uploadBinaryToStorage(file, tempId, setUploadingFiles)
+
+      const type = attachmentTypeFromMime(mimeType)
+
+      const response = await apiClient.post<MessageAttachment>(
+        `/channels/${channelId}/folders/${folderId}/files`,
+        {
+          url: uploadedUrl,
+          type,
+          name: file.name,
+          size: file.size,
+          mimeType,
+          width,
+          height,
+          duration,
+        },
+      )
+
+      const attachment = response.data
+
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.id === tempId
+            ? { ...f, progress: 100, status: 'success', attachment }
+            : f,
+        ),
+      )
+
+      return attachment
+    } catch (error) {
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.id === tempId
+            ? {
+                ...f,
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Upload failed',
+              }
+            : f,
+        ),
+      )
+      throw error
+    }
+  }
+
   const removeUploadingFile = (id: string) => {
     setUploadingFiles((prev) => prev.filter((f) => f.id !== id))
   }
 
-  /**
-   * Clear tất cả uploading files
-   */
   const clearUploadingFiles = () => {
     setUploadingFiles([])
   }
 
   return {
     uploadFile,
+    uploadFileToFolder,
     uploadingFiles,
     removeUploadingFile,
     clearUploadingFiles,
@@ -170,9 +234,6 @@ export function useFileUpload() {
 
 /**
  * Upload file lên Cloudinary
- *
- * QUAN TRỌNG: FormData phải gửi ĐÚNG params đã được backend sign.
- * Cloudinary so sánh signature với params nhận được — sai 1 ký tự → 401.
  */
 async function uploadToCloudinary(
   file: File,
@@ -183,7 +244,6 @@ async function uploadToCloudinary(
   height?: number
   duration?: number
 }> {
-  // 1. Request signature từ backend
   const { data: sig } = await apiClient.post<{
     signature: string
     timestamp: number
@@ -198,7 +258,6 @@ async function uploadToCloudinary(
     fileSize: file.size,
   })
 
-  // 2. FormData — CHỈ gửi params đã sign (folder, public_id, timestamp)
   const formData = new FormData()
   formData.append('file', file)
   formData.append('api_key', sig.apiKey)
@@ -233,7 +292,6 @@ async function uploadToS3(
   file: File,
   onProgress: (progress: number) => void,
 ): Promise<string> {
-  // 1. Request presigned URL từ backend
   const { data: presignedData } = await apiClient.post<{
     url: string
     key: string
@@ -244,7 +302,6 @@ async function uploadToS3(
     fileSize: file.size,
   })
 
-  // 2. Upload lên S3 qua presigned URL
   await axios.put(presignedData.url, file, {
     headers: {
       'Content-Type': getResolvedFileType(file),
@@ -259,6 +316,5 @@ async function uploadToS3(
     },
   })
 
-  // 3. Return public URL
   return presignedData.publicUrl
 }

@@ -241,6 +241,15 @@ export type ChannelAttachmentsPage = {
   hasMore: boolean
 }
 
+/** Folder trong channel (API folders) */
+export type ChannelFolder = {
+  id: string
+  channelId: string
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type SendMessagePayload = {
   content: string
   parentId?: string

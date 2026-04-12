@@ -185,7 +185,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
 
   if (isPending) {
     return (
-      <div className="flex flex-col h-full min-h-0 bg-white dark:bg-[#1A1D21]">
+      <div className="flex flex-col w-[1050px] mx-auto h-full min-h-0 bg-white dark:bg-[#1A1D21]">
         <div className="p-4 shrink-0">
           <Skeleton className="h-10 w-full rounded-lg bg-[#e8e8e8] dark:bg-[#2a2d31]" />
         </div>

@@ -72,6 +72,13 @@ export const attachmentFileKeys = {
 
 // ─── Channel query keys ───────────────────────────────────────────────────────
 
+/** Folders theo channel — list + attachment trong từng folder */
+export const folderKeys = {
+  list: (channelId: string) => ['channels', channelId, 'folders'] as const,
+  attachments: (channelId: string, folderId: string) =>
+    ['channels', channelId, 'folders', folderId, 'attachments'] as const,
+}
+
 export const channelKeys = {
   /** Tất cả channels trong workspace: useChannels(workspaceId) */
   all: (workspaceId: string) => ['channels', workspaceId] as const,

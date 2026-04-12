@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils"
 import { Separator } from '../ui/separator'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
 import { ShareFileModal } from './share-file-modal'
+import { AddToFolderSubmenu } from './add-to-folder-submenu'
+import { useChannelFolderActions } from '@/contexts/channel-folder-actions'
 
 interface AudioPreviewProps {
   message?: Message
@@ -36,6 +38,7 @@ export default function AudioPreview({
   onDownload,
   onRemove,
 }: AudioPreviewProps) {
+  const { requestNewFolder } = useChannelFolderActions()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(attachment?.duration || initialDuration || 0)
@@ -202,15 +205,13 @@ export default function AudioPreview({
                         <Typography variant="p" text="Add to folder" />
                         <MdOutlineKeyboardArrowRight size={13} />
                       </div>
-                      {isAddToFolderOpen && (
-                        <div className="absolute left-65 bottom-15 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md py-2 shadow-lg">
-                          <div className={SUBMENU_ITEM_STYLE}>
-                            <Typography variant="p" text="Folder 1" />
-                          </div>
-                          <Separator className="my-1 bg-[#797c814d]" />
-                          <div className={SUBMENU_ITEM_STYLE}>
-                            <Typography variant="p" text="Add new folder" />
-                          </div>
+                      {isAddToFolderOpen && message && attachment && (
+                        <div className="absolute left-65 bottom-15 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
+                          <AddToFolderSubmenu
+                            channelId={message.channelId}
+                            attachmentId={attachment.id}
+                            onRequestCreateFolder={requestNewFolder}
+                          />
                         </div>
                       )}
                     </div>
