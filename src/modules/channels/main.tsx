@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { LuX } from 'react-icons/lu'
 import MessageList from '@/components/message-list'
+import VideoFullscreenPortal from '@/components/attachment-previews/video-fullscreen-portal'
 import Editor from '@/components/editor'
 import UploadingFileItem from '@/components/uploading-file-item'
 import { useSendMessage, useUpdateMessage, useDeleteMessage } from '@/hooks/use-messages'
@@ -20,6 +20,8 @@ import {
   CustomDialogTitle,
 } from '@/components/custom-dialog'
 import { Button } from '@/components/ui/button'
+import Typography from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 import { apiClient } from '@/lib/axios'
 import type { Channel, Message, MessageAttachment } from '@/lib/types'
 
@@ -64,6 +66,21 @@ const Main = ({ currentChannelData }: MainProps) => {
   const { uploadFile, uploadingFiles, clearUploadingFiles } = useFileUpload()
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null)
+  const [isFileDragOver, setIsFileDragOver] = useState(false)
+  const fileDragDepthRef = useRef(0)
+
+  const isFileDrag = useCallback((e: DragEvent<Element>) => {
+    return Array.from(e.dataTransfer.types).includes('Files')
+  }, [])
+
+  useEffect(() => {
+    const clearDrag = () => {
+      fileDragDepthRef.current = 0
+      setIsFileDragOver(false)
+    }
+    window.addEventListener('dragend', clearDrag)
+    return () => window.removeEventListener('dragend', clearDrag)
+  }, [])
 
   const addPendingFiles = useCallback((files: File[]) => {
     const newItems: PendingFile[] = files.map((file) => ({
@@ -234,9 +251,87 @@ const Main = ({ currentChannelData }: MainProps) => {
     [addPendingFiles],
   )
 
+  const handleMainDragEnter = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (isSending || !isFileDrag(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+      fileDragDepthRef.current += 1
+      setIsFileDragOver(true)
+    },
+    [isSending, isFileDrag],
+  )
+
+  const handleMainDragLeave = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (isSending || !isFileDrag(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+      fileDragDepthRef.current -= 1
+      if (fileDragDepthRef.current <= 0) {
+        fileDragDepthRef.current = 0
+        setIsFileDragOver(false)
+      }
+    },
+    [isSending, isFileDrag],
+  )
+
+  const handleMainDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (isSending || !isFileDrag(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.dataTransfer.dropEffect = 'copy'
+    },
+    [isSending, isFileDrag],
+  )
+
+  const handleMainDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      fileDragDepthRef.current = 0
+      setIsFileDragOver(false)
+      if (isSending || !isFileDrag(e)) return
+      e.preventDefault()
+      e.stopPropagation()
+      const files = Array.from(e.dataTransfer.files)
+      if (!files.length) return
+      addPendingFiles(files)
+    },
+    [isSending, isFileDrag, addPendingFiles],
+  )
 
   return (
-    <div className="flex flex-col justify-between h-full overflow-hidden">
+    <div
+      className={cn(
+        'relative flex h-full flex-col justify-between overflow-hidden',
+        isFileDragOver &&
+          'ring-2 ring-inset ring-[#1264a3] dark:ring-[#1d9bd1]',
+      )}
+      onDragEnter={handleMainDragEnter}
+      onDragLeave={handleMainDragLeave}
+      onDragOver={handleMainDragOver}
+      onDrop={handleMainDrop}
+    >
+      {isFileDragOver ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 bg-[#1264a3]/12 p-4 backdrop-blur-[1px] dark:bg-black/35 sm:gap-3"
+          aria-hidden
+        >
+          <div className="max-w-[min(100%,18rem)] rounded-xl border-2 border-dashed border-[#1264a3] bg-white/95 px-5 py-5 dark:border-[#1d9bd1] dark:bg-[#1A1D21]/95 sm:max-w-none sm:px-8 sm:py-6">
+            <Typography
+              variant="p"
+              text="Drop to attach"
+              className="text-center text-base font-bold text-[#1264a3] dark:text-[#1d9bd1] sm:text-lg"
+            />
+            <Typography
+              variant="p"
+              text="Files appear below before you send"
+              className="mt-1 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]"
+            />
+          </div>
+        </div>
+      ) : null}
+      <VideoFullscreenPortal />
       {/**
        * MessageList nhận isConnected để useMessages có thể join room
        * ngay khi socket connected (thay vì chờ re-render)

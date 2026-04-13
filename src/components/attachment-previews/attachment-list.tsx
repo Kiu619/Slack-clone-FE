@@ -151,6 +151,7 @@ export default function AttachmentList({
                   message={message}
                   attachment={video}
                   onDownload={onDownload}
+                  useExternalFullscreen
                 />
               ))}
             </div>

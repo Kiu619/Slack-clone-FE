@@ -23,16 +23,22 @@ import { isAxiosError } from "axios";
 import { File, Laptop, Loader2, LucideMoreVertical } from "lucide-react";
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ChangeEvent,
+  type DragEvent,
 } from "react";
 import { FiPlus } from "react-icons/fi";
 import { toast } from "sonner";
 import { Virtuoso } from "react-virtuoso";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useFileUpload } from "@/hooks/use-file-upload";
+
+/** Vỏ nội dung: full width trên mobile, max ~Slack desktop, padding ngang theo breakpoint */
+const FOLDER_TAB_SHELL =
+  "w-full min-w-0 max-w-[1050px] mx-auto px-3 sm:px-4 md:px-5";
 
 export default function FolderTab({
   currentChannelData,
@@ -53,8 +59,23 @@ export default function FolderTab({
   const [renameFolder, setRenameFolder] = useState<ChannelFolder | null>(null);
   const [deleteFolder, setDeleteFolder] = useState<ChannelFolder | null>(null);
   const [plusOpen, setPlusOpen] = useState(false);
+  const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileDragDepthRef = useRef(0);
   const { uploadFileToFolder, uploadingFiles } = useFileUpload();
+
+  const isFileDrag = useCallback((e: DragEvent<Element>) => {
+    return Array.from(e.dataTransfer.types).includes("Files");
+  }, []);
+
+  useEffect(() => {
+    const clearDrag = () => {
+      fileDragDepthRef.current = 0;
+      setIsFileDragOver(false);
+    };
+    window.addEventListener("dragend", clearDrag);
+    return () => window.removeEventListener("dragend", clearDrag);
+  }, []);
 
   const effectiveFolderId = useMemo(() => {
     if (folders.length === 0) return null;
@@ -145,14 +166,9 @@ export default function FolderTab({
     });
   }, [channelId, effectiveFolderId, queryClient]);
 
-  const handleUploadInputChange = useCallback(
-    async (e: ChangeEvent<HTMLInputElement>) => {
-      const list = e.target.files;
-      if (!list?.length || !effectiveFolderId) return;
-      // Snapshot files before reset: FileList is live; clearing value can empty it.
-      const files = Array.from(list);
-      e.target.value = "";
-      setPlusOpen(false);
+  const uploadFilesToCurrentFolder = useCallback(
+    async (files: File[]) => {
+      if (!files.length || !effectiveFolderId) return;
       let ok = 0;
       for (const file of files) {
         try {
@@ -163,7 +179,9 @@ export default function FolderTab({
         }
       }
       if (ok > 0) {
-        toast.success(ok === 1 ? "File added to folder" : `${ok} files added to folder`);
+        toast.success(
+          ok === 1 ? "File added to folder" : `${ok} files added to folder`,
+        );
         invalidateAfterFolderUpload();
       }
     },
@@ -175,9 +193,75 @@ export default function FolderTab({
     ],
   );
 
+  const handleUploadInputChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const list = e.target.files;
+      if (!list?.length) return;
+      const files = Array.from(list);
+      e.target.value = "";
+      setPlusOpen(false);
+      await uploadFilesToCurrentFolder(files);
+    },
+    [uploadFilesToCurrentFolder],
+  );
+
+  const handleFolderDragEnter = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      fileDragDepthRef.current += 1;
+      setIsFileDragOver(true);
+    },
+    [isFileDrag],
+  );
+
+  const handleFolderDragLeave = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      fileDragDepthRef.current -= 1;
+      if (fileDragDepthRef.current <= 0) {
+        fileDragDepthRef.current = 0;
+        setIsFileDragOver(false);
+      }
+    },
+    [isFileDrag],
+  );
+
+  const handleFolderDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+    },
+    [isFileDrag],
+  );
+
+  const handleFolderDrop = useCallback(
+    async (e: DragEvent<HTMLDivElement>) => {
+      fileDragDepthRef.current = 0;
+      setIsFileDragOver(false);
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer.files);
+      if (!files.length) return;
+      await uploadFilesToCurrentFolder(files);
+    },
+    [isFileDrag, uploadFilesToCurrentFolder],
+  );
+
   if (isPending) {
     return (
-      <div className="flex flex-col w-[1050px] mx-auto mt-3 gap-3 px-4">
+      <div
+        className={cn(
+          FOLDER_TAB_SHELL,
+          "flex flex-col mt-3 gap-3 pb-6",
+        )}
+      >
         <Skeleton className="h-10 w-full max-w-md" />
         <Skeleton className="h-32 w-full" />
       </div>
@@ -186,7 +270,12 @@ export default function FolderTab({
 
   if (isError) {
     return (
-      <div className="flex flex-col w-[1050px] mx-auto mt-6 items-center gap-2 px-4">
+      <div
+        className={cn(
+          FOLDER_TAB_SHELL,
+          "flex flex-col mt-6 items-center gap-2 pb-6 text-center",
+        )}
+      >
         <Typography
           variant="p"
           text="Could not load folders."
@@ -201,11 +290,16 @@ export default function FolderTab({
 
   if (folders.length === 0) {
     return (
-      <div className="flex flex-col w-[1050px] mx-auto mt-8 items-center gap-4 px-4 text-center">
+      <div
+        className={cn(
+          FOLDER_TAB_SHELL,
+          "flex flex-col mt-6 sm:mt-8 items-center gap-4 pb-8 text-center",
+        )}
+      >
         <Typography
           variant="h4"
           text="No folders in this channel yet"
-          className="font-semibold"
+          className="font-semibold text-[1.1rem] leading-snug sm:text-xl"
         />
         <Typography
           variant="p"
@@ -222,9 +316,41 @@ export default function FolderTab({
   }
 
   return (
-    <div className="flex flex-col w-[1050px] mx-auto mt-3 min-h-0 flex-1 gap-0 min-w-0">
-      {/* Sub-tabs: một tab mỗi folder */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-[#797c814d] shrink-0 px-1">
+    <div
+      className={cn(
+        FOLDER_TAB_SHELL,
+        "relative flex h-full min-h-0 flex-1 flex-col bg-white dark:bg-[#1A1D21]",
+        isFileDragOver && "ring-2 ring-inset ring-[#1264a3] dark:ring-[#1d9bd1]",
+      )}
+      onDragEnter={handleFolderDragEnter}
+      onDragLeave={handleFolderDragLeave}
+      onDragOver={handleFolderDragOver}
+      onDrop={handleFolderDrop}
+    >
+      {isFileDragOver ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-100 flex flex-col items-center justify-center gap-2 bg-[#1264a3]/15 p-3 backdrop-blur-[2px] dark:bg-black/45 sm:gap-3"
+          aria-hidden
+        >
+          <div className="max-w-[min(100%,20rem)] rounded-xl border-2 border-dashed border-[#1264a3] bg-white/90 px-5 py-6 dark:border-[#1d9bd1] dark:bg-[#1A1D21]/95 sm:max-w-none sm:px-10 sm:py-8">
+            <Typography
+              variant="p"
+              text="Drop to upload"
+              className="text-center text-base font-bold text-[#1264a3] dark:text-[#1d9bd1] sm:text-[18px]"
+            />
+            <Typography
+              variant="p"
+              text={`Into "${selectedFolder?.name ?? "folder"}"`}
+              className="mt-1 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]"
+            />
+          </div>
+        </div>
+      ) : null}
+      {/* Sub-tabs: một tab mỗi folder — cuộn ngang trên mobile */}
+      <div
+        className="-mx-3 mt-2 flex shrink-0 touch-pan-x items-center gap-0.5 overflow-x-auto border-b border-[#797c814d] px-3 sm:-mx-4 sm:gap-1 sm:px-4 md:-mx-5 md:px-5"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {folders.map((f) => {
           const active = f.id === effectiveFolderId;
           return (
@@ -233,7 +359,7 @@ export default function FolderTab({
               type="button"
               onClick={() => setSelectedFolderId(f.id)}
               className={cn(
-                "shrink-0 px-3 py-2 text-[13px] font-semibold rounded-t-md border-b-2 transition-colors max-w-[200px] truncate",
+                "shrink-0 px-2.5 py-2 text-[12px] font-semibold rounded-t-md border-b-2 transition-colors max-w-[min(200px,45vw)] truncate sm:px-3 sm:text-[13px] sm:max-w-[200px]",
                 active
                   ? ""
                   : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
@@ -255,13 +381,13 @@ export default function FolderTab({
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-1 pt-3 pb-2 shrink-0">
+      <div className="flex shrink-0 flex-col gap-3 pt-3 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <Typography
           variant="p"
           text={selectedFolder?.name ?? ""}
-          className="text-[15px] font-semibold truncate min-w-0"
+          className="min-w-0 truncate text-[14px] font-semibold sm:text-[15px]"
         />
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-2 sm:justify-start">
           <input
             ref={fileInputRef}
             type="file"
@@ -275,7 +401,10 @@ export default function FolderTab({
                 <FiPlus size={16} className="text-white" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-52" align="end">
+            <PopoverContent
+              className="w-[min(calc(100vw-1.5rem),13rem)] sm:w-52"
+              align="end"
+            >
               <div className="flex flex-col py-2">
                 <Button
                   variant="submenu"
@@ -308,7 +437,7 @@ export default function FolderTab({
                 <LucideMoreVertical size={16} />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-44">
+            <PopoverContent className="w-[min(calc(100vw-1.5rem),11rem)] sm:w-44">
               <div className="flex flex-col py-2">
                 <button
                   type="button"
@@ -332,9 +461,9 @@ export default function FolderTab({
       </div>
 
       {uploadingFiles.some((u) => u.status === "uploading") ? (
-        <div className="px-3 py-2 shrink-0 flex flex-wrap gap-2 items-center text-[13px] text-[#616061] dark:text-[#ababad] border-b border-[#797c814d]/50">
-          <Loader2 className="size-4 animate-spin shrink-0" />
-          <span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#797c814d]/50 py-2 text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]">
+          <Loader2 className="size-4 shrink-0 animate-spin" />
+          <span className="min-w-0 break-all">
             Uploading{" "}
             {uploadingFiles.find((u) => u.status === "uploading")?.file.name}
             …
@@ -342,7 +471,7 @@ export default function FolderTab({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-1 pb-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-6 pt-0">
         {attPending && items.length === 0 ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
@@ -356,28 +485,30 @@ export default function FolderTab({
             className="text-[#616061] dark:text-[#ababad] py-8 text-center px-4"
           />
         ) : (
-          <div className="min-h-0 min-w-0 flex-1">
-            <Virtuoso
-              style={{ height: "100%" }}
-              className="min-w-0"
-              data={items}
-              components={virtuosoComponents}
-              defaultItemHeight={92}
-              increaseViewportBy={{ top: 120, bottom: 240 }}
-              atBottomThreshold={120}
-              endReached={handleEndReached}
-              computeItemKey={(_, item) => item.attachment.id}
-              itemContent={(_, item) => (
-                <div className="min-w-0 pb-2">
-                  <FilePreview
-                    message={item.message}
-                    attachment={item.attachment}
-                    fromFilesTab
-                    effectiveFolderId={effectiveFolderId}
-                  />
-                </div>
-              )}
-            />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 min-w-0 flex-1">
+              <Virtuoso
+                style={{ height: "100%" }}
+                className="min-w-0"
+                data={items}
+                components={virtuosoComponents}
+                defaultItemHeight={92}
+                increaseViewportBy={{ top: 120, bottom: 240 }}
+                atBottomThreshold={120}
+                endReached={handleEndReached}
+                computeItemKey={(_, item) => item.attachment.id}
+                itemContent={(_, item) => (
+                  <div className="min-w-0 w-full max-w-full pb-2">
+                    <FilePreview
+                      message={item.message}
+                      attachment={item.attachment}
+                      fromFilesTab
+                      effectiveFolderId={effectiveFolderId}
+                    />
+                  </div>
+                )}
+              />
+            </div>
           </div>
         )}
       </div>

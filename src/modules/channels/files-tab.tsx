@@ -23,6 +23,10 @@ const MEDIA_GRID_PAGE_SIZE = 6;
 const SEARCH_DEBOUNCE_MS = 300;
 const DROPDOWN_MAX_ITEMS = 10;
 
+/** Full width mobile, max ~Slack desktop — đồng bộ với folder-tab */
+const FILES_TAB_SHELL =
+  "w-full min-w-0 max-w-[1050px] mx-auto px-3 sm:px-4 md:px-5";
+
 export type FileWithMessage = ChannelFileHit;
 
 function isMediaAttachment(a: MessageAttachment): boolean {
@@ -156,7 +160,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
       Footer: () => (
         <div className="min-h-4">
           {isFetchingNextPage && !appliedQuery.trim() ? (
-            <p className="py-3 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
+            <p className="py-3 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]">
               Loading more…
             </p>
           ) : null}
@@ -168,14 +172,19 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
 
   if (isError) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-2 px-6 text-center bg-white dark:bg-[#1A1D21]">
+      <div
+        className={cn(
+          FILES_TAB_SHELL,
+          "flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-8 text-center bg-white dark:bg-[#1A1D21]",
+        )}
+      >
         <p className="text-sm font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]">
           Could not load files
         </p>
         <button
           type="button"
           onClick={() => void refetch()}
-          className="text-sm text-[#1264a3] hover:underline"
+          className="text-sm text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
           Try again
         </button>
@@ -185,25 +194,30 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
 
   if (isPending) {
     return (
-      <div className="flex flex-col w-[1050px] mx-auto h-full min-h-0 bg-white dark:bg-[#1A1D21]">
-        <div className="p-4 shrink-0">
+      <div
+        className={cn(
+          FILES_TAB_SHELL,
+          "flex h-full min-h-0 flex-1 flex-col bg-white dark:bg-[#1A1D21]",
+        )}
+      >
+        <div className="shrink-0 py-3 sm:py-4 sm:pb-3">
           <Skeleton className="h-10 w-full rounded-lg bg-[#e8e8e8] dark:bg-[#2a2d31]" />
         </div>
-        <div className="px-4 space-y-6 flex-1">
-          <Skeleton className="h-4 w-40 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
-          <div className="flex gap-2">
-            {[1, 2, 3].map((i) => (
+        <div className="flex flex-1 flex-col space-y-5 pb-6 sm:space-y-6">
+          <Skeleton className="h-4 w-32 bg-[#e8e8e8] dark:bg-[#2a2d31] sm:w-40" />
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton
                 key={i}
-                className="h-28 w-28 shrink-0 rounded-lg bg-[#e8e8e8] dark:bg-[#2a2d31]"
+                className="aspect-square min-h-18 w-full rounded-lg bg-[#e8e8e8] dark:bg-[#2a2d31]"
               />
             ))}
           </div>
-          <Skeleton className="h-4 w-32 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
+          <Skeleton className="h-4 w-28 bg-[#e8e8e8] dark:bg-[#2a2d31] sm:w-32" />
           {[1, 2, 3].map((i) => (
             <Skeleton
               key={`row-${i}`}
-              className="h-14 w-full bg-[#e8e8e8] dark:bg-[#2a2d31]"
+              className="h-14 w-full rounded-md bg-[#e8e8e8] dark:bg-[#2a2d31]"
             />
           ))}
         </div>
@@ -212,11 +226,16 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 w-[1050px] mx-auto flex-col bg-white dark:bg-[#1A1D21]">
-      <div className="shrink-0 p-4 pb-3">
+    <div
+      className={cn(
+        FILES_TAB_SHELL,
+        "flex h-full min-h-0 flex-1 flex-col bg-white dark:bg-[#1A1D21]",
+      )}
+    >
+      <div className="shrink-0 py-3 sm:py-4 sm:pb-3">
         <div className="relative z-20">
           <FiSearch
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#616061] dark:text-[#ababad]"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#616061] sm:left-3 dark:text-[#ababad]"
             size={18}
           />
           <Input
@@ -248,7 +267,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
             }}
             placeholder="Search files"
             className={cn(
-              "h-10 rounded-lg border-[#dddddd] bg-white pl-10 text-[15px] placeholder:text-[#616061] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
+              "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
               inputValue ? "pr-[4.5rem]" : "pr-3",
             )}
             autoComplete="off"
@@ -307,18 +326,18 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
                   No files match this name in this channel.
                 </div>
               ) : (
-                <ul className="max-h-[min(320px,50vh)] overflow-y-auto py-1">
+                <ul className="max-h-[min(280px,55vh)] overflow-y-auto py-1 sm:max-h-[min(320px,50vh)]">
                   {previewMatches.map(({ attachment }) => (
                     <li key={attachment.id}>
                       <button
                         type="button"
-                        className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left hover:bg-[#f8f8f8] dark:hover:bg-[#222529]"
+                        className="flex w-full cursor-pointer items-center gap-2 px-2 py-2 text-left hover:bg-[#f8f8f8] sm:gap-3 sm:px-3 dark:hover:bg-[#222529]"
                         onClick={() => commitSearch(debouncedInput)}
                       >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-[#f0f0f0] dark:bg-[#2a2d31]">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded bg-[#f0f0f0] sm:size-9 dark:bg-[#2a2d31]">
                           {getFileIcon(attachment.name)}
                         </div>
-                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#1d1c1d] dark:text-[#f9f8f9]">
+                        <span className="min-w-0 flex-1 break-all text-left text-[13px] font-medium text-[#1d1c1d] sm:truncate sm:text-[14px] dark:text-[#f9f8f9]">
                           {attachment.name}
                         </span>
                       </button>
@@ -331,38 +350,38 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
         </div>
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 pb-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-6">
         {allItems.length === 0 && !appliedQuery.trim() ? (
-          <p className="py-8 text-center text-[15px] text-[#616061] dark:text-[#ababad]">
+          <p className="px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
             No files have been shared in this channel yet.
           </p>
         ) : appliedQuery.trim() && appliedSearchPending ? (
-          <p className="animate-pulse py-8 text-center text-[15px] text-[#616061] dark:text-[#ababad]">
+          <p className="animate-pulse px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
             Searching…
           </p>
         ) : appliedQuery.trim() && layoutItems.length === 0 ? (
-          <p className="py-8 text-center text-[15px] text-[#616061] dark:text-[#ababad]">
+          <p className="px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
             No files match your search.
           </p>
         ) : (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             {mediaItems.length > 0 ? (
-              <section className="mb-8 min-w-0 shrink-0 overflow-x-hidden">
-                <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-[13px] font-bold text-[#616061] dark:text-[#ababad]">
+              <section className="mb-6 min-w-0 shrink-0 overflow-x-hidden sm:mb-8">
+                <div className="mb-2 flex min-w-0 flex-col gap-2 sm:mb-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <h2 className="text-[12px] font-bold text-[#616061] dark:text-[#ababad] sm:text-[13px]">
                     Photos and videos
                   </h2>
                   {hasMoreMediaThanGrid ? (
                     <button
                       type="button"
                       onClick={() => setShowAllMedia((v) => !v)}
-                      className="shrink-0 text-[13px] font-semibold text-selection-hover hover:underline dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
+                      className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
                     >
                       {showAllMedia ? "Show less" : "See all"}
                     </button>
                   ) : null}
                 </div>
-                <div className="grid w-full min-w-0 grid-cols-6 gap-2">
+                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {displayedMedia.map(({ attachment, message }) => {
                     const isVideo =
                       (attachment.type ?? "").toLowerCase() === "video";
@@ -392,7 +411,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
             ) : null}
 
             {documentItems.length > 0 ? (
-              <h2 className="mb-1 shrink-0 text-[13px] font-bold text-[#616061] dark:text-[#ababad]">
+              <h2 className="mb-1 shrink-0 text-[12px] font-bold text-[#616061] dark:text-[#ababad] sm:text-[13px]">
                 Documents
               </h2>
             ) : null}
@@ -409,7 +428,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
                 endReached={handleEndReached}
                 computeItemKey={(_, item) => item.attachment.id}
                 itemContent={(_, item) => (
-                  <div className="min-w-0 pb-2">
+                  <div className="min-w-0 w-full max-w-full pb-2">
                     <FilePreview
                       message={item.message}
                       attachment={item.attachment}

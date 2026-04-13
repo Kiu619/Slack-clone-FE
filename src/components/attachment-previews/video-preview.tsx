@@ -1,7 +1,8 @@
 "use client";
 
 import type { Message, MessageAttachment } from "@/lib/types";
-import { useEffect, useRef, useState } from "react";
+import { useVideoFullscreenStore } from "@/stores/useVideoFullscreenStore";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import FileToolbar from "./file-toolbar";
 import {
@@ -29,6 +30,21 @@ interface VideoPreviewProps {
   formDetailPanel?: boolean;
   /** Ô lưới nhỏ (tab Files) — ẩn thanh điều khiển dưới, video full khung */
   compact?: boolean;
+  /**
+   * Trong danh sách tin (Virtuoso): mở fullscreen qua portal gắn document.body,
+   * tránh unmount / transform tổ tiên làm văng Fullscreen API.
+   */
+  useExternalFullscreen?: boolean;
+  /** Instance render trong portal — tự gọi requestFullscreen sau mount */
+  autoEnterFullscreen?: boolean;
+  initialPlayback?: {
+    currentTime: number;
+    wasPlaying: boolean;
+    volume: number;
+    muted: boolean;
+    playbackRate: number;
+  };
+  onDetachedClose?: (resume: { time: number; play: boolean }) => void;
 }
 
 export default function VideoPreview({
@@ -37,20 +53,93 @@ export default function VideoPreview({
   onDownload,
   formDetailPanel = false,
   compact = false,
+  useExternalFullscreen = false,
+  autoEnterFullscreen = false,
+  initialPlayback,
+  onDetachedClose,
 }: VideoPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const portalFsAttemptedRef = useRef(false);
+  const portalHadFsRef = useRef(false);
+  const initialPlaybackAppliedRef = useRef(false);
+
+  const openPortal = useVideoFullscreenStore((s) => s.open);
+  const storePayload = useVideoFullscreenStore((s) => s.payload);
+  const consumeLastInlineResume = useVideoFullscreenStore(
+    (s) => s.consumeLastInlineResume,
+  );
 
   const [isHovered, setIsHovered] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(
+    () => initialPlayback?.wasPlaying ?? false,
+  );
+  const [currentTime, setCurrentTime] = useState(
+    () => initialPlayback?.currentTime ?? 0,
+  );
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [volume, setVolume] = useState(() => initialPlayback?.volume ?? 1);
+  const [isMuted, setIsMuted] = useState(() => initialPlayback?.muted ?? false);
+  const [playbackRate, setPlaybackRate] = useState(
+    () => initialPlayback?.playbackRate ?? 1,
+  );
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const isOpenElsewhere =
+    useExternalFullscreen &&
+    storePayload != null &&
+    storePayload.message.id === message.id &&
+    storePayload.attachment.id === attachment.id;
+
   useEffect(() => {
+    if (storePayload != null || !useExternalFullscreen) return;
+    const r = useVideoFullscreenStore.getState().lastInlineResume;
+    if (
+      !r ||
+      r.messageId !== message.id ||
+      r.attachmentId !== attachment.id
+    ) {
+      return;
+    }
+    const v = videoRef.current;
+    if (v) {
+      v.currentTime = r.time;
+      if (r.play) void v.play();
+    }
+    consumeLastInlineResume();
+  }, [
+    storePayload,
+    useExternalFullscreen,
+    message.id,
+    attachment.id,
+    consumeLastInlineResume,
+  ]);
+
+  useEffect(() => {
+    if (!initialPlayback) return;
+    const v = videoRef.current;
+    if (!v || initialPlaybackAppliedRef.current) return;
+    const apply = () => {
+      if (initialPlaybackAppliedRef.current || !videoRef.current) return;
+      initialPlaybackAppliedRef.current = true;
+      const el = videoRef.current;
+      el.currentTime = initialPlayback.currentTime;
+      el.volume = initialPlayback.volume;
+      el.muted = initialPlayback.muted;
+      el.playbackRate = initialPlayback.playbackRate;
+      setVolume(initialPlayback.volume);
+      setIsMuted(initialPlayback.muted);
+      setPlaybackRate(initialPlayback.playbackRate);
+      setCurrentTime(initialPlayback.currentTime);
+      if (initialPlayback.wasPlaying) void el.play();
+    };
+    if (v.readyState >= 1) apply();
+    else v.addEventListener("loadedmetadata", apply, { once: true });
+    return () => v.removeEventListener("loadedmetadata", apply);
+  }, [initialPlayback]);
+
+  useEffect(() => {
+    if (isOpenElsewhere) return;
     const video = videoRef.current;
     if (!video) return;
 
@@ -70,16 +159,79 @@ export default function VideoPreview({
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
     };
-  }, []);
+  }, [isOpenElsewhere, attachment.url]);
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+    const syncFs = () => {
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+      };
+      const fsEl =
+        document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+      const active = !!fsEl;
+      const ours = fsEl === containerRef.current;
+      setIsFullscreen(active && ours);
+
+      if (!autoEnterFullscreen || !onDetachedClose) return;
+
+      if (active && ours) {
+        portalHadFsRef.current = true;
+        return;
+      }
+      if (!active && portalHadFsRef.current) {
+        portalHadFsRef.current = false;
+        const v = videoRef.current;
+        onDetachedClose({
+          time: v?.currentTime ?? 0,
+          play: v != null && !v.paused,
+        });
+      }
     };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+    document.addEventListener("fullscreenchange", syncFs);
+    document.addEventListener("webkitfullscreenchange", syncFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFs);
+      document.removeEventListener("webkitfullscreenchange", syncFs);
+    };
+  }, [autoEnterFullscreen, onDetachedClose]);
+
+  useLayoutEffect(() => {
+    if (!autoEnterFullscreen || !containerRef.current) return;
+    if (portalFsAttemptedRef.current) return;
+    portalFsAttemptedRef.current = true;
+    const el = containerRef.current;
+    void (async () => {
+      try {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else {
+          const wk = (
+            el as HTMLElement & { webkitRequestFullscreen?: () => void }
+          ).webkitRequestFullscreen;
+          if (wk) wk.call(el);
+        }
+      } catch {
+        /* overlay fixed vẫn xem được */
+      }
+    })();
+  }, [autoEnterFullscreen]);
+
+  useEffect(() => {
+    if (!autoEnterFullscreen || !onDetachedClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+      };
+      if (document.fullscreenElement ?? doc.webkitFullscreenElement) return;
+      e.preventDefault();
+      onDetachedClose({
+        time: videoRef.current?.currentTime ?? 0,
+        play: videoRef.current != null && !videoRef.current.paused,
+      });
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [autoEnterFullscreen, onDetachedClose]);
 
   const handleDownload = () => {
     if (onDownload) {
@@ -149,24 +301,103 @@ export default function VideoPreview({
     }
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
+  const toggleFullscreen = async () => {
+    if (useExternalFullscreen) {
+      const v = videoRef.current;
+      openPortal({
+        sessionKey: `${message.id}-${attachment.id}-${Date.now()}`,
+        message,
+        attachment,
+        onDownload,
+        startTime: v?.currentTime ?? 0,
+        wasPlaying: v != null ? !v.paused : false,
+        volume: v?.volume ?? 1,
+        muted: v?.muted ?? false,
+        playbackRate,
+      });
+      v?.pause();
+      return;
+    }
+
+    if (autoEnterFullscreen && onDetachedClose) {
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        webkitExitFullscreen?: () => Promise<void>;
+      };
+      const active =
+        document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+      try {
+        if (active) {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else await doc.webkitExitFullscreen?.();
+        } else {
+          onDetachedClose({
+            time: videoRef.current?.currentTime ?? 0,
+            play: videoRef.current != null && !videoRef.current.paused,
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+
+    const el = containerRef.current;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void>;
+    };
+    const active =
+      document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+    try {
+      if (!active) {
+        if (!el) return;
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else {
+          const wk = (
+            el as HTMLElement & {
+              webkitRequestFullscreen?: () => void;
+            }
+          ).webkitRequestFullscreen;
+          if (wk) wk.call(el);
+        }
+      } else if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else {
+        await doc.webkitExitFullscreen?.();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
+
+  if (isOpenElsewhere) {
+    return (
+      <div
+        className={cn(
+          "slack-video-preview-root relative w-full rounded-lg overflow-hidden border border-[#797c814d] bg-black",
+          compact
+            ? "h-full max-w-full min-h-0 min-w-0 border-[#dddddd] dark:border-[#35373B]"
+            : "h-[260px] max-w-[500px]",
+        )}
+      >
+        <div className="flex h-full min-h-[120px] w-full items-center justify-center px-3 text-center text-[12px] text-white/55">
+          Đang phát toàn màn hình…
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "group relative w-full rounded-lg overflow-hidden border border-[#797c814d] bg-black",
-        compact && !isFullscreen
+        // Không dùng state để set h-screen trong list (Virtuoso): làm ô tin nhắn phình full viewport → virtualizer unmount hàng → mất fullscreen / crash.
+        "slack-video-preview-root group relative w-full rounded-lg overflow-hidden border border-[#797c814d] bg-black",
+        compact
           ? "h-full max-w-full min-h-0 min-w-0 overflow-hidden border-[#dddddd] dark:border-[#35373B]"
-          : isFullscreen
-            ? "h-screen flex items-center justify-center"
-            : "h-[260px] max-w-[500px]",
+          : "h-[260px] max-w-[500px]",
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -224,7 +455,7 @@ export default function VideoPreview({
         }`}
       >
         {/* Progress Bar */}
-        {!compact || isFullscreen && (
+        {(!compact || isFullscreen )&& (
           <div className="flex items-center gap-3">
             <span className="text-white text-xs font-mono font-medium">
               {fmtTime(currentTime)}
@@ -312,7 +543,7 @@ export default function VideoPreview({
               className="text-white hover:text-[#1d9bd1] transition-colors"
               title="Fullscreen"
             >
-              {isFullscreen ? (
+              {isFullscreen || autoEnterFullscreen ? (
                 <LuMinimize size={18} />
               ) : (
                 <LuMaximize size={18} />

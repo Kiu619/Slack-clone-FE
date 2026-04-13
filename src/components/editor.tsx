@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
 import Code from '@tiptap/extension-code'
@@ -205,23 +206,6 @@ const Editor = ({
     [onFileAttach],
   )
 
-  /**
-   * handleFileDrop — khi user drag & drop file vào editor
-   */
-  const handleFileDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault()
-      event.stopPropagation()
-
-      const files = event.dataTransfer.files
-      if (!files || files.length === 0) return
-
-      const fileArray = Array.from(files)
-      onFileAttach?.(fileArray)
-    },
-    [onFileAttach],
-  )
-
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
       if (!editor) return
@@ -299,8 +283,6 @@ const Editor = ({
           ? 'border-[#797c814d] opacity-60'
           : 'border-[#797c814d] hover:border-[#797c81]'
           }`}
-        onDrop={handleFileDrop}
-      // onDragOver={handleDragOver}
       >
         {/* Top Toolbar: Formatting */}
         {!isRecording && (
