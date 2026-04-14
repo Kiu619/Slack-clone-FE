@@ -87,7 +87,15 @@ export const channelKeys = {
   detail: (workspaceId: string, channelId: string) =>
     ['channels', workspaceId, channelId] as const,
 
-  /** Danh sách members của channel */
-  members: (workspaceId: string, channelId: string) =>
-    ['channels', workspaceId, channelId, 'members'] as const,
+  /**
+   * Danh sách members của channel (optional `search` đã trim, debounce phía client).
+   */
+  members: (workspaceId: string, channelId: string, search?: string) =>
+    [
+      'channels',
+      workspaceId,
+      channelId,
+      'members',
+      search?.trim() ?? '',
+    ] as const,
 }

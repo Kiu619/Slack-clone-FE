@@ -131,7 +131,7 @@ export const CustomSelect = ({
                   className={cn(
                     "group flex w-full cursor-pointer items-center px-4 py-2.5 text-[14px] transition-colors",
                     currentValue === option.value
-                      ? "bg-selection-hover"
+                      ? "bg-selection-hover text-white"
                       : " hover:bg-selection-hover hover:text-white"
                   )}
                 >

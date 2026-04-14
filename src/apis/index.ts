@@ -1,11 +1,15 @@
 import { apiClient } from "@/lib/axios"
 import type {
   AccountUser,
+  Channel,
   ChannelAttachmentsPage,
   ChannelFolder,
+  ChannelMembersDirectory,
   Message,
   MessageAttachment,
+  UpdateChannelPayload,
   User,
+  WorkspaceMember,
   WorkspaceMemberStatus,
 } from "@/lib/types"
 
@@ -117,6 +121,95 @@ export const getMemberStatusApi = async (workspaceId: string, userId: string) =>
 export const clearMemberStatusApi = async (workspaceId: string) => {
   const res = await apiClient.delete(
     `/workspaces/${workspaceId}/member/status`,
+  )
+  return res.data
+}
+
+/** GET /workspaces/:id/members — danh sách member workspace */
+export const fetchWorkspaceMembersApi = async (workspaceId: string) => {
+  const res = await apiClient.get<WorkspaceMember[]>(
+    `/workspaces/${workspaceId}/members`,
+  )
+  return res.data
+}
+
+/** POST /workspaces/:id/invite-emails — gửi email mời workspace (Resend) */
+export const sendWorkspaceInviteEmailsApi = async (
+  workspaceId: string,
+  emails: string[],
+  channelId?: string,
+) => {
+  const res = await apiClient.post<{
+    sent: number
+    skipped: number
+    failed: { email: string; message: string }[]
+  }>(`/workspaces/${workspaceId}/invite-emails`, {
+    emails,
+    ...(channelId ? { channelId } : {}),
+  })
+  return res.data
+}
+
+// ─── Channels (workspace) ─────────────────────────────────────────────────────
+
+export const updateChannelApi = async (
+  workspaceId: string,
+  channelId: string,
+  payload: UpdateChannelPayload,
+) => {
+  const res = await apiClient.patch<Channel>(
+    `/workspaces/${workspaceId}/channels/${channelId}`,
+    payload,
+  )
+  return res.data
+}
+
+/** GET .../channels/:channelId/members?search= */
+export const fetchChannelMembersApi = async (
+  workspaceId: string,
+  channelId: string,
+  search?: string,
+) => {
+  const params: Record<string, string> = {}
+  const q = search?.trim()
+  if (q) params.search = q
+  const res = await apiClient.get<ChannelMembersDirectory>(
+    `/workspaces/${workspaceId}/channels/${channelId}/members`,
+    { params },
+  )
+  return res.data
+}
+
+export const addChannelMemberApi = async (
+  workspaceId: string,
+  channelId: string,
+  userId: string,
+) => {
+  const res = await apiClient.post<{ ok: boolean }>(
+    `/workspaces/${workspaceId}/channels/${channelId}/members`,
+    { userId },
+  )
+  return res.data
+}
+
+/** POST .../channels/:channelId/members/bulk — thêm mọi workspace member chưa có trong channel */
+export const addAllChannelMembersBulkApi = async (
+  workspaceId: string,
+  channelId: string,
+) => {
+  const res = await apiClient.post<{ added: number }>(
+    `/workspaces/${workspaceId}/channels/${channelId}/members/bulk`,
+  )
+  return res.data
+}
+
+export const removeChannelMemberApi = async (
+  workspaceId: string,
+  channelId: string,
+  memberUserId: string,
+) => {
+  const res = await apiClient.delete<{ ok: boolean }>(
+    `/workspaces/${workspaceId}/channels/${channelId}/members/${memberUserId}`,
   )
   return res.data
 }

@@ -1,11 +1,17 @@
-import { Button } from '@/components/ui/button'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
+import { notFound, redirect } from 'next/navigation'
+import { getDefaultOrFirstChannelId } from '@/lib/default-channel'
+import { getServerChannels } from '@/lib/server-fetch'
 
-const page = () => {
-  return (
-    <>
-    </>
-  )
+export default async function WorkspaceRootPage({
+  params,
+}: {
+  params: Promise<{ workspaceId: string }>
+}) {
+  const { workspaceId } = await params
+  const channels = await getServerChannels(workspaceId)
+  const channelId = getDefaultOrFirstChannelId(channels)
+  if (!channelId) {
+    notFound()
+  }
+  redirect(`/workspace/${workspaceId}/channel/${channelId}`)
 }
-
-export default page

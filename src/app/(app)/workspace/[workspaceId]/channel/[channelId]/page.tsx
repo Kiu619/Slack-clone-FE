@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { isAxiosError } from "axios";
 import { useChannel } from "@/hooks/use-channel";
 import Header, { type ChannelViewTab } from "@/modules/channels/header";
 import Main from "@/modules/channels/main";
@@ -66,7 +67,11 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     data: channel,
     isLoading,
     isError,
+    error,
   } = useChannel(workspaceId, channelId);
+
+  const isForbidden =
+    isAxiosError(error) && error.response?.status === 403;
 
   if (isLoading) {
     return (
@@ -84,11 +89,28 @@ export default function ChannelPage({ params }: ChannelPageProps) {
 
   if (isError || !channel) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-3">
-        <p className="text-gray-400 text-lg font-semibold">Channel not found</p>
-        <p className="text-gray-500 text-sm">
-          This channel may have been deleted or you don&apos;t have access.
-        </p>
+      <div className="flex flex-col h-full items-center justify-center gap-3 px-4 text-center">
+        {isForbidden ? (
+          <>
+            <p className="text-gray-200 text-lg font-semibold">
+              Bạn chưa tham gia channel này
+            </p>
+            <p className="text-gray-500 text-sm max-w-md">
+              Bạn có thể mở đúng URL channel nhưng cần được thêm hoặc tự tham
+              gia (Join) trước khi xem nội dung. Chức năng Join sẽ được bổ
+              sung sau.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-400 text-lg font-semibold">
+              Channel not found
+            </p>
+            <p className="text-gray-500 text-sm">
+              This channel may have been deleted or you don&apos;t have access.
+            </p>
+          </>
+        )}
       </div>
     );
   }

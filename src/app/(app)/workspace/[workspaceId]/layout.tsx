@@ -68,14 +68,12 @@ export default async function WorkspaceLayout({
     channels,
   })
 
-  console.log("currentWorkspace", currentWorkspace)
-
   const cookieStore = await cookies()
   const widthsCookie = cookieStore.get(`panel-widths-${workspaceId}`)?.value
   const initialWidths = widthsCookie ? JSON.parse(widthsCookie) : {
     sidebarWidth: 260,
-    fileDetailWidth: 400,
-    profilePanelWidth: 410,
+    fileDetailWidth: 410,
+    profilePanelWidth: 420,
   }
 
   /**

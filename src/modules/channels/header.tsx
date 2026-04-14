@@ -30,6 +30,7 @@ import { LuSquareChartGantt } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { FaRegFolderOpen } from "react-icons/fa";
+import ChannelDetailDialog from "@/modules/channels/channel-details/channel-detail-dialog";
 
 export type ChannelViewTab = "messages" | "files" | "folders";
 
@@ -44,17 +45,26 @@ const Header = ({
   onTabChange: (tab: ChannelViewTab) => void;
   onOpenCreateFolderDialog: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
+  const [openChannelDetailDialog, setOpenChannelDetailDialog] = useState(false)
 
   const { theme: storeTheme } = useThemeStore()
   return (
     <div className="flex flex-col border-b border-[#797c814d]">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
+          <Button
+            size="custom"
+            className="p-2"
+          >
           <SlStar size={18} className="text-workspace-side-panel-text" />
+          </Button>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button className="flex items-center gap-1 cursor-pointer hover:bg-[#222529] px-2 py-1 rounded-md">
+              <Button className="flex items-center p-1 gap-0.5"
+                size="custom"
+                onClick={() => setOpenChannelDetailDialog(true)}
+              >
                 <FiHash size={18} />
                 <Typography
                   text={currentChannelData.name}
@@ -265,6 +275,7 @@ const Header = ({
         </Tooltip>
       </div>
 
+      <ChannelDetailDialog open={openChannelDetailDialog} onOpenChange={setOpenChannelDetailDialog} currentChannelData={currentChannelData} />
     </div>
   );
 };

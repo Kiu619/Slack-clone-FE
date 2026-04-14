@@ -70,6 +70,9 @@ export type ChannelsRow = {
   slug: string
   type: ChannelType
   isPrivate: boolean
+  /** Kênh mặc định workspace (không đổi tên qua API user thường) */
+  isDefaultChannel: boolean
+  topic: string | null
   description: string | null
   createdById: string | null
   createdAt: IsoDateString
@@ -190,6 +193,15 @@ export type ChannelMember = {
   email: string
   avatar: string | null
   joinedAt: string
+  isAway: boolean
+  statusEmoji?: string | null
+  statusText?: string | null
+}
+
+/** GET .../channels/:id/members — tab Members (in channel / not in channel). */
+export type ChannelMembersDirectory = {
+  inChannel: ChannelMember[]
+  notInChannel: ChannelMember[]
 }
 
 export type CreateChannelPayload = {
@@ -197,6 +209,13 @@ export type CreateChannelPayload = {
   type?: ChannelType
   isPrivate?: boolean
   description?: string
+}
+
+/** PATCH /workspaces/:wid/channels/:cid */
+export type UpdateChannelPayload = {
+  name?: string
+  topic?: string | null
+  description?: string | null
 }
 
 // ─── Message & Chat (DTO; nested `user` là aggregate, không phải `UsersRow`) ─

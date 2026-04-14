@@ -1,13 +1,18 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { getDefaultOrFirstChannelId } from '@/lib/default-channel'
+import { getServerChannels } from '@/lib/server-fetch'
 
-/**
- * Redirect route: /workspace/:id/channel → /workspace/:id
- * Vì channel cần channelId nên route này chỉ redirect về workspace
- */
-export default function ChannelIndexPage({
+/** /workspace/:id/channel → kênh mặc định (hoặc kênh đầu tiên). */
+export default async function ChannelIndexPage({
   params,
 }: {
-  params: { workspaceId: string }
+  params: Promise<{ workspaceId: string }>
 }) {
-  redirect(`/workspace/${params.workspaceId}`)
+  const { workspaceId } = await params
+  const channels = await getServerChannels(workspaceId)
+  const channelId = getDefaultOrFirstChannelId(channels)
+  if (!channelId) {
+    notFound()
+  }
+  redirect(`/workspace/${workspaceId}/channel/${channelId}`)
 }

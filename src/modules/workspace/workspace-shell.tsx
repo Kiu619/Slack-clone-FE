@@ -11,18 +11,90 @@ import WorkspaceSidePanel from '@/modules/workspace/workspace-side-panel/workspa
 import FileDetailPanel from '@/components/attachment-previews/file-detail-panel'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import { useChannels } from '@/hooks/use-channel'
-import type { AccountUser, User, Workspace } from '@/lib/types'
+import type {
+  AccountUser,
+  ChannelMember,
+  ChannelMembersDirectory,
+  User,
+  Workspace,
+  WorkspaceMember,
+} from '@/lib/types'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import ProfilePanel from '@/modules/profile/profile-panel'
 import { useProfilePanelStore } from '@/stores/useProfilePanelStore'
 import { authKeys } from '@/lib/query-keys'
 import { getUserApi, getWorkspaceProfileApi } from '@/apis'
 import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
+import { useWorkspaceChannelSocket } from '@/hooks/use-channel'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import { PreferencesDialog } from '@/modules/preferences/preferences-dialog'
 import { useThemeStore, type Theme } from '@/stores/useThemeStore'
 import { useTheme } from 'next-themes'
 import Cookies from 'js-cookie'
+
+/** Merge payload `user_profile_updated` vào row channel member (Members tab). */
+function mergeChannelMemberProfile(
+  m: ChannelMember,
+  data: Record<string, unknown>,
+): ChannelMember {
+  return {
+    ...m,
+    ...(data.name !== undefined && { name: data.name as string | null }),
+    ...(data.displayName !== undefined && {
+      displayName: data.displayName as string | null,
+    }),
+    ...(data.avatar !== undefined && { avatar: data.avatar as string | null }),
+    ...(typeof data.email === 'string' && { email: data.email }),
+    ...(data.statusEmoji !== undefined && {
+      statusEmoji: data.statusEmoji as string | null,
+    }),
+    ...(data.statusText !== undefined && {
+      statusText: data.statusText as string | null,
+    }),
+    ...(data.isAway !== undefined && { isAway: data.isAway as boolean }),
+  }
+}
+
+/** Merge cùng payload cho `GET /workspaces/:id/members` nếu đã cache. */
+function mergeWorkspaceMemberProfile(
+  m: WorkspaceMember,
+  data: Record<string, unknown>,
+): WorkspaceMember {
+  return {
+    ...m,
+    ...(data.name !== undefined && { name: data.name as string | null }),
+    ...(data.displayName !== undefined && {
+      displayName: data.displayName as string | null,
+    }),
+    ...(data.avatar !== undefined && { avatar: data.avatar as string | null }),
+    ...(typeof data.email === 'string' && { email: data.email }),
+    ...(data.isAway !== undefined && { isAway: data.isAway as boolean }),
+    ...(data.statusEmoji !== undefined && {
+      statusEmoji: data.statusEmoji as string | null,
+    }),
+    ...(data.statusText !== undefined && {
+      statusText: data.statusText as string | null,
+    }),
+    ...(data.statusExpiration !== undefined && {
+      statusExpiration:
+        data.statusExpiration === null
+          ? null
+          : (typeof data.statusExpiration === 'string'
+              ? data.statusExpiration
+              : new Date(data.statusExpiration as string).toISOString()),
+    }),
+    ...(data.notificationsPausedUntil !== undefined && {
+      notificationsPausedUntil:
+        data.notificationsPausedUntil === null
+          ? null
+          : (typeof data.notificationsPausedUntil === 'string'
+              ? data.notificationsPausedUntil
+              : new Date(
+                  data.notificationsPausedUntil as string,
+                ).toISOString()),
+    }),
+  }
+}
 
 interface Props {
   accountUser: AccountUser
@@ -93,28 +165,31 @@ export default function WorkspaceShell({
   })
 
   const queryClient = useQueryClient();
-  const { isProfileConnected } = useSocket();
+  const { isConnected, isProfileConnected, isChannelConnected } = useSocket()
+
+  useWorkspaceChannelSocket(workspaceId, isChannelConnected)
 
   useWorkspaceSocket(workspaceId, isProfileConnected, {
-    onUserProfileUpdated: useCallback((data: any) => {
-      const { id: userId, workspaceId: updatedWsId } = data;
-      if (updatedWsId !== workspaceId) return;
+    onUserProfileUpdated: useCallback((data: Record<string, unknown>) => {
+      const userId = data.id as string | undefined
+      const updatedWsId = data.workspaceId as string | undefined
+      if (!userId || updatedWsId !== workspaceId) return
 
       // 1. Cập nhật cache Member Status (cho Profile Panel và các chỗ khác)
-      queryClient.setQueryData(['workspace-member-status', workspaceId, userId], (old: any) => {
-        return old ? { ...old, ...data } : old;
-      });
+      queryClient.setQueryData(['workspace-member-status', workspaceId, userId], (old: Record<string, unknown> | undefined) => {
+        return old ? { ...old, ...data } : old
+      })
 
       // 2. Nếu là chính mình, invalidate profile cache của workspace hiện tại
       if (userId === account?.id) {
         queryClient.invalidateQueries({
           queryKey: authKeys.workspaceProfile(workspaceId),
-        });
+        })
       }
 
       // 3. Cập nhật Avatar/Tên hiển thị trong Message List (Infinite Query)
       queryClient.setQueriesData({ queryKey: ['messages'] }, (oldData: any) => {
-        if (!oldData?.pages) return oldData;
+        if (!oldData?.pages) return oldData
         return {
           ...oldData,
           pages: oldData.pages.map((page: any) => ({
@@ -122,11 +197,58 @@ export default function WorkspaceShell({
             messages: page.messages.map((msg: any) =>
               msg.user.id === userId
                 ? { ...msg, user: { ...msg.user, ...data } }
-                : msg
+                : msg,
+            ),
+          })),
+        }
+      })
+
+      // 4. Danh sách members trong channel (Members tab) — tên + avatar + status
+      queryClient.setQueriesData(
+        {
+          predicate: (q) => {
+            const k = q.queryKey
+            return (
+              Array.isArray(k) &&
+              k[0] === 'channels' &&
+              k[1] === workspaceId &&
+              typeof k[2] === 'string' &&
+              k[3] === 'members'
             )
-          }))
-        };
-      });
+          },
+        },
+        (old: unknown) => {
+          if (!old || typeof old !== 'object') return old
+          if ('inChannel' in old && 'notInChannel' in old) {
+            const d = old as ChannelMembersDirectory
+            return {
+              inChannel: d.inChannel.map((m) =>
+                m.id === userId ? mergeChannelMemberProfile(m, data) : m,
+              ),
+              notInChannel: d.notInChannel.map((m) =>
+                m.id === userId ? mergeChannelMemberProfile(m, data) : m,
+              ),
+            }
+          }
+          if (Array.isArray(old)) {
+            return (old as ChannelMember[]).map((m) =>
+              m.id === userId ? mergeChannelMemberProfile(m, data) : m,
+            )
+          }
+          return old
+        },
+      )
+
+      // 5. Danh sách members workspace (nếu đã cache)
+      queryClient.setQueryData(
+        ['workspaces', workspaceId, 'members'],
+        (old: WorkspaceMember[] | undefined) => {
+          if (!old?.length) return old
+          return old.map((m) =>
+            m.id === userId ? mergeWorkspaceMemberProfile(m, data) : m,
+          )
+        },
+      )
     }, [workspaceId, account?.id, queryClient]),
   });
 
@@ -282,7 +404,7 @@ export default function WorkspaceShell({
       <Toolbar
         currentWorkspaceData={currentWorkspaceData} />
 
-      <div className="flex h-full "
+      <div className="flex h-full overflow-x-hidden"
       >
         <Sidebar
           userData={displayUser}
@@ -328,7 +450,7 @@ export default function WorkspaceShell({
                   onMouseDown={() => startResizing('file-detail')}
                 />
                 <div
-                  className="h-full border-l border-[#797c814d] shrink-0 overflow-hidden"
+                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
                   style={{ width: fileDetailWidth }}
                 >
                   <FileDetailPanel />
@@ -344,7 +466,7 @@ export default function WorkspaceShell({
                   onMouseDown={() => startResizing('profile')}
                 />
                 <div
-                  className="h-full border-l border-[#797c814d] shrink-0 overflow-hidden"
+                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
                   style={{ width: profilePanelWidth }}
                 >
                   <ProfilePanel />

@@ -58,9 +58,7 @@ export default function FilePreview({
   };
 
   const fileIcon = getFileIcon(attachment.name);
-  const fileSize = formatFileSize(attachment.size);
-
-  console.log("attachment", attachment);
+  const fileSize = formatFileSize(attachment.size)
 
   return (
     <>
