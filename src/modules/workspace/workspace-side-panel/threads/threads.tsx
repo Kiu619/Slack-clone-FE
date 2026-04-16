@@ -3,7 +3,7 @@
 import Typography from '@/components/ui/typography'
 import { BiMessageSquareDetail } from 'react-icons/bi'
 
-const Thread = () => {
+const Threads = () => {
   return (
     <div className="flex items-center gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md">
       <BiMessageSquareDetail size={20} className="text-workspace-side-panel-text" />
@@ -12,4 +12,4 @@ const Thread = () => {
   )
 }
 
-export default Thread
+export default Threads

@@ -44,7 +44,7 @@ const Main = ({ currentChannelData }: MainProps) => {
    * useSocket: connect và theo dõi trạng thái WebSocket
    * isConnected là React state — thay đổi → re-render → hook con re-run
    */
-  const { isConnected } = useSocket()
+  const { isChannelChatConnected } = useSocket()
 
   const currentUserForMutation = currentUser
     ? {
@@ -239,10 +239,6 @@ const Main = ({ currentChannelData }: MainProps) => {
     setMessageToDelete(messageId)
   }, [])
 
-  const handleReplyMessage = useCallback((message: Message) => {
-    console.log('Reply to:', message.id)
-  }, [])
-
   const handleFileAttach = useCallback(
     (files: File[]) => {
       if (!files.length) return
@@ -340,10 +336,9 @@ const Main = ({ currentChannelData }: MainProps) => {
         channelId={currentChannelData.id}
         currentUserId={currentUser?.id ?? ''}
         workspaceId={currentChannelData.workspaceId}
-        isConnected={isConnected}
+        isConnected={isChannelChatConnected}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
-        onReplyMessage={handleReplyMessage}
       />
 
       <div className="px-4 pb-4 shrink-0">
@@ -398,7 +393,7 @@ const Main = ({ currentChannelData }: MainProps) => {
             variant="destructive"
             onClick={() => {
               if (messageToDelete) {
-                deleteMessage(messageToDelete)
+                deleteMessage({messageId: messageToDelete})
                 setMessageToDelete(null)
               }
             }}

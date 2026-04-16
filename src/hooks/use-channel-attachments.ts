@@ -1,7 +1,7 @@
 'use client'
 
 import { listChannelAttachmentsApi } from '@/apis'
-import { useChannelSocket } from '@/hooks/use-socket'
+import { useChannelChatSocket } from '@/hooks/use-socket'
 import { messageKeys } from '@/lib/query-keys'
 import type { ChannelAttachmentsPage, Message } from '@/lib/types'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
@@ -11,7 +11,7 @@ import { useCallback, useMemo } from 'react'
  * useChannelAttachments — danh sách file trong channel (REST + phân trang),
  * đồng bộ coarse-grained qua WebSocket (invalidate khi có file thêm/xóa / message xóa / message có đính kèm).
  */
-export function useChannelAttachments(channelId: string, isConnected: boolean) {
+export function useChannelAttachments(channelId: string, isChannelChatConnected: boolean) {
   const queryClient = useQueryClient()
 
   const query = useInfiniteQuery<ChannelAttachmentsPage>({
@@ -48,7 +48,7 @@ export function useChannelAttachments(channelId: string, isConnected: boolean) {
     [invalidate],
   )
 
-  useChannelSocket(channelId, isConnected, socketCallbacks)
+  useChannelChatSocket(channelId, isChannelChatConnected, socketCallbacks)
 
   return query
 }

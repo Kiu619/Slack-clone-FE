@@ -39,10 +39,10 @@ interface FilesTabProps {
 }
 
 export default function FilesTab({ currentChannelData }: FilesTabProps) {
-  const { isConnected } = useSocket();
+  const { isChannelChatConnected } = useSocket();
   const attachmentsQuery = useChannelAttachments(
     currentChannelData.id,
-    isConnected,
+    isChannelChatConnected,
   );
   const {
     isPending,
@@ -268,7 +268,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
             placeholder="Search files"
             className={cn(
               "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
-              inputValue ? "pr-[4.5rem]" : "pr-3",
+              inputValue ? "pr-18" : "pr-3",
             )}
             autoComplete="off"
           />

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getChannelSocket, getSocket } from '@/hooks/use-socket'
+import { getChannelChatSocket, getChannelSocket } from '@/hooks/use-socket'
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -24,7 +24,9 @@ apiClient.interceptors.request.use((config) => {
     const path = config.url ?? ''
     const isWorkspaceChannelsRest =
       /\/workspaces\/[^/]+\/channels(\/|$)/.test(path)
-    const socket = isWorkspaceChannelsRest ? getChannelSocket() : getSocket()
+    const socket = isWorkspaceChannelsRest
+      ? getChannelSocket()
+      : getChannelChatSocket()
     if (socket.id) {
       config.headers['X-Socket-Id'] = socket.id
     }

@@ -31,6 +31,8 @@ import { PreferencesDialog } from '@/modules/preferences/preferences-dialog'
 import { useThemeStore, type Theme } from '@/stores/useThemeStore'
 import { useTheme } from 'next-themes'
 import Cookies from 'js-cookie'
+import ThreadPanel from '../threads/thread-panel'
+import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
 
 /** Merge payload `user_profile_updated` vào row channel member (Members tab). */
 function mergeChannelMemberProfile(
@@ -165,7 +167,7 @@ export default function WorkspaceShell({
   })
 
   const queryClient = useQueryClient();
-  const { isConnected, isProfileConnected, isChannelConnected } = useSocket()
+  const { isProfileConnected, isChannelConnected } = useSocket()
 
   useWorkspaceChannelSocket(workspaceId, isChannelConnected)
 
@@ -198,6 +200,22 @@ export default function WorkspaceShell({
               msg.user.id === userId
                 ? { ...msg, user: { ...msg.user, ...data } }
                 : msg,
+            ),
+          })),
+        }
+      })
+
+      // 3.1 Cập nhật Avatar trong Thread Messages
+      queryClient.setQueriesData({ queryKey: ['thread-messages'] }, (oldData: any) => {
+        if (!oldData?.pages) return oldData
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page: any) => ({
+            ...page,
+            messages: page.messages.map((msg: any) => 
+              msg.user.id === userId
+                ? { ...msg, user: { ...msg.user, ...data } }
+                : msg
             ),
           })),
         }
@@ -281,6 +299,7 @@ export default function WorkspaceShell({
   const setUser = useUserStore((s) => s.setUser)
   const isFileDetailOpen = useFileDetailStore((s) => s.isOpen)
   const isProfilePanelOpen = useProfilePanelStore((s) => s.isOpen)
+  const isThreadPanelOpen = useThreadPanelStore((s) => s.isOpen)
 
 
 
@@ -470,6 +489,22 @@ export default function WorkspaceShell({
                   style={{ width: profilePanelWidth }}
                 >
                   <ProfilePanel />
+                </div>
+              </>
+            )}
+
+            {/* Thread Panel */}
+            {isThreadPanelOpen && (
+              <>
+                <div
+                  className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
+                  onMouseDown={() => startResizing('profile')}
+                />
+                <div
+                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
+                  style={{ width: profilePanelWidth }}
+                >
+                  <ThreadPanel workspaceId={workspaceId} />
                 </div>
               </>
             )}

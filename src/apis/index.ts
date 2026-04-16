@@ -216,6 +216,11 @@ export const removeChannelMemberApi = async (
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
 
+export const getMessageByIdApi = async (messageId: string) => {
+  const res = await apiClient.get<Message>(`/messages/${messageId}`)
+  return res.data
+}
+
 export const updateMessageApi = async (messageId: string, content: string) => {
   const res = await apiClient.patch<{ id: string; content: string; editedAt: string }>(
     `/messages/${messageId}`,

@@ -97,8 +97,12 @@ export type MessagesRow = {
   content: string
   type: MessageType
   parentId: string | null
+  alsoSendToChannel: boolean
   editedAt: IsoDateString | null
   deletedAt: IsoDateString | null
+  replyCount: number
+  replyParticipantIds: string[]
+  lastReplyAt: IsoDateString | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }
@@ -234,6 +238,11 @@ export type Message = Omit<MessagesRow, "userId"> & {
   user: User
   reactions: Reaction[]
   attachments: MessageAttachment[]
+  parent?: {
+    content: string
+    deletedAt: IsoDateString | null
+    attachments: MessageAttachment[]
+  }
 }
 
 /**
@@ -272,6 +281,7 @@ export type ChannelFolder = {
 export type SendMessagePayload = {
   content: string
   parentId?: string
+  alsoSendToChannel?: boolean
 }
 
 /** Socket.io events từ server → client */

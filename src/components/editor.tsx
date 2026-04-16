@@ -33,13 +33,17 @@ import { LinkInputDialog } from './dialogs/link-input-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useTheme } from 'next-themes'
 import { getFileIcon, formatFileSize } from './attachment-previews/file-preview'
-import { PendingFile } from '@/lib/types'
 import { useAudioRecorder } from '@/hooks/use-audio-recorder'
 import EditorAudioRecorder from './editor-audio-recorder'
 import AudioPreview from './attachment-previews/audio-preview'
 
 const RecordVideoDialog = dynamic(() => import('./dialogs/record-video-dialog'), { ssr: false })
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
+
+export interface PendingFile {
+  id: string
+  file: File
+}
 
 interface EditorProps {
   onSubmit?: (htmlContent: string) => void
@@ -128,7 +132,12 @@ const Editor = ({
         },
       }),
       Placeholder.configure({
-        placeholder: `Message #${channelName || 'channel'}`,
+        placeholder: content => {
+          if (channelName) {
+            return `Message #${channelName}`
+          }
+          return 'Reply...'
+        }
       }),
       Link.configure({
         openOnClick: false,

@@ -6,6 +6,8 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAddReaction, useMessages } from '@/hooks/use-messages'
 import { usePrefetchPdfAttachments } from '@/hooks/use-prefetch-pdf-attachments'
+import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
+import { useMessageFocusStore } from '@/stores/useMessageFocusStore'
 import type { Message } from '@/lib/types'
 import { format, isSameDay, isThisYear, isToday, isYesterday } from 'date-fns'
 import { enUS } from 'date-fns/locale'
@@ -20,7 +22,6 @@ interface MessageListProps {
   isConnected: boolean
   onEditMessage?: (message: Message) => void
   onDeleteMessage?: (messageId: string) => void
-  onReplyMessage?: (message: Message) => void
 }
 
 function DateSeparator({ date }: { date: Date }) {
@@ -147,7 +148,6 @@ export default function MessageList({
   isConnected,
   onEditMessage,
   onDeleteMessage,
-  onReplyMessage,
 }: MessageListProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
@@ -162,7 +162,14 @@ export default function MessageList({
     fetchNextPage,
   } = useMessages(channelId, isConnected)
 
+  const { focusedMessageId, setFocusedMessageId } = useMessageFocusStore()
+  /** internalFocusedId: Chỉ dùng để hiện Background Highlight (mất sau 1.5s) */
+  const [internalFocusedId, setInternalFocusedId] = useState<string | null>(null)
+  /** isJumping: Dùng để tắt gravity (mất sau 1.5s) */
+  const [isJumping, setIsJumping] = useState(false)
+  
   const { mutate: addReaction } = useAddReaction(channelId)
+  const openThread = useThreadPanelStore((s) => s.open)
 
   usePrefetchPdfAttachments(data?.pages)
 
@@ -200,6 +207,34 @@ export default function MessageList({
     prevPagesRef.current = currPages
   }, [listItems.length, data?.pages.length])
 
+  /** Effect: Theo dõi focusedMessageId từ store và cuộn đến đó */
+  useEffect(() => {
+    if (focusedMessageId && listItems.length > 0) {
+      const index = listItems.findIndex(item => item.type === 'message' && item.message.id === focusedMessageId)
+      if (index !== -1) {
+        setInternalFocusedId(focusedMessageId)
+        setIsJumping(true) // Tạm thời tắt gravity kéo về đáy
+        
+        // Cần delay lâu hơn một chút (500ms) để container ổn định sau khi resize (do mở side panel)
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({
+            index: index, // Sử dụng index 0-based của mảng listItems
+            align: 'center'
+          })
+        }, 500)
+
+        // Tắt background highlight và bật lại gravity sau 1.5s
+        // Tuy nhiên focusedMessageId (điều khiển toolbar) vẫn giữ nguyên cho đến khi hover
+        const timer = setTimeout(() => {
+          setInternalFocusedId(null)
+          setIsJumping(false)
+        }, 1500)
+
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [focusedMessageId, listItems, firstItemIndex]) // Xóa setFocusedMessageId khỏi dependencies để tránh reset nhầm
+
   /** Index cho initial scroll to bottom — dùng tọa độ của Virtuoso (firstItemIndex + len - 1) */
   const initialTopMostItemIndex = useMemo(() => {
     return firstItemIndex + listItems.length - 1
@@ -217,6 +252,13 @@ export default function MessageList({
       addReaction({ messageId, emoji, userId: currentUserId })
     },
     [addReaction, currentUserId],
+  )
+
+  const handleReply = useCallback(
+    (message: Message, highlightedMessageId?: string) => {
+      openThread(message, highlightedMessageId)
+    },
+    [openThread],
   )
 
   /** Header loader — nằm trong Virtuoso để tránh làm list nhảy khi xuất hiện/biến mất */
@@ -252,9 +294,8 @@ export default function MessageList({
         firstItemIndex={firstItemIndex}
         initialTopMostItemIndex={initialTopMostItemIndex}
         components={components}
-        alignToBottom={true}
-        // increaseViewportBy={{ top: 1000, bottom: 400 }}
-        followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
+        alignToBottom={!isJumping} // Tắt gravity khi đang nhảy
+        followOutput={isJumping ? false : (isAtBottom) => (isAtBottom ? 'smooth' : false)}
         atTopThreshold={200}
         startReached={handleStartReached}
         style={{ height: '100%' }}
@@ -294,7 +335,11 @@ export default function MessageList({
               onReact={handleReact}
               onEdit={onEditMessage}
               onDelete={onDeleteMessage}
-              onReply={onReplyMessage}
+              onReply={handleReply}
+              isInsideThreadPanel={false}
+              isFocused={focusedMessageId === item.message.id}
+              isTemporaryHighlight={internalFocusedId === item.message.id}
+              onFocus={(id) => !id && setFocusedMessageId(null)}
             />
           )
         }}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 
-const SOCKET_URL =
+const CHANNEL_CHAT_SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/chat'
 const USER_PROFILE_SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/user-profile'
@@ -11,19 +11,19 @@ const CHANNEL_SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/channel'
 
 /** Singleton sockets — tạo một lần, tái dùng toàn app */
-let socketInstance: Socket | null = null
+let channelChatSocketInstance: Socket | null = null
 let userProfileSocketInstance: Socket | null = null
 let channelSocketInstance: Socket | null = null
 
-export function getSocket(): Socket {
-  if (!socketInstance) {
-    socketInstance = io(SOCKET_URL, {
+export function getChannelChatSocket(): Socket {
+  if (!channelChatSocketInstance) {
+    channelChatSocketInstance = io(CHANNEL_CHAT_SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       autoConnect: false,
     })
   }
-  return socketInstance
+  return channelChatSocketInstance
 }
 
 export function getUserProfileSocket(): Socket {
@@ -55,20 +55,16 @@ export type SocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
  * useSocket — khởi tạo và duy trì kết nối WebSocket
  */
 export function useSocket() {
-  const socket = getSocket()
+  const channelChatSocket = getChannelChatSocket()
   const profileSocket = getUserProfileSocket()
   const channelSocket = getChannelSocket()
-  const [isConnected, setIsConnected] = useState(socket.connected)
-  const [isProfileConnected, setIsProfileConnected] = useState(
-    profileSocket.connected,
-  )
-  const [isChannelConnected, setIsChannelConnected] = useState(
-    channelSocket.connected,
-  )
+  const [isChannelChatConnected, setIsChannelChatConnected] = useState(channelChatSocket.connected)
+  const [isProfileConnected, setIsProfileConnected] = useState(profileSocket.connected)
+  const [isChannelConnected, setIsChannelConnected] = useState(channelSocket.connected)
 
   useEffect(() => {
-    const onConnect = () => setIsConnected(true)
-    const onDisconnect = () => setIsConnected(false)
+    const onChannelChatConnect = () => setIsChannelChatConnected(true)
+    const onChannelChatDisconnect = () => setIsChannelChatConnected(false)
 
     const onProfileConnect = () => setIsProfileConnected(true)
     const onProfileDisconnect = () => setIsProfileConnected(false)
@@ -76,8 +72,8 @@ export function useSocket() {
     const onChannelConnect = () => setIsChannelConnected(true)
     const onChannelDisconnect = () => setIsChannelConnected(false)
 
-    socket.on('connect', onConnect)
-    socket.on('disconnect', onDisconnect)
+    channelChatSocket.on('connect', onChannelChatConnect)
+    channelChatSocket.on('disconnect', onChannelChatDisconnect)
 
     profileSocket.on('connect', onProfileConnect)
     profileSocket.on('disconnect', onProfileDisconnect)
@@ -85,29 +81,29 @@ export function useSocket() {
     channelSocket.on('connect', onChannelConnect)
     channelSocket.on('disconnect', onChannelDisconnect)
 
-    if (!socket.connected) socket.connect()
+    if (!channelChatSocket.connected) channelChatSocket.connect()
     if (!profileSocket.connected) profileSocket.connect()
     if (!channelSocket.connected) channelSocket.connect()
 
     return () => {
-      socket.off('connect', onConnect)
-      socket.off('disconnect', onDisconnect)
+      channelChatSocket.off('connect', onChannelChatConnect)
+      channelChatSocket.off('disconnect', onChannelChatDisconnect)
       profileSocket.off('connect', onProfileConnect)
       profileSocket.off('disconnect', onProfileDisconnect)
       channelSocket.off('connect', onChannelConnect)
       channelSocket.off('disconnect', onChannelDisconnect)
     }
-  }, [socket, profileSocket, channelSocket])
+  }, [channelChatSocket, profileSocket, channelSocket])
 
-  return { isConnected, isProfileConnected, isChannelConnected }
+  return { isChannelChatConnected, isProfileConnected, isChannelConnected }
 }
 
 /**
- * useChannelSocket — join room + lắng nghe events của channel
+ * useChannelChatSocket — join room + lắng nghe events của channel
  */
-export function useChannelSocket(
+export function useChannelChatSocket(
   channelId: string | null,
-  isConnected: boolean,
+  isChannelChatConnected: boolean,
   callbacks: {
     onMessage?: (msg: unknown) => void
     onMessageUpdated?: (data: unknown) => void
@@ -115,16 +111,30 @@ export function useChannelSocket(
     onReactionUpdate?: (data: unknown) => void
     onAttachmentAdded?: (data: { messageId: string; attachment: unknown }) => void
     onAttachmentDeleted?: (data: { messageId: string; attachmentId: string }) => void
+    onMessageMetadataUpdated?: (data: {
+      messageId: string
+      replyCount: number
+      replyParticipantIds: string[]
+      lastReplyAt: string
+    }) => void
   },
 ) {
-  const socket = getSocket()
+  const socket = getChannelChatSocket()
 
   useEffect(() => {
-    if (!channelId || !isConnected) return
+    if (!channelId || !isChannelChatConnected) return
 
     socket.emit('join-channel', { channelId })
 
-    const { onMessage, onMessageUpdated, onMessageDeleted, onReactionUpdate, onAttachmentAdded, onAttachmentDeleted } = callbacks
+    const {
+      onMessage,
+      onMessageUpdated,
+      onMessageDeleted,
+      onReactionUpdate,
+      onAttachmentAdded,
+      onAttachmentDeleted,
+      onMessageMetadataUpdated,
+    } = callbacks
 
     if (onMessage) socket.on('message', onMessage)
     if (onMessageUpdated) socket.on('message:updated', onMessageUpdated)
@@ -132,6 +142,9 @@ export function useChannelSocket(
     if (onReactionUpdate) socket.on('reaction:update', onReactionUpdate)
     if (onAttachmentAdded) socket.on('attachment:added', onAttachmentAdded)
     if (onAttachmentDeleted) socket.on('attachment:deleted', onAttachmentDeleted)
+    if (onMessageMetadataUpdated) {
+      socket.on('message:metadata-updated', onMessageMetadataUpdated)
+    }
 
     return () => {
       socket.emit('leave-channel', { channelId })
@@ -141,9 +154,56 @@ export function useChannelSocket(
       if (onMessageDeleted) socket.off('message:deleted', onMessageDeleted)
       if (onReactionUpdate) socket.off('reaction:update', onReactionUpdate)
       if (onAttachmentAdded) socket.off('attachment:added', onAttachmentAdded)
-      if (onAttachmentDeleted) socket.off('attachment:deleted', onAttachmentDeleted)
+      if (onAttachmentDeleted)
+        socket.off('attachment:deleted', onAttachmentDeleted)
+      if (onMessageMetadataUpdated) {
+        socket.off('message:metadata-updated', onMessageMetadataUpdated)
+      }
     }
-  }, [channelId, isConnected, callbacks, socket])
+  }, [channelId, isChannelChatConnected, callbacks, socket])
+}
+
+/**
+ * useThreadSocket — join room thread + lắng nghe events của thread
+ */
+export function useThreadSocket(
+  threadId: string | null,
+  isChannelChatConnected: boolean,
+  callbacks: {
+    onMessage?: (msg: unknown) => void
+    onMessageUpdated?: (data: unknown) => void
+    onMessageDeleted?: (data: { messageId: string }) => void
+    onReactionUpdate?: (data: unknown) => void
+  },
+) {
+  const socket = getChannelChatSocket()
+
+  useEffect(() => {
+    if (!threadId || !isChannelChatConnected) return
+
+    socket.emit('join-thread', { threadId })
+
+    const {
+      onMessage,
+      onMessageUpdated,
+      onMessageDeleted,
+      onReactionUpdate,
+    } = callbacks
+
+    if (onMessage) socket.on('message', onMessage)
+    if (onMessageUpdated) socket.on('message:updated', onMessageUpdated)
+    if (onMessageDeleted) socket.on('message:deleted', onMessageDeleted)
+    if (onReactionUpdate) socket.on('reaction:update', onReactionUpdate)
+
+    return () => {
+      socket.emit('leave-thread', { threadId })
+
+      if (onMessage) socket.off('message', onMessage)
+      if (onMessageUpdated) socket.off('message:updated', onMessageUpdated)
+      if (onMessageDeleted) socket.off('message:deleted', onMessageDeleted)
+      if (onReactionUpdate) socket.off('reaction:update', onReactionUpdate)
+    }
+  }, [threadId, isChannelChatConnected, callbacks, socket])
 }
 
 /**
