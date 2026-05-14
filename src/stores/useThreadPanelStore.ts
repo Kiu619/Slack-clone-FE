@@ -1,30 +1,40 @@
 import { create } from 'zustand'
-import type { Message, MessageAttachment } from '@/lib/types'
+import type { Message } from '@/lib/types'
+import { useMessageStore } from './useMessageStore'
 
 interface ThreadPanelStore {
-  attachment: MessageAttachment | null
-  message: Message | null
+  messageId: string | null
   highlightedMessageId: string | null
+  activeSavedItemId: string | null
   isOpen: boolean
+  
+  // Actions
   open: (message: Message, highlightedMessageId?: string | null) => void
   setHighlightedMessageId: (id: string | null) => void
-  updateMessage: (message: Partial<Message> & { id: string }) => void
+  setActiveSavedItemId: (id: string | null) => void
+  updateMessage: (message: Partial<Message> & { id: string }) => void // Vẫn giữ để cập nhật nhanh, nhưng thực tế nên dùng sync hook
   close: () => void
 }
 
 export const useThreadPanelStore = create<ThreadPanelStore>((set) => ({
-  attachment: null,
-  message: null,
+  messageId: null,
   highlightedMessageId: null,
+  activeSavedItemId: null,
   isOpen: false,
-  open: (message, highlightedMessageId = null) => 
-    set({ isOpen: true, message, highlightedMessageId }),
+  
+  open: (message, highlightedMessageId = null) => {
+    // Đảm bảo tin nhắn được đẩy vào kho tổng
+    useMessageStore.getState().upsertEntities([message])
+    set({ isOpen: true, messageId: message.id, highlightedMessageId })
+  },
+  
   setHighlightedMessageId: (id) => set({ highlightedMessageId: id }),
-  updateMessage: (updatedMessage) => set((state) => {
-    if (state.message?.id === updatedMessage.id) {
-      return { message: { ...state.message, ...updatedMessage } as Message }
-    }
-    return state
-  }),
-  close: () => set({ isOpen: false, attachment: null, message: null }),
+  setActiveSavedItemId: (id) => set({ activeSavedItemId: id }),
+  
+  updateMessage: (updatedMessage) => {
+    // Cập nhật thẳng vào kho tổng
+    useMessageStore.getState().updateEntity(updatedMessage.id, updatedMessage)
+  },
+  
+  close: () => set({ isOpen: false, messageId: null, activeSavedItemId: null }),
 }))

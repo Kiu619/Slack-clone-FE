@@ -17,8 +17,12 @@ interface CustomSelectProps {
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent) => void;
+  onBlur?: () => void;
   className?: string;
   placeholder?: string;
+  editable?: boolean;
+  isInvalid?: boolean;
 }
 
 export const CustomSelect = ({
@@ -26,8 +30,12 @@ export const CustomSelect = ({
   value,
   defaultValue,
   onChange,
+  onKeyDown,
+  onBlur,
   className,
   placeholder = "Select...",
+  editable = false,
+  isInvalid = false,
 }: CustomSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -37,9 +45,23 @@ export const CustomSelect = ({
   const currentValue = value !== undefined ? value : internalValue;
   const selected = options.find((opt) => opt.value === currentValue);
 
+  const [inputValue, setInputValue] = useState("");
+
   const triggerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
+
+  // Đồng bộ inputValue khi selected hoặc currentValue thay đổi
+  useEffect(() => {
+    if (selected) {
+      setInputValue(selected.label);
+    } else if (currentValue) {
+      // Nếu không tìm thấy option nhưng có value (trường hợp tự nhập hoặc format đặc biệt)
+      // Nếu value là HH:mm, ta nên format nó sang nhãn AM/PM nếu cha chưa format
+      setInputValue(currentValue);
+    }
+  }, [selected, currentValue]);
 
   // Tự động cuộn vào item đang chọn khi mở
   useEffect(() => {
@@ -99,8 +121,40 @@ export const CustomSelect = ({
 
   const handleSelect = (option: Option) => {
     setInternalValue(option.value);
+    setInputValue(option.label);
     setIsOpen(false);
     onChange?.(option.value);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setInputValue(newVal);
+    if (!isOpen) setIsOpen(true);
+    
+    // Gọi onChange ngay lập tức để form nhận được giá trị đang gõ
+    if (editable) {
+      onChange?.(newVal);
+    }
+  };
+
+  const handleInputBlur = () => {
+    // Nếu người dùng nhập nội dung mới, ta bắn event onChange với nội dung đó
+    // Logic parse thông minh sẽ nằm ở component cha (ReminderDialog)
+    if (editable && inputValue !== (selected?.label || "")) {
+      onChange?.(inputValue);
+    }
+    onBlur?.();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    onKeyDown?.(e);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setIsOpen(false);
+      if (editable) {
+        onChange?.(inputValue);
+      }
+    }
   };
 
   const dropdownMenu = (
@@ -156,19 +210,39 @@ export const CustomSelect = ({
     <div className={cn("w-full", className)}>
       <div
         ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !editable && setIsOpen(!isOpen)}
         className={cn(
-          "flex h-[40px] w-full items-center justify-between rounded-md border border-[#565856] bg-transparent px-3 py-2 text-sm transition-all focus:outline-none",
-          "cursor-pointer hover:border-selection-hover select-none",
-          isOpen && "border-selection-hover ring-[3px] ring-offset-0 ring-focus-ring"
+          "flex h-[40px] w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm transition-all focus:outline-none",
+          isInvalid ? "border-red-500" : "border-[#565856]",
+          !editable ? "cursor-pointer hover:border-selection-hover select-none" : "cursor-text",
+          isOpen && (isInvalid ? "ring-[3px] ring-red-500/20" : "border-selection-hover ring-[3px] ring-offset-0 ring-focus-ring")
         )}
       >
-        <span>
-          {selected ? selected.label : placeholder}
-        </span>
-        <ChevronDown
+        <input
+          ref={inputRef}
+          type="text"
+          readOnly={!editable}
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleKeyDown}
+          onFocus={() => editable && setIsOpen(true)}
+          placeholder={placeholder}
           className={cn(
-            "h-4 w-4 transition-transform duration-200",
+            "w-full bg-transparent border-none outline-none p-0 text-inherit placeholder:text-inherit",
+            !editable && "cursor-pointer select-none"
+          )}
+        />
+        <ChevronDown
+          onClick={(e) => {
+            if (editable) {
+              e.stopPropagation();
+              setIsOpen(!isOpen);
+            }
+          }}
+          className={cn(
+            "h-4 w-4 transition-transform duration-200 shrink-0 ml-2",
+            !editable ? "pointer-events-none" : "cursor-pointer",
             isOpen && "rotate-180"
           )}
         />

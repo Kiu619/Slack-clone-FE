@@ -4,10 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import { Virtuoso } from "react-virtuoso";
-import { useChannelAttachments } from "@/hooks/use-channel-attachments";
-import { useSocket } from "@/hooks/use-socket";
+import { useChannelAttachments, useConversationAttachments } from "@/hooks/use-channel-attachments";
 import { useDebouncedValue } from "@/hooks/use-debounce";
-import { searchChannelFilesApi } from "@/apis";
+import { searchChannelFilesApi, searchConversationFilesApi } from "@/apis";
 import { messageKeys } from "@/lib/query-keys";
 import FilePreview, {
   getFileIcon,
@@ -17,7 +16,7 @@ import VideoPreview from "@/components/attachment-previews/video-preview";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import type { Channel, ChannelFileHit, MessageAttachment } from "@/lib/types";
+import type { Channel, ChannelFileHit, MessageAttachment, DirectMessageConversation } from "@/lib/types";
 
 const MEDIA_GRID_PAGE_SIZE = 6;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -35,18 +34,29 @@ function isMediaAttachment(a: MessageAttachment): boolean {
 }
 
 interface FilesTabProps {
-  currentChannelData: Channel;
+  currentChannelData?: Channel;
+  currentConversationData?: DirectMessageConversation;
+  isMember?: boolean;
 }
 
-export default function FilesTab({ currentChannelData }: FilesTabProps) {
-  const { isChannelChatConnected } = useSocket();
-  const attachmentsQuery = useChannelAttachments(
-    currentChannelData.id,
-    isChannelChatConnected,
+export default function FilesTab({ currentChannelData, currentConversationData, isMember }: FilesTabProps) {
+  const channelId = currentChannelData?.id;
+  const conversationId = currentConversationData?.id;
+  const workspaceId = currentConversationData?.workspaceId;
+
+  const channelAttachments = useChannelAttachments(channelId!);
+
+  const conversationAttachments = useConversationAttachments(
+    workspaceId!,
+    conversationId!,
   );
+
+  const attachmentsQuery = channelId ? channelAttachments : conversationAttachments;
+
   const {
     isPending,
     isError,
+    error,
     refetch,
     fetchNextPage,
     hasNextPage,
@@ -81,15 +91,16 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
     return attachmentsData.pages.flatMap((p) => p.results);
   }, [attachmentsData]);
 
-  const searchEnabledBase = !!currentChannelData.id;
+  const searchEnabledBase = !!(channelId || conversationId);
 
   const { data: previewSearch, isFetching: previewSearchFetching } = useQuery({
-    queryKey: messageKeys.channelFilesSearch(
-      currentChannelData.id,
-      debouncedInput.trim(),
-    ),
+    queryKey: channelId 
+      ? messageKeys.channelFilesSearch(channelId, debouncedInput.trim())
+      : messageKeys.conversationFilesSearch(conversationId!, debouncedInput.trim()),
     queryFn: () =>
-      searchChannelFilesApi(currentChannelData.id, debouncedInput.trim()),
+      channelId 
+        ? searchChannelFilesApi(channelId, debouncedInput.trim())
+        : searchConversationFilesApi(workspaceId!, conversationId!, debouncedInput.trim()),
     enabled:
       searchEnabledBase &&
       searchFocused &&
@@ -98,12 +109,13 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
   });
 
   const { data: appliedSearch, isPending: appliedSearchPending } = useQuery({
-    queryKey: messageKeys.channelFilesSearch(
-      currentChannelData.id,
-      appliedQuery.trim(),
-    ),
+    queryKey: channelId 
+      ? messageKeys.channelFilesSearch(channelId, appliedQuery.trim())
+      : messageKeys.conversationFilesSearch(conversationId!, appliedQuery.trim()),
     queryFn: () =>
-      searchChannelFilesApi(currentChannelData.id, appliedQuery.trim()),
+      channelId 
+        ? searchChannelFilesApi(channelId, appliedQuery.trim())
+        : searchConversationFilesApi(workspaceId!, conversationId!, appliedQuery.trim()),
     enabled: searchEnabledBase && appliedQuery.trim().length > 0,
     staleTime: 30_000,
   });
@@ -171,6 +183,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
   );
 
   if (isError) {
+    console.log("error", error?.message);
     return (
       <div
         className={cn(
@@ -323,7 +336,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
                 </div>
               ) : previewMatches.length === 0 ? (
                 <div className="px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-                  No files match this name in this channel.
+                  No files match this name in this {channelId ? 'channel' : 'conversation'}.
                 </div>
               ) : (
                 <ul className="max-h-[min(280px,55vh)] overflow-y-auto py-1 sm:max-h-[min(320px,50vh)]">
@@ -353,7 +366,7 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-6">
         {allItems.length === 0 && !appliedQuery.trim() ? (
           <p className="px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
-            No files have been shared in this channel yet.
+            No files have been shared in this {channelId ? 'channel' : 'conversation'} yet.
           </p>
         ) : appliedQuery.trim() && appliedSearchPending ? (
           <p className="animate-pulse px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
@@ -395,12 +408,16 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
                             message={message}
                             attachment={attachment}
                             compact
+                            isMember={isMember}
+                            fromPublicChannel={currentChannelData?.isPrivate===false}
                           />
                         ) : (
                           <ImagePreview
                             message={message}
                             attachment={attachment}
-                            compact
+                            compact 
+                            isMember={isMember}
+                            fromPublicChannel={currentChannelData?.isPrivate===false}
                           />
                         )}
                       </div>
@@ -433,6 +450,8 @@ export default function FilesTab({ currentChannelData }: FilesTabProps) {
                       message={item.message}
                       attachment={item.attachment}
                       fromFilesTab={true}
+                      isMember={isMember}
+                      fromPublicChannel={currentChannelData?.isPrivate===false}
                     />
                   </div>
                 )}

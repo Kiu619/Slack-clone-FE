@@ -6,35 +6,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import Typography from '@/components/ui/typography'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FaCaretDown, FaCaretRight } from "react-icons/fa"
 import { FiHash, FiLock, FiPlus } from "react-icons/fi"
-import { IoMdMore } from "react-icons/io"
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 import CreateChannelDialog from "@/components/create-channel-dialog"
 import { Channel, Workspace } from "@/lib/types"
+import { type Theme } from "@/stores/useThemeStore"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { type Theme } from "@/stores/useThemeStore"
 
 interface Props {
   theme: Theme
@@ -45,16 +27,19 @@ interface Props {
 const Channels = ({ theme, currentWorkspaceData, userWorkspaceChannels }: Props) => {
   const params = useParams<{ channelId?: string }>()
   const [open, setOpen] = useState(true)
-  const [hovered, setHovered] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  /** Đã star → chỉ hiện dưới Starred, không lặp ở Channels */
+  const channelsInSidebar = useMemo(
+    () => userWorkspaceChannels.filter((c) => !c.starredAt),
+    [userWorkspaceChannels],
+  )
 
   return (
     <>
       <Collapsible open={open} onOpenChange={setOpen}>
         <div
           className="flex items-center justify-between gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md"
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
         >
           <CollapsibleTrigger asChild>
             <div
@@ -73,72 +58,10 @@ const Channels = ({ theme, currentWorkspaceData, userWorkspaceChannels }: Props)
               />
             </div>
           </CollapsibleTrigger>
-
-          {hovered && (
-            <div className="cursor-pointer rounded-md hover:bg-[#423145] grid place-content-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <div className="cursor-pointer rounded-md hover:bg-[#423145] grid place-content-center p-0.5">
-                          <IoMdMore
-                            size={18}
-                            className="text-workspace-side-panel-text"
-                          />
-                        </div>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        side="right"
-                        align="center"
-                        withOverlay={true}
-                        className="w-[260px]"
-                      >
-                        <DropdownMenuGroup>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>Create</DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                              <DropdownMenuSubContent>
-                                <DropdownMenuItem
-                                  onSelect={() => setDialogOpen(true)}
-                                >
-                                  Create channel
-                                </DropdownMenuItem>
-                              </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                          </DropdownMenuSub>
-                        </DropdownMenuGroup>
-
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuGroup>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger>Manage</DropdownMenuSubTrigger>
-                            <DropdownMenuPortal>
-                              <DropdownMenuSubContent>
-                                <DropdownMenuItem>Browse channels</DropdownMenuItem>
-                              </DropdownMenuSubContent>
-                            </DropdownMenuPortal>
-                          </DropdownMenuSub>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <Typography
-                    text="More actions"
-                    variant="p"
-                    className="text-[14px]! text-workspace-side-panel-text"
-                  />
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          )}
         </div>
 
         <CollapsibleContent>
-          {userWorkspaceChannels.map((channel) => {
+          {channelsInSidebar.map((channel) => {
             const isActive = params.channelId === channel.id
             return (
               <Link

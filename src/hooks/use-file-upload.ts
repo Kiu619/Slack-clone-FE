@@ -32,6 +32,39 @@ function attachmentTypeFromMime(mimeType: string): 'image' | 'video' | 'audio' |
 }
 
 /**
+ * Helper để xác định file category ngay tại frontend
+ */
+function getFileCategoryFromFrontend(name: string, mimeType: string): string {
+  const ext = name.split('.').pop()?.toLowerCase();
+
+  if (ext) {
+    if (['xlsx', 'xls', 'csv', 'ods'].includes(ext)) return 'spreadsheet';
+    if (['pptx', 'ppt', 'odp'].includes(ext)) return 'presentation';
+    if (['pdf'].includes(ext)) return 'pdf';
+    if (['doc', 'docx', 'odt', 'rtf', 'txt'].includes(ext)) return 'document';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image';
+    if (['mp4', 'mov', 'wmv', 'avi', 'webm', 'mkv'].includes(ext)) {
+      if (ext === 'webm' && mimeType.includes('audio')) return 'audio';
+      return 'video';
+    }
+    if (['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'].includes(ext)) return 'audio';
+    if (['js', 'ts', 'tsx', 'jsx', 'py', 'java', 'c', 'cpp', 'cs', 'html', 'css', 'json', 'md', 'php', 'sh', 'sql'].includes(ext)) return 'code';
+  }
+
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.includes('audio')) return 'audio';
+  if (mimeType.includes('pdf')) return 'pdf';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel') || mimeType.includes('sheet')) return 'spreadsheet';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return 'presentation';
+  if (mimeType.includes('word') || mimeType.includes('document')) return 'document';
+  if (mimeType.includes('zip') || mimeType.includes('archive') || mimeType.includes('compressed')) return 'archive';
+
+  return 'other';
+}
+
+/**
  * File đang upload với progress
  */
 export interface UploadingFile {
@@ -100,9 +133,64 @@ async function uploadBinaryToStorage(
 export function useFileUpload() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
 
+  const uploadFileBinary = async (file: File) => {
+    const tempId = Math.random().toString(36).substring(7)
+
+    setUploadingFiles((prev) => [
+      ...prev,
+      { id: tempId, file, progress: 0, status: 'uploading' },
+    ])
+
+    try {
+      const { uploadedUrl, width, height, duration, mimeType } =
+        await uploadBinaryToStorage(file, tempId, setUploadingFiles)
+
+      const type = attachmentTypeFromMime(mimeType)
+      const fileCategory = getFileCategoryFromFrontend(file.name, mimeType)
+
+      const attachmentMetadata = {
+        url: uploadedUrl,
+        type,
+        name: file.name,
+        size: file.size,
+        mimeType,
+        width,
+        height,
+        duration,
+        fileCategory,
+      }
+
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.id === tempId
+            ? { ...f, progress: 100, status: 'success' }
+            : f,
+        ),
+      )
+
+      return attachmentMetadata
+    } catch (error) {
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.id === tempId
+            ? {
+                ...f,
+                status: 'error',
+                error: error instanceof Error ? error.message : 'Upload failed',
+              }
+            : f,
+        ),
+      )
+      throw error
+    }
+  }
+
   const uploadFile = async (
     file: File,
     messageId: string,
+    workspaceId: string,
+    channelId?: string | null,
+    conversationId?: string | null,
   ): Promise<MessageAttachment> => {
     const tempId = Math.random().toString(36).substring(7)
 
@@ -119,8 +207,12 @@ export function useFileUpload() {
 
       const response = await apiClient.post<MessageAttachment>('/attachments', {
         messageId,
+        workspaceId,
+        channelId,
+        conversationId,
         url: uploadedUrl,
         type,
+        fileCategory: getFileCategoryFromFrontend(file.name, mimeType), // Gửi trực tiếp category từ frontend
         name: file.name,
         size: file.size,
         mimeType,
@@ -145,10 +237,10 @@ export function useFileUpload() {
         prev.map((f) =>
           f.id === tempId
             ? {
-                ...f,
-                status: 'error',
-                error: error instanceof Error ? error.message : 'Upload failed',
-              }
+              ...f,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Upload failed',
+            }
             : f,
         ),
       )
@@ -158,8 +250,10 @@ export function useFileUpload() {
 
   const uploadFileToFolder = async (
     file: File,
-    channelId: string,
+    workspaceId: string,
+    targetId: string,
     folderId: string,
+    isDM = false,
   ): Promise<MessageAttachment> => {
     const tempId = Math.random().toString(36).substring(7)
 
@@ -174,11 +268,14 @@ export function useFileUpload() {
 
       const type = attachmentTypeFromMime(mimeType)
 
+      const prefix = isDM ? 'direct-messages' : 'channels'
       const response = await apiClient.post<MessageAttachment>(
-        `/channels/${channelId}/folders/${folderId}/files`,
+        `/${prefix}/${targetId}/folders/${folderId}/files`,
         {
+          workspaceId,
           url: uploadedUrl,
           type,
+          fileCategory: getFileCategoryFromFrontend(file.name, mimeType), // Gửi trực tiếp category từ frontend
           name: file.name,
           size: file.size,
           mimeType,
@@ -204,10 +301,10 @@ export function useFileUpload() {
         prev.map((f) =>
           f.id === tempId
             ? {
-                ...f,
-                status: 'error',
-                error: error instanceof Error ? error.message : 'Upload failed',
-              }
+              ...f,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Upload failed',
+            }
             : f,
         ),
       )
@@ -224,6 +321,7 @@ export function useFileUpload() {
   }
 
   return {
+    uploadFileBinary,
     uploadFile,
     uploadFileToFolder,
     uploadingFiles,

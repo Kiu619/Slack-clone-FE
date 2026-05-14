@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * QUERY KEYS — Định nghĩa tập trung, dùng được ở cả Server và Client
  * ─────────────────────────────────────────────────────────────────────────────
@@ -39,21 +40,69 @@ export const workspaceKeys = {
 
   /** Danh sách members của workspace */
   members: (id: string) => ['workspaces', id, 'members'] as const,
+
+  /** Recent channels/DMs (toolbar) */
+  recents: (id: string) => ['workspaces', id, 'recents'] as const,
 }
 
 // ─── Message query keys ───────────────────────────────────────────────────────
 
 export const messageKeys = {
+  /** Gốc của tất cả message queries */
+  all: ['messages'] as const,
+  /** Gốc của tất cả thread messages */
+  threadsAll: ['thread-messages'] as const,
+  /** Gốc của tất cả pinned messages */
+  pinnedAll: ['pinned-messages'] as const,
   /** Infinite list của messages trong channel: useMessages(channelId) */
   list: (channelId: string) => ['messages', channelId] as const,
-  /** Thread messages của một message */
-  thread: (messageId: string) => ['messages', 'thread', messageId] as const,
+  /** Thread messages của một message (Thread Panel) */
+  thread: (messageId: string) => ['thread-messages', messageId] as const,
   /** Infinite list attachment trong channel: useChannelAttachments(channelId) */
   channelAttachments: (channelId: string) =>
     ['messages', channelId, 'attachments'] as const,
+  /** Infinite list attachment trong DM conversation */
+  conversationAttachments: (conversationId: string) =>
+    ['dm-conversations', conversationId, 'attachments'] as const,
+  /** Infinite list threads trong workspace */
+  threads: (workspaceId: string) => ['workspaces', workspaceId, 'threads'] as const,
   /** Tìm file trong channel (tab Files) — query string `q` đã trim */
   channelFilesSearch: (channelId: string, q: string) =>
     ['messages', channelId, 'files-search', q] as const,
+
+  // ─── Direct Messages ────────────────────────────────────────────────────────
+  /** Danh sách các DM conversation của user trong workspace */
+  conversations: (workspaceId: string) => ['dm-conversations', workspaceId] as const,
+  /** Chi tiết một DM conversation */
+  conversationDetail: (conversationId: string) => ['dm-conversations', 'detail', conversationId] as const,
+  /** Group DM — ứng viên mời (workspace, chưa trong conversation); `q` đã normalize */
+  conversationInviteCandidates: (conversationId: string, q: string) =>
+    ['dm-conversations', 'invite-candidates', conversationId, q] as const,
+  /** Tìm file trong DM conversation (tab Files) */
+  conversationFilesSearch: (conversationId: string, q: string) =>
+    ['dm-conversations', conversationId, 'files-search', q] as const,
+
+  /** --- All Files Search (Workspace level) --- */
+  allFiles: (workspaceId: string, filters: any) =>
+    ['workspaces', workspaceId, 'all-files', filters] as const,
+}
+
+// ─── Message drafts (server, đa thiết bị) ─────────────────────────────────────
+
+export const draftKeys = {
+  list: (workspaceId: string) => ['message-drafts', workspaceId] as const,
+  current: (workspaceId: string, contextKey: string) =>
+    ['message-drafts', workspaceId, 'current', contextKey] as const,
+}
+
+// ─── Scheduled messages (BullMQ dispatch) ─────────────────────────────────────
+
+export const scheduledMessageKeys = {
+  all: (workspaceId: string) => ['scheduled-messages', workspaceId] as const,
+  list: (
+    workspaceId: string,
+    status: 'pending' | 'cancelled' | 'all',
+  ) => ['scheduled-messages', workspaceId, status] as const,
 }
 
 // ─── Attachment content (code preview cache) ─────────────────────────────────────
@@ -72,11 +121,11 @@ export const attachmentFileKeys = {
 
 // ─── Channel query keys ───────────────────────────────────────────────────────
 
-/** Folders theo channel — list + attachment trong từng folder */
+/** Folders theo channel hoặc DM — list + attachment trong từng folder */
 export const folderKeys = {
-  list: (channelId: string) => ['channels', channelId, 'folders'] as const,
-  attachments: (channelId: string, folderId: string) =>
-    ['channels', channelId, 'folders', folderId, 'attachments'] as const,
+  list: (targetId: string) => ['folders', targetId, 'list'] as const,
+  attachments: (targetId: string, folderId: string) =>
+    ['folders', targetId, folderId, 'attachments'] as const,
 }
 
 export const channelKeys = {

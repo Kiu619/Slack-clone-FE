@@ -11,9 +11,13 @@ import Typography from "../ui/typography"
 import { cn } from "@/lib/utils"
 import { Separator } from '../ui/separator'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
-import { ShareFileModal } from './share-file-modal'
+import { ShareFileDialog } from '../dialogs/share-file-dialog'
 import { AddToFolderSubmenu } from './add-to-folder-submenu'
 import { useChannelFolderActions } from '@/contexts/channel-folder-actions'
+
+import { useTrackAttachmentView } from '@/hooks/use-attachments'
+import { useSaveForLater } from '@/hooks/use-messages'
+import { MENU_ITEM_STYLE } from '@/constants/styles'
 
 interface AudioPreviewProps {
   message?: Message
@@ -24,12 +28,6 @@ interface AudioPreviewProps {
   onRemove?: () => void
 }
 
-const MENU_ITEM_STYLE =
-  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
-const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
-
-
 export default function AudioPreview({
   message,
   attachment,
@@ -38,6 +36,7 @@ export default function AudioPreview({
   onDownload,
   onRemove,
 }: AudioPreviewProps) {
+  const { trackView } = useTrackAttachmentView()
   const { requestNewFolder } = useChannelFolderActions()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -49,6 +48,8 @@ export default function AudioPreview({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const wavesurferRef = useRef<WaveSurfer | null>(null)
+
+  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId!)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -98,6 +99,9 @@ export default function AudioPreview({
       if (isPlaying) {
         wavesurferRef.current.pause()
       } else {
+        if (attachment) {
+          trackView({ id: attachment.id, workspaceId: attachment.workspaceId })
+        }
         wavesurferRef.current.play()
       }
       setIsPlaying(!isPlaying)
@@ -111,6 +115,12 @@ export default function AudioPreview({
     const s = Math.floor(time % 60)
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   }
+
+  const handleSaveForLater = (
+    (attachmentId: string) => {
+      saveForLater({ type: "attachment", attachmentId });
+    }
+  );
 
   return (
     <div className="relative flex items-center gap-3 p-3 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-lg max-w-[400px] w-full group overflow-hidden">
@@ -194,7 +204,11 @@ export default function AudioPreview({
                       <Typography variant="p" text="Download" />
                     </div>
                     <Separator />
-                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                    <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
+                      onClick={() => {
+                        handleSaveForLater(attachment?.id!)
+                      }}
+                    >
                       <Typography variant="p" text="Save for later" />
                     </div>
                     <div
@@ -208,7 +222,7 @@ export default function AudioPreview({
                       {isAddToFolderOpen && message && attachment && (
                         <div className="absolute left-65 bottom-15 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
                           <AddToFolderSubmenu
-                            channelId={message.channelId}
+                            targetId={message.channelId || message.conversationId || ''}
                             attachmentId={attachment.id}
                             onRequestCreateFolder={requestNewFolder}
                           />
@@ -243,10 +257,11 @@ export default function AudioPreview({
                 </div>
               </PopoverContent>
             </Popover>
-            <ShareFileModal
+            <ShareFileDialog
               open={isShareFileModalOpen}
               onOpenChange={setIsShareFileModalOpen}
               attachment={attachment!}
+              workspaceId={attachment!.workspaceId}
             />
           </>
         )}

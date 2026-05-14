@@ -13,6 +13,8 @@ import {
 import FileToolbar from './file-toolbar'
 import { cn } from '@/lib/utils'
 
+import { useTrackAttachmentView } from '@/hooks/use-attachments'
+
 interface ImagePreviewProps {
   attachment: MessageAttachment
   message: Message
@@ -22,6 +24,8 @@ interface ImagePreviewProps {
   formDetailPanel?: boolean
   /** Ô lưới vuông (vd. tab Files — 6 cột) */
   compact?: boolean
+  isMember?: boolean
+  fromPublicChannel?: boolean
 }
 
 export default function ImagePreview({
@@ -31,7 +35,10 @@ export default function ImagePreview({
   onDownload,
   formDetailPanel = false,
   compact = false,
+  isMember,
+  fromPublicChannel,
 }: ImagePreviewProps) {
+  const { trackView } = useTrackAttachmentView()
   const [isOpen, setIsOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -83,6 +90,7 @@ export default function ImagePreview({
   const openLightbox = () => {
     const idx = images.findIndex((img) => img.id === attachment.id)
     setCurrentIndex(idx >= 0 ? idx : 0)
+    trackView({ id: attachment.id, workspaceId: attachment.workspaceId })
     setIsOpen(true)
   }
 
@@ -144,6 +152,8 @@ export default function ImagePreview({
             attachment={attachment}
             onDownload={handleDownload}
             onOpen={handleOpenInNewTab}
+            isMember={isMember}
+            fromPublicChannel={fromPublicChannel}
           />
         ) : null}
       </button>

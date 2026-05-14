@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
+import { useTrackAttachmentView } from "@/hooks/use-attachments"
+
 /** Microsoft Office Online Viewer — xem Word, Excel, PowerPoint trong iframe */
 export const OFFICE_VIEWER_URL = "https://view.officeapps.live.com/op/embed.aspx"
 
@@ -76,6 +78,7 @@ export default function OfficeFilePreview({
   onDownload,
   formDetailPanel = false,
 }: OfficeFilePreviewProps) {
+  const { trackView } = useTrackAttachmentView()
   const [isViewerOpen, setIsViewerOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isInView, setIsInView] = useState(false)
@@ -173,7 +176,10 @@ export default function OfficeFilePreview({
 
           <button
             type="button"
-            onClick={() => setIsViewerOpen(true)}
+            onClick={() => {
+              trackView({ id: attachment.id, workspaceId: attachment.workspaceId })
+              setIsViewerOpen(true)
+            }}
             className="absolute inset-0 w-full h-full cursor-pointer z-20 group/btn hover:bg-transparent!"
           >
             <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity flex items-end justify-center pb-3">

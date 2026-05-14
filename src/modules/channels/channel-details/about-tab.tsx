@@ -27,8 +27,10 @@ type EditField = "name" | "topic" | "description" | null;
 
 export default function AboutTab({
   currentChannelData,
+  isMember,
 }: {
   currentChannelData: Channel;
+  isMember: boolean;
 }) {
   const workspaceId = currentChannelData.workspaceId;
   const channelId = currentChannelData.id;
@@ -95,13 +97,15 @@ export default function AboutTab({
       <div className="rounded-md border border-[#797c814d] bg-white p-4 dark:bg-[#1A1D21]">
         <div className="flex items-center justify-between gap-2">
           <Typography text="Channel name" className="font-bold" />
-            <button
-              type="button"
-              onClick={() => openEdit("name")}
-              className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
-            >
-              Edit
-            </button>
+            {isMember ? (
+              <button
+                type="button"
+                onClick={() => openEdit("name")}
+                className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
+              >
+                Edit
+              </button>
+            ) : null}
         </div>
         <div className="flex items-center gap-0.5">
           <BiHash size={14} className="text-[#8e9297]" />
@@ -124,13 +128,15 @@ export default function AboutTab({
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
             <Typography text="Topic" className="font-bold" />
-            <button
-              type="button"
-              onClick={() => openEdit("topic")}
-              className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
-            >
-              Edit
-            </button>
+            {isMember ? (
+              <button
+                type="button"
+                onClick={() => openEdit("topic")}
+                className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
           <Typography
             text={
@@ -145,13 +151,15 @@ export default function AboutTab({
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
             <Typography text="Description" className="font-bold" />
-            <button
-              type="button"
-              onClick={() => openEdit("description")}
-              className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
-            >
-              Edit
-            </button>
+            {isMember ? (
+              <button
+                type="button"
+                onClick={() => openEdit("description")}
+                className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
           <Typography
             text={
@@ -232,7 +240,7 @@ export default function AboutTab({
               rows={editField === "topic" ? 3 : 5}
               className="min-h-0 resize-y text-[14px]"
               placeholder={
-                editField === "topic" ? "What is this channel about?" : ""
+                editField === "topic" ? "What is this channel about?" : "Add a description to the channel"
               }
               autoFocus
             />

@@ -14,7 +14,7 @@ const ITEM =
   "px-5 py-1.5 cursor-pointer text-sm hover:text-white hover:bg-selection-hover";
 
 type Props = {
-  channelId: string;
+  targetId: string;
   attachmentId: string;
   className?: string;
   /** Mở flow tạo folder (thường chuyển tab Folders + dialog) */
@@ -23,7 +23,7 @@ type Props = {
 };
 
 export function AddToFolderSubmenu({
-  channelId,
+  targetId,
   attachmentId,
   className,
   onRequestCreateFolder,
@@ -31,23 +31,23 @@ export function AddToFolderSubmenu({
 }: Props) {
   const queryClient = useQueryClient();
   const { data, isPending } = useQuery({
-    queryKey: folderKeys.list(channelId),
-    queryFn: () => listChannelFoldersApi(channelId),
+    queryKey: folderKeys.list(targetId),
+    queryFn: () => listChannelFoldersApi(targetId),
   });
 
   const { mutate, isPending: isAdding } = useMutation({
     mutationFn: (folderId: string) =>
-      addAttachmentToFolderApi(channelId, folderId, attachmentId),
+      addAttachmentToFolderApi(targetId, folderId, attachmentId),
     onSuccess: () => {
       toast.success("Added to folder");
       void queryClient.invalidateQueries({
-        queryKey: folderKeys.list(channelId),
+        queryKey: folderKeys.list(targetId),
       });
       void queryClient.invalidateQueries({
         predicate: (q) =>
           Array.isArray(q.queryKey) &&
           q.queryKey[0] === "channels" &&
-          q.queryKey[1] === channelId &&
+          q.queryKey[1] === targetId &&
           q.queryKey[2] === "folders" &&
           q.queryKey.length >= 5 &&
           q.queryKey[4] === "attachments",

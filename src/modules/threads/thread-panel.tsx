@@ -1,43 +1,42 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
-import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
-import { IoCloseOutline } from 'react-icons/io5'
+import Editor from '@/components/editor'
 import MessageItem from '@/components/message-item'
-import { useAddReaction, useSendMessage, useThreadMessages, useUpdateMessage, useDeleteMessage } from '@/hooks/use-messages'
-import { useUserStore } from '@/stores/useUserStore'
-import { useSocket, useThreadSocket } from '@/hooks/use-socket'
-import Editor, { type PendingFile } from '@/components/editor'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useFileUpload } from '@/hooks/use-file-upload'
-import { useParams } from 'next/navigation'
-import { Virtuoso } from 'react-virtuoso'
-import type { Message, MessageAttachment } from '@/lib/types'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMessageComposer } from '@/hooks/use-message-composer'
+import { useLaterSavedMessageIds } from '@/hooks/use-saved-items'
+import { useAddReaction, useDeleteMessage, useThreadMessages, useToggleLaterMessage, useTogglePin, useUpdateMessage, updateMessageReactions } from '@/hooks/use-messages'
+import { useMessageSync } from '@/hooks/use-message-sync'
+import { useChannelChatSocket, useConversationChatSocket, useSocket, useThreadSocket } from '@/hooks/use-socket'
 import { apiClient } from '@/lib/axios'
-import { messageKeys } from '@/lib/query-keys'
-import { toast } from 'sonner'
-
-const PLACEHOLDER_CONTENT = '<p>📎 Đang tải file...</p>'
+import type { Message } from '@/lib/types'
+import { useMessageStore } from '@/stores/useMessageStore'
+import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
+import { useUserStore } from '@/stores/useUserStore'
+import { useQuery } from '@tanstack/react-query'
+import React, { useCallback, useMemo, useState } from 'react'
+import { IoCloseOutline } from 'react-icons/io5'
+import { Virtuoso } from 'react-virtuoso'
+import ScheduleSendDialog from '@/components/dialogs/schedule-send-dialog';
+import { ScheduledSendAckBanner } from '@/components/scheduled-send-ack-banner'
 
 export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
-  const params = useParams()
-  const workspaceSlug = params?.workspaceSlug as string
   const {
-    message: parentMessage,
+    messageId,
     close,
-    updateMessage,
     highlightedMessageId,
     setHighlightedMessageId
   } = useThreadPanelStore()
+  
+  const parentMessage = useMessageStore(s => messageId ? s.entities[messageId] : null)
+  const updateMessage = useMessageStore(s => s.updateEntity)
   const virtuosoRef = React.useRef<any>(null)
   const currentUser = useUserStore((s) => s.user)
-  const { isChannelChatConnected } = useSocket()
-  const queryClient = useQueryClient()
-  const { uploadFile, clearUploadingFiles, uploadingFiles } = useFileUpload()
+  const { isConnected } = useSocket()
 
   const [alsoSendToChannel, setAlsoSendToChannel] = useState(false)
-  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(
     null,
@@ -49,68 +48,80 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage
-  } = useThreadMessages(parentMessage?.id || '', isChannelChatConnected)
+  } = useThreadMessages(messageId || '', currentUser?.id || '', isConnected)
 
-  /**
-   * Sync parent message realtime (edits, reactions)
-   * useThreadSocket lắng nghe events của room `thread:${parentId}`
-   */
-  useThreadSocket(parentMessage?.id || '', isChannelChatConnected, {
-    onMessageUpdated: (data) => {
-      const updated = data as Partial<Message> & { id: string }
-      if (updated.id === parentMessage?.id) {
-        updateMessage(updated)
-      }
-    },
-    onReactionUpdate: (data) => {
-      const payload = data as { messageId: string; action: string; emoji: string; userId: string }
-      if (payload.messageId !== parentMessage?.id) return
-
-      const existing = parentMessage.reactions.find((r) => r.emoji === payload.emoji)
-      let newReactions = parentMessage.reactions
-      if (payload.action === 'added') {
-        if (existing) {
-          newReactions = parentMessage.reactions.map((r) =>
-            r.emoji === payload.emoji
-              ? { ...r, count: r.count + 1, userIds: [...r.userIds, payload.userId] }
-              : r,
-          )
-        } else {
-          newReactions = [...parentMessage.reactions, { emoji: payload.emoji, count: 1, userIds: [payload.userId] }]
+  const threadMessageIdsForLater = useMemo(() => {
+    const ids: string[] = []
+    const anchor = parentMessage?.id ?? messageId ?? ''
+    if (anchor) ids.push(anchor)
+    if (data?.pages) {
+      for (const p of data.pages) {
+        for (const m of p.messages) {
+          ids.push(m.id)
         }
-      } else {
-        newReactions = parentMessage.reactions
-          .map((r) =>
-            r.emoji === payload.emoji
-              ? { ...r, count: r.count - 1, userIds: r.userIds.filter((id) => id !== payload.userId) }
-              : r,
-          )
-          .filter((r) => r.count > 0)
       }
-      updateMessage({ id: parentMessage.id, reactions: newReactions })
-    },
-  })
+    }
+    return ids
+  }, [parentMessage?.id, messageId, data])
 
-  const currentUserForMutation = useMemo(() => currentUser ? {
-    id: currentUser.id,
-    name: currentUser.name ?? null,
-    email: currentUser.email,
-    avatar: currentUser.avatar ?? null,
-  } : null, [currentUser])
-
-  const { mutate: sendMessage, isPending: isSending } = useSendMessage(
-    parentMessage?.channelId || '',
-    currentUserForMutation
+  const { savedMessageIdSet, remindAtByMessageId } = useLaterSavedMessageIds(
+    workspaceId,
+    threadMessageIdsForLater,
   )
 
-  const { mutate: addReaction } = useAddReaction(parentMessage?.channelId || '')
-  const { mutate: updateMessageAction } = useUpdateMessage(parentMessage?.channelId || '')
-  const { mutate: deleteMessageAction } = useDeleteMessage(parentMessage?.channelId || '')
+  if (!parentMessage) return null
+
+  // Xử lý đồng bộ: đã được useGlobalSync đảm nhận tập trung
+
+  useThreadSocket(parentMessage?.id || '', isConnected, {})
+
+  // Bổ sung lắng nghe từ Channel Socket để giữ kết nối Room cho Message Cha
+  const isConversation = !parentMessage?.channelId && !!parentMessage?.conversationId
+  const channelId = parentMessage?.channelId || ''
+  const conversationId = parentMessage?.conversationId || ''
+
+  useChannelChatSocket(channelId, isConnected && !isConversation, {})
+
+  useConversationChatSocket(conversationId, isConnected && isConversation, {})
+
+  const targetId = parentMessage?.channelId || parentMessage?.conversationId || ''
+  const { mutate: addReaction } = useAddReaction(targetId, workspaceId)
+  const { mutate: updateMessageAction } = useUpdateMessage(targetId, workspaceId)
+  const { mutate: deleteMessageAction } = useDeleteMessage(targetId, workspaceId)
+  const { mutate: togglePin } = useTogglePin(targetId, workspaceId)
+  const { mutate: toggleLaterMessage } = useToggleLaterMessage(workspaceId)
+  const handleSaveForLater = useCallback(
+    (messageId: string) => {
+      toggleLaterMessage(messageId)
+    },
+    [toggleLaterMessage],
+  )
 
   const replies = useMemo(() => {
     if (!data?.pages) return []
     return [...data.pages.flatMap(p => p.messages)].reverse()
   }, [data])
+
+  const { data: channelMembersData } = useQuery({
+    queryKey: ['channels', workspaceId, parentMessage?.channelId, 'members'],
+    queryFn: () => apiClient.get(`/workspaces/${workspaceId}/channels/${parentMessage?.channelId || ''}/members`).then(res => res.data),
+    enabled: !!workspaceId && !!parentMessage?.channelId,
+  })
+
+  const currentMembers = useMemo(() => {
+    if (parentMessage?.channelId) {
+      return channelMembersData?.inChannel || []
+    }
+    if (parentMessage?.conversationId) {
+      // Vì ThreadPanel không có sẵn conversationData, ta lấy từ members của parentMessage
+      // (Trong DM, parentMessage.user và replies participants là đủ)
+      const participants = new Map<string, any>()
+      participants.set(parentMessage.user.id, parentMessage.user)
+      replies.forEach((r) => participants.set(r.user.id, r.user))
+      return Array.from(participants.values())
+    }
+    return []
+  }, [parentMessage, channelMembersData, replies])
 
   /** Effect: Tự động cuộn đến tin nhắn được highlight khi danh sách đã tải xong */
   React.useEffect(() => {
@@ -126,183 +137,40 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
         }, 500)
       }
     }
-  }, [highlightedMessageId, replies.length]) // Cực kỳ quan trọng: trigger khi replies được load xong
+  }, [highlightedMessageId, replies]) // Cực kỳ quan trọng: trigger khi replies được load xong
 
-  const handleFileAttach = useCallback((files: File[]) => {
-    const newItems: PendingFile[] = files.map((file) => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-    }))
-    setPendingFiles((prev) => [...prev, ...newItems])
-  }, [])
+  const {
+    onSubmit,
+    scheduleMessage,
+    isScheduling,
+    isSending,
+    pendingFiles,
+    addPendingFiles,
+    removePendingFile,
+    onComposerHtmlChange,
+    composerInitialHtml,
+    composerEditorKey,
+    scheduledSendAck,
+    workspaceTimeZone,
+  } = useMessageComposer({
+    workspaceId,
+    channelId: parentMessage?.channelId || undefined,
+    conversationId: parentMessage?.conversationId || undefined,
+    parentId: parentMessage?.id,
+  })
 
-  const removePendingFile = useCallback((id: string) => {
-    setPendingFiles((prev) => prev.filter((p) => p.id !== id))
-  }, [])
-
-  const addAttachmentToCache = useCallback(
-    (messageId: string, attachment: MessageAttachment) => {
-      if (!parentMessage) return
-
-      // 1. Cập nhật Thread cache
-      queryClient.setQueryData(
-        ['thread-messages', parentMessage.id],
-        (old: { pages: { messages: Message[] }[] } | undefined) => {
-          if (!old?.pages.length) return old
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              messages: page.messages.map((m) =>
-                m.id === messageId
-                  ? { ...m, attachments: [...(m.attachments || []), attachment] }
-                  : m,
-              ),
-            })),
-          }
-        },
-      )
-
-      // 2. Nếu message này "alsoSendToChannel", cập nhật thêm ở Channel cache
-      queryClient.setQueryData(
-        messageKeys.list(parentMessage.channelId),
-        (old: { pages: { messages: Message[] }[] } | undefined) => {
-          if (!old?.pages.length) return old
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              messages: page.messages.map((m) =>
-                m.id === messageId
-                  ? { ...m, attachments: [...(m.attachments || []), attachment] }
-                  : m,
-              ),
-            })),
-          }
-        },
-      )
-    },
-    [queryClient, parentMessage?.id, parentMessage?.channelId],
-  )
-
-  const updateMessageContent = useCallback(
-    async (messageId: string, content: string, alsoSendToChannel: boolean) => {
-      if (!parentMessage) return
-
-      try {
-        const { data } = await apiClient.patch<Message>(
-          `/messages/${messageId}`,
-          { content },
-        )
-
-        // Cập nhật Thread cache
-        queryClient.setQueryData(
-          ['thread-messages', parentMessage.id],
-          (old: { pages: { messages: Message[] }[] } | undefined) => {
-            if (!old?.pages.length) return old
-            return {
-              ...old,
-              pages: old.pages.map((page) => ({
-                ...page,
-                messages: page.messages.map((m) =>
-                  m.id === messageId ? { ...m, content: data.content } : m,
-                ),
-              })),
-            }
-          },
-        )
-
-        // Cập nhật Channel cache nếu cần
-        if (alsoSendToChannel) {
-          queryClient.setQueryData(
-            messageKeys.list(parentMessage.channelId),
-            (old: { pages: { messages: Message[] }[] } | undefined) => {
-              if (!old?.pages.length) return old
-              return {
-                ...old,
-                pages: old.pages.map((page) => ({
-                  ...page,
-                  messages: page.messages.map((m) =>
-                    m.id === messageId ? { ...m, content: data.content } : m,
-                  ),
-                })),
-              }
-            },
-          )
-        }
-      } catch (err) {
-        console.error('Failed to update placeholder content:', err)
-      }
-    },
-    [queryClient, parentMessage?.id, parentMessage?.channelId],
-  )
-
-  const handleSubmit = useCallback(async (content: string) => {
-    if (!parentMessage) return
-
-    const hasContent = content.trim() !== '' && content.trim() !== '<p></p>'
-    const hasFiles = pendingFiles.length > 0
-
-    if (!hasContent && !hasFiles) return
-
-    const contentToSend = hasContent ? content : PLACEHOLDER_CONTENT
-    const filesToUpload = [...pendingFiles]
-    const shouldAlsoSendToChannel = alsoSendToChannel
-
-    setPendingFiles([])
-
-    sendMessage(
-      {
-        content: contentToSend,
-        parentId: parentMessage.id,
-        alsoSendToChannel: shouldAlsoSendToChannel,
-      },
-      {
-        onSuccess: async (newMessage) => {
-          if (filesToUpload.length === 0) {
-            setAlsoSendToChannel(false)
-            return
-          }
-
-          let successCount = 0
-          for (const { file } of filesToUpload) {
-            try {
-              const attachment = await uploadFile(file, newMessage.id)
-              addAttachmentToCache(newMessage.id, attachment)
-              successCount++
-              toast.success(`Đã tải lên: ${file.name}`)
-            } catch (error) {
-              toast.error(
-                `Lỗi khi tải ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              )
-            }
-          }
-
-          clearUploadingFiles()
-          setAlsoSendToChannel(false)
-
-          // Xóa placeholder if needed
-          if (!hasContent) {
-            if (successCount > 0) {
-              await updateMessageContent(newMessage.id, '<p></p>', shouldAlsoSendToChannel)
-            } else {
-              await updateMessageContent(
-                newMessage.id,
-                '<p>⚠️ Tải file thất bại</p>',
-                shouldAlsoSendToChannel
-              )
-            }
-          }
-        },
-      }
-    )
-  }, [parentMessage, sendMessage, alsoSendToChannel, pendingFiles, uploadFile, addAttachmentToCache, updateMessageContent, clearUploadingFiles])
+  // Wrap onSubmit to handle alsoSendToChannel
+  const handleSubmitWithChannel = useCallback(async (content: string) => {
+    await onSubmit(content, { alsoSendToChannel })
+    setAlsoSendToChannel(false)
+  }, [onSubmit, alsoSendToChannel])
 
   const components = useMemo(() => ({
     Header: () => (
       <div className='pt-2'>
         {/* Parent Message */}
         <MessageItem
+          messageId={parentMessage!.id}
           message={parentMessage!}
           currentUserId={currentUser?.id || ''}
           workspaceId={workspaceId}
@@ -319,6 +187,10 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
           onReact={(id, emoji) => addReaction({ messageId: id, emoji, userId: currentUser?.id || '' })}
           onEdit={(msg) => updateMessageAction({ messageId: msg.id, content: msg.content })}
           onDelete={(id) => deleteMessageAction({ messageId: id })}
+          onPin={(id) => togglePin(id)}
+          onSaveForLater={(id) => handleSaveForLater(id)}
+          isSavedForLater={savedMessageIdSet.has(parentMessage!.id)}
+          savedLaterRemindAtIso={remindAtByMessageId.get(parentMessage!.id)}
           parentMessage={true}
           hideReplyButton={true}
           isInsideThreadPanel={true}
@@ -350,9 +222,7 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
         <div className="h-4" />
       </>
     )
-  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, fetchNextPage])
-
-  if (!parentMessage) return null
+  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, togglePin, fetchNextPage, savedMessageIdSet, remindAtByMessageId, handleSaveForLater])
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21]">
@@ -386,6 +256,7 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
             return (
               <MessageItem
                 key={reply.id}
+                messageId={reply.id}
                 message={reply}
                 currentUserId={currentUser?.id || ''}
                 workspaceId={workspaceId}
@@ -400,9 +271,13 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
                   setEmojiPickerMessageId(open ? id : null)
                 }
                 onReply={() => { }}
-                onReact={(id, emoji) => addReaction({ messageId: id, emoji, userId: currentUser?.id || '', parentId: parentMessage.id })}
-                onEdit={(msg) => updateMessageAction({ messageId: msg.id, content: msg.content, parentId: parentMessage.id })}
-                onDelete={(id) => deleteMessageAction({ messageId: id, parentId: parentMessage.id })}
+                onReact={(id, emoji) => addReaction({ messageId: id, emoji, userId: currentUser?.id || '', parentId: parentMessage!.id })}
+                onEdit={(msg) => updateMessageAction({ messageId: msg.id, content: msg.content, parentId: parentMessage!.id })}
+                onDelete={(id) => deleteMessageAction({ messageId: id, parentId: parentMessage!.id })}
+                onPin={(id) => togglePin(id)}
+                onSaveForLater={(id) => handleSaveForLater(id)}
+                isSavedForLater={savedMessageIdSet.has(reply.id)}
+                savedLaterRemindAtIso={remindAtByMessageId.get(reply.id)}
                 hideReplyButton={true}
                 isInsideThreadPanel={true}
                 isFocused={highlightedMessageId === reply.id}
@@ -415,14 +290,40 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
 
       {/* Footer / Editor */}
       <div className="p-4">
+        {scheduledSendAck && (
+          <ScheduledSendAckBanner
+            workspaceId={workspaceId}
+            scheduledAtIso={scheduledSendAck.scheduledAtIso}
+            pendingScheduledCount={
+              scheduledSendAck.pendingScheduledCount
+            }
+            workspaceTimeZone={workspaceTimeZone}
+          />
+        )}
         <Editor
+          key={composerEditorKey}
           variant="create"
-          onSubmit={handleSubmit}
-          disabled={isSending}
-          onFileAttach={handleFileAttach}
+          workspaceId={workspaceId}
+          currentMembers={currentMembers}
+          onSubmit={handleSubmitWithChannel}
+          disabled={isSending || isScheduling}
+          onFileAttach={addPendingFiles}
           pendingFiles={pendingFiles}
           onRemoveFile={removePendingFile}
           hasPendingFiles={pendingFiles.length > 0}
+          initialContent={composerInitialHtml}
+          onContentChange={onComposerHtmlChange}
+          onScheduleClick={() => setScheduleOpen(true)}
+          onScheduleQuickPick={async (iso) => {
+            try {
+              await scheduleMessage({
+                scheduledAtIso: iso,
+                alsoSendToChannel,
+              })
+            } catch {
+              /* toast trong hook */
+            }
+          }}
         />
 
         <div className="flex items-center gap-2 mt-2 ml-1">
@@ -438,6 +339,23 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
             Also send to channel
           </label>
         </div>
+
+        <ScheduleSendDialog
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          isSubmitting={isScheduling}
+          onConfirm={async (iso) => {
+            try {
+              await scheduleMessage({
+                scheduledAtIso: iso,
+                alsoSendToChannel,
+              })
+              setScheduleOpen(false)
+            } catch {
+              /* toast trong hook */
+            }
+          }}
+        />
       </div>
     </div>
   )

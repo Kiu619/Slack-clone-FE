@@ -45,13 +45,15 @@ type FormValues = z.infer<typeof schema>;
 export function RenameFolderDialog({
   open,
   onOpenChange,
-  channelId,
+  targetId,
   folder,
+  isDM = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  channelId: string;
+  targetId: string;
   folder: ChannelFolder | null;
+  isDM?: boolean;
 }) {
   const queryClient = useQueryClient();
   const form = useForm<FormValues>({
@@ -67,11 +69,11 @@ export function RenameFolderDialog({
 
   const { mutate, isPending } = useMutation({
     mutationFn: (name: string) =>
-      renameChannelFolderApi(channelId, folder!.id, name),
+      renameChannelFolderApi(targetId, folder!.id, name, isDM),
     onSuccess: () => {
       toast.success("Folder renamed");
       void queryClient.invalidateQueries({
-        queryKey: folderKeys.list(channelId),
+        queryKey: folderKeys.list(targetId),
       });
       onOpenChange(false);
     },

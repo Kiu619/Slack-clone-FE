@@ -25,6 +25,7 @@ import {
 import { updateMemberStatusApi } from "@/apis";
 import { authKeys } from "@/lib/query-keys";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
+import { useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
@@ -441,6 +442,12 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
       };
 
       await updateMemberStatusApi(wsId, payload);
+
+      useWorkspaceMemberStore.getState().patchFromSocket(wsId, {
+        id: userData.id,
+        workspaceId: wsId,
+        ...payload,
+      });
 
       await queryClient.invalidateQueries({
         queryKey: authKeys.workspaceProfile(wsId),

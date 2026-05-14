@@ -5,17 +5,14 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { useCallback, useMemo } from 'react'
 import { apiClient } from '@/lib/axios'
-import { updateChannelApi } from '@/apis'
-import type { Channel, CreateChannelPayload, UpdateChannelPayload } from '@/lib/types'
 import {
-  useChannelWorkspaceSocket,
-  type ChannelSocketPayload,
-  type ChannelDeletedSocketPayload,
-  type ChannelMembershipChangedPayload,
-} from '@/hooks/use-socket'
-import { useUserStore } from '@/stores/useUserStore'
+  updateChannelApi,
+  starChannelApi,
+  unstarChannelApi,
+} from '@/apis'
+import type { Channel, CreateChannelPayload, UpdateChannelPayload } from '@/lib/types'
+import { getMainGatewaySocket } from '@/hooks/use-socket'
 
 // Import và re-export từ query-keys.ts (isomorphic file, không có 'use client')
 // → server-fetch.ts có thể import từ query-keys.ts trực tiếp (không qua file này)
@@ -65,7 +62,10 @@ export function useCreateChannel(workspaceId: string) {
     onSuccess: (newChannel) => {
       queryClient.setQueryData<Channel[]>(
         channelKeys.all(workspaceId),
-        (old = []) => [...old, newChannel].sort((a, b) => a.name.localeCompare(b.name)),
+        (old = []) =>
+          [...old, { ...newChannel, starredAt: newChannel.starredAt ?? null }].sort(
+            (a, b) => a.name.localeCompare(b.name),
+          ),
       )
     },
   })
@@ -112,101 +112,39 @@ export function useUpdateChannel(workspaceId: string, channelId: string) {
   })
 }
 
-/**
- * WebSocket /channel (room workspace):
- * - created: không merge vào sidebar (chỉ người tạo thấy qua mutation; người khác chỉ khi được thêm member).
- * - updated: cập nhật chi tiết + sidebar chỉ nếu channel đã có trong cache (đã là member).
- * - deleted / membership: giữ như cũ.
- */
-export function useWorkspaceChannelSocket(
-  workspaceId: string,
-  isChannelConnected: boolean,
-) {
+/** Star / unstar channel — đồng bộ list + detail cache */
+export function useStarChannel(workspaceId: string, channelId: string) {
   const queryClient = useQueryClient()
-  const currentUserId = useUserStore((s) => s.user?.id)
 
-  const onChannelCreated = useCallback(() => {
-    // Không cập nhật channelKeys.all — tránh hiện channel mới trên máy user chưa được thêm.
-  }, [])
-
-  const onChannelUpdated = useCallback(
-    (data: ChannelSocketPayload) => {
-      if (data.workspaceId !== workspaceId) return
-      const ch = data.channel as Channel
+  return useMutation({
+    mutationFn: async (nextStarred: boolean) => {
+      const s = getMainGatewaySocket()
+      const headers =
+        s.connected && s.id ? { 'x-socket-id': s.id } : undefined
+      return nextStarred
+        ? starChannelApi(workspaceId, channelId, headers)
+        : unstarChannelApi(workspaceId, channelId, headers)
+    },
+    onSuccess: (updated) => {
       queryClient.setQueryData<Channel>(
-        channelKeys.detail(workspaceId, ch.id),
-        ch,
+        channelKeys.detail(workspaceId, channelId),
+        updated,
       )
       queryClient.setQueryData<Channel[]>(
         channelKeys.all(workspaceId),
         (old = []) => {
-          if (!old.some((c) => c.id === ch.id)) return old
-          return [...old.map((c) => (c.id === ch.id ? ch : c))].sort((a, b) =>
-            a.name.localeCompare(b.name),
-          )
+          const next = old.map((c) => (c.id === channelId ? updated : c))
+          return next.sort((a, b) => a.name.localeCompare(b.name))
         },
       )
     },
-    [workspaceId, queryClient],
-  )
+  })
+}
 
-  const onChannelDeleted = useCallback(
-    (data: ChannelDeletedSocketPayload) => {
-      if (data.workspaceId !== workspaceId) return
-      queryClient.removeQueries({
-        queryKey: channelKeys.detail(workspaceId, data.channelId),
-      })
-      queryClient.setQueryData<Channel[]>(
-        channelKeys.all(workspaceId),
-        (old = []) => old.filter((c) => c.id !== data.channelId),
-      )
-    },
-    [workspaceId, queryClient],
-  )
-
-  const onChannelMembershipChanged = useCallback(
-    (data: ChannelMembershipChangedPayload) => {
-      if (data.workspaceId !== workspaceId) return
-
-      void queryClient.invalidateQueries({
-        predicate: (q) => {
-          const k = q.queryKey
-          return (
-            Array.isArray(k) &&
-            k[0] === 'channels' &&
-            k[1] === workspaceId &&
-            k[2] === data.channelId &&
-            k[3] === 'members'
-          )
-        },
-      })
-
-      if (data.affectedUserId === currentUserId) {
-        void queryClient.invalidateQueries({
-          queryKey: channelKeys.all(workspaceId),
-        })
-        void queryClient.invalidateQueries({
-          queryKey: channelKeys.detail(workspaceId, data.channelId),
-        })
-      }
-    },
-    [workspaceId, queryClient, currentUserId],
-  )
-
-  const callbacks = useMemo(
-    () => ({
-      onChannelCreated,
-      onChannelUpdated,
-      onChannelDeleted,
-      onChannelMembershipChanged,
-    }),
-    [
-      onChannelCreated,
-      onChannelUpdated,
-      onChannelDeleted,
-      onChannelMembershipChanged,
-    ],
-  )
-
-  useChannelWorkspaceSocket(workspaceId || null, isChannelConnected, callbacks)
+export function useChannelMembers(workspaceId: string, channelId: string) {
+  return useQuery({
+    queryKey: ['channels', workspaceId, channelId, 'members'],
+    queryFn: () => apiClient.get(`/workspaces/${workspaceId}/channels/${channelId}/members`).then(res => res.data),
+    enabled: !!workspaceId && !!channelId,
+  })
 }

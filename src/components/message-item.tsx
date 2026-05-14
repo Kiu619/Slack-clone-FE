@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import AttachmentList from "@/components/attachment-previews/attachment-list";
@@ -13,21 +14,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Message, Reaction } from "@/lib/types";
-import { format } from "date-fns";
+import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
+import { format, formatDistanceToNowStrict, isPast } from "date-fns";
 import DOMPurify from "dompurify";
 import { useCallback, useMemo, useState } from "react";
+import { LuHash, LuLink, LuPencil, LuTrash2, LuUndo2, LuX } from "react-icons/lu";
+import Editor, { PendingFile } from "./editor";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { useUpdateMessage } from "@/hooks/use-messages";
+import { useRemindMe } from "@/hooks/use-saved-items";
+import { useMessageStore } from "@/stores/useMessageStore";
 import {
-  LuLink,
-  LuPencil,
-  LuTrash2,
-  LuUndo2,
-  LuHash
-} from "react-icons/lu";
-import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
-import { useThreadPanelStore } from "@/stores/useThreadPanelStore";
-import Editor from "./editor";
+  mergeUserForDisplay,
+  useWorkspaceMemberOverlay,
+} from "@/stores/useWorkspaceMemberStore";
 
-import {getMemberStatusApi} from "@/apis"
+import { getMemberStatusApi } from "@/apis";
 
 // Dynamic import EmojiPicker để tránh SSR
 import { formatTimestamp } from "@/helpers/format-time-stamp";
@@ -39,21 +41,29 @@ import dynamic from "next/dynamic";
 import { BiMessageRoundedDetail } from "react-icons/bi";
 import { FiBellOff } from "react-icons/fi";
 import {
+  MdBookmark,
   MdBookmarkBorder,
   MdMoreVert,
   MdOutlineAddReaction,
   MdOutlineKeyboardArrowRight,
   MdOutlineMarkChatUnread,
 } from "react-icons/md";
-import { RiOrganizationChart, RiPushpinLine, RiShareForwardLine } from "react-icons/ri";
+import { RiPushpinLine, RiShareForwardLine } from "react-icons/ri";
 import { RxText } from "react-icons/rx";
 import { Separator } from "./ui/separator";
 import Typography from "./ui/typography";
+import { ForwardMessageDialog } from "./dialogs/forward-message-dialog";
+import { ForwardedMessageTimelineBlock } from "@/components/workspace/forwarded-message-timeline";
+import { UserStatusEmojiInline } from "./user-status-emoji-inline";
 import { useQuery } from "@tanstack/react-query";
+import { ICON_TRANSITION, MENU_ITEM_STYLE, SUBMENU_ITEM_STYLE, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
 const EmojiPicker = dynamic(() => import("emoji-picker-react"));
 
 interface MessageItemProps {
-  message: Message;
+  /** ID của tin nhắn để lấy dữ liệu từ Store (Ưu tiên) */
+  messageId?: string;
+  /** Dữ liệu tin nhắn truyền trực tiếp (Dùng khi chưa có trong Store) */
+  message?: Message;
   /** currentUserId để biết highlight reaction nào là của mình */
   currentUserId: string;
   /** workspaceId dùng để fetch workspace member status khi mở ProfilePanel */
@@ -71,9 +81,24 @@ interface MessageItemProps {
   /** Callback khi EmojiPicker open/close — giữ toolbar hiển thị khi picker mở */
   onEmojiPickerOpenChange?: (messageId: string, open: boolean) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onPin?: (messageId: string) => void;
   onEdit?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
   onReply?: (message: Message, highlightedMessageId?: string) => void;
+  onMarkAsRead?: (parentId: string) => void;
+  onSaveForLater?: (messageId: string) => void;
+  /** True when this message is in Later (in_progress) — filled bookmark + banner */
+  isSavedForLater?: boolean;
+  /**
+   * When the user set a reminder on this saved message (Later `remindAt`), ISO string.
+   * Shown in the banner after "Saved for later" (Slack-style "Due in …").
+   */
+  savedLaterRemindAtIso?: string | null;
+  /**
+   * When true: hide the blue "Saved for later" row + bookmark save button
+   * (e.g. message preview inside Later list — `saved-item` used by `later-side-panel`).
+   */
+  hideSaveForLaterUi?: boolean;
 
   parentMessage?: boolean;
   hideReplyButton?: boolean;
@@ -82,73 +107,88 @@ interface MessageItemProps {
   isFocused?: boolean;
   isTemporaryHighlight?: boolean;
   onFocus?: (messageId: string) => void;
+  hideThreadReplyBar?: boolean;
+  fromThreadPage?: boolean;
+  isMember?: boolean;
+  fromPublicChannel?: boolean;
 }
 
 function DeletedMessage() {
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 w-full text-[#797c81]">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gray-200">
-        <LuTrash2 size={16}  />
+        <LuTrash2 size={16} />
       </div>
-      <Typography variant="p" text="Message deleted"/>
+      <Typography variant="p" text="Message deleted" />
     </div>
-  )
+  );
 }
 
 /** Component hiển thị avatar của một participant trong thread */
-function ThreadParticipantAvatar({ 
-  userId, 
-  workspaceId 
-}: { 
-  userId: string; 
-  workspaceId: string 
+function ThreadParticipantAvatar({
+  userId,
+  workspaceId,
+}: {
+  userId: string;
+  workspaceId: string;
 }) {
+  const overlay = useWorkspaceMemberOverlay(workspaceId, userId);
   const { data: memberStatus } = useQuery({
-    queryKey: ['workspace-member-status', workspaceId, userId],
+    queryKey: ["workspace-member-status", workspaceId, userId],
     queryFn: () => getMemberStatusApi(workspaceId, userId),
     staleTime: 5 * 60 * 1000,
   });
+  const avatarUrl = overlay?.avatar ?? memberStatus?.avatar ?? "";
+  const displayName =
+    overlay?.displayName?.trim() ||
+    overlay?.name?.trim() ||
+    memberStatus?.name ||
+    "Participant";
+  const initial = displayName.charAt(0).toUpperCase() || "?";
+
   return (
     <div className="w-6 h-6 rounded bg-gray-200 border-2 border-white dark:border-[#1A1D21] shrink-0 overflow-hidden">
-      {memberStatus?.avatar ? (
+      {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img 
-          src={memberStatus.avatar} 
-          alt={memberStatus.name || "Participant"} 
+        <img
+          src={avatarUrl}
+          alt={displayName}
           className="w-full h-full object-cover"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-blue-500 text-[10px] text-white font-bold">
-          {memberStatus?.name?.charAt(0).toUpperCase() || "?"}
+          {initial}
         </div>
       )}
     </div>
   );
 }
 
-
 /** Format timestamp cho compact mode (chỉ giờ) */
 function formatCompactTime(dateStr: string): string {
   return format(new Date(dateStr), "HH:mm");
 }
 
-const TOOLBAR_ITEM_STYLE =
-  "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
-const MENU_ITEM_STYLE =
-  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
-const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
-const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
-
 /** Tiện ích lấy plaintext từ HTML (cho snippet tin nhắn cha) */
 function getPlainText(html: string): string {
   if (!html) return "";
   // Loại bỏ tags, giữ text content
-  return html.replace(/<[^>]*>?/gm, '').trim();
+  return html.replace(/<[^>]*>?/gm, "").trim();
+}
+
+/** Wall-clock relative copy for the Later banner (not memoized — needs current time). */
+function savedLaterDueLabelFromIso(remindAtIso: string): string | null {
+  const d = new Date(remindAtIso);
+  if (Number.isNaN(d.getTime())) return null;
+  if (isPast(d)) {
+    return `Incomplete · ${formatDistanceToNowStrict(d, { addSuffix: true })}`;
+  }
+  return `Due in ${formatDistanceToNowStrict(d)}`;
 }
 
 export default function MessageItem({
-  message,
+  messageId,
+  message: initialMessage,
   currentUserId,
   workspaceId,
   isCompact = false,
@@ -157,49 +197,79 @@ export default function MessageItem({
   emojiPickerOpen = false,
   onEmojiPickerOpenChange,
   onReact,
+  onPin,
   onEdit,
   onDelete,
   onReply,
+  onMarkAsRead,
+  onSaveForLater,
+  isSavedForLater = false,
+  savedLaterRemindAtIso = null,
+  hideSaveForLaterUi = false,
   parentMessage = false,
   hideReplyButton = false,
   isInsideThreadPanel = false,
   isFocused = false,
   isTemporaryHighlight = false,
-  onFocus
+  onFocus,
+  hideThreadReplyBar = false,
+  fromThreadPage = false,
+  isMember,
+  fromPublicChannel,
 }: MessageItemProps) {
-  const { open: openProfilePanel } = useProfilePanelStore()
-  const { setFocusedMessageId } = useMessageFocusStore()
+
+  // Lấy data từ Store dựa vào ID
+  const storeMessage = useMessageStore(
+    useCallback((state) => (messageId ? state.entities[messageId] : undefined), [messageId])
+  );
+
+  // Fallback về data truyền vào props nếu Store chưa có
+  const message = storeMessage || initialMessage;
+
+  const memberOverlay = useWorkspaceMemberOverlay(workspaceId, message?.user?.id);
+  const displayUser = useMemo(
+    () => (message ? mergeUserForDisplay(message.user, memberOverlay) : null),
+    [message, memberOverlay],
+  );
+
+  const { open: openProfilePanel } = useProfilePanelStore();
+  const { setFocusedMessageId } = useMessageFocusStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [isRemindMeOpen, setIsRemindMeOpen] = useState(false);
+  const [moreActionPopoverOpen, setMoreActionPopoverOpen] = useState(false);
 
-  const { theme } = useTheme()
+  const {
+    isRemindMeOpen,
+    setIsRemindMeOpen,
+    remindInMinutes,
+    remindInHours,
+    remindTomorrow,
+    remindNextMonday,
+    isPending: isRemindPending,
+  } = useRemindMe();
 
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
+  const { uploadFileBinary } = useFileUpload();
 
+  /** File chỉnh sửa được trong editor — loại attachment thuộc forward quote. */
+  const editableBodyAttachments = useMemo(
+    () =>
+      (message?.attachments ?? []).filter(
+        (att) =>
+          att.originScope !== "forward_quote" &&
+          !deletedAttachmentIds.includes(att.id),
+      ),
+    [message?.attachments, deletedAttachmentIds],
+  );
 
-  const isDeleted = !!message.deletedAt;
-  /** Ẩn "đã chỉnh sửa" khi là system update (thay placeholder upload bằng content rỗng) */
-  const isFileOnlyPlaceholder =
-    message.attachments?.length &&
-    (message.content === "<p></p>" ||
-      message.content.trim() === "<p></p>" ||
-      message.content === "<p>📎</p>");
-  const isEdited = !!message.editedAt && !isFileOnlyPlaceholder;
+  const { mutate: updateMessage, isPending: isUpdatingMessage } = useUpdateMessage(
+    message?.channelId || message?.conversationId || "",
+    workspaceId,
+  );
 
-  const isOwner = message.user.id === currentUserId;
-
-  /** Placeholder khi đang upload file — ẩn nếu đã có attachments */
-  const isUploadPlaceholder =
-    message.content.includes("Đang tải file") ||
-    message.content.includes("Tải file thất bại");
-
-  /** Content rỗng (file-only message) — không hiển thị */
-  const isEmptyContent =
-    message.content === "<p></p>" || message.content.trim() === "<p></p>";
-
-  /** Ẩn content khi có attachments và content là placeholder/rỗng */
-  const shouldShowContent =
-    message.content.includes("Tải file thất bại") ||
-    !(message.attachments?.length && (isUploadPlaceholder || isEmptyContent));
+  const { theme } = useTheme();
 
   /**
    * Sanitize HTML từ Tiptap trước khi dangerouslySetInnerHTML
@@ -207,8 +277,9 @@ export default function MessageItem({
    * formatting tags (bold, italic, ul, ol, code...)
    */
   const sanitizedContent = useMemo(() => {
-    if (typeof window === "undefined") return message.content;
-    return DOMPurify.sanitize(message.content, {
+    const content = message?.content ?? "";
+    if (typeof window === "undefined") return content;
+    return DOMPurify.sanitize(content, {
       ALLOWED_TAGS: [
         "p",
         "br",
@@ -227,31 +298,59 @@ export default function MessageItem({
       ],
       ALLOWED_ATTR: ["href", "target", "rel", "class"],
     });
-  }, [message.content]);
+  }, [message?.content]);
 
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
+      if (!message) return;
       onReact?.(message.id, emojiData.emoji);
       onEmojiPickerOpenChange?.(message.id, false);
     },
-    [message.id, onReact, onEmojiPickerOpenChange],
+    [message, onReact, onEmojiPickerOpenChange],
   );
 
   const handleEmojiPickerOpenChange = useCallback(
     (open: boolean) => {
+      if (!message) return;
       onEmojiPickerOpenChange?.(message.id, open);
     },
-    [message.id, onEmojiPickerOpenChange],
+    [message, onEmojiPickerOpenChange],
   );
 
-  /** Kiểm tra current user đã react emoji này chưa */
+  if (!message || !displayUser) return null;
+
+  const isDeleted = !!message.deletedAt;
+  /** Ẩn "đã chỉnh sửa" khi là system update (thay placeholder upload bằng content rỗng) */
+  const isFileOnlyPlaceholder =
+    message.attachments?.length &&
+    (message.content === "<p></p>" ||
+      message.content.trim() === "<p></p>" ||
+      message.content === "<p>📎</p>");
+  const isEdited = !!message.editedAt && !isFileOnlyPlaceholder;
+
+  const isOwner = displayUser.id === currentUserId;
+
+  /** Placeholder khi đang upload file — ẩn nếu đã có attachments */
+  const isUploadPlaceholder =
+    message.content.includes("Đang tải file") ||
+    message.content.includes("Tải file thất bại");
+
+  /** Content rỗng (file-only message) — không hiển thị */
+  const isEmptyContent =
+    message.content === "<p></p>" || message.content.trim() === "<p></p>";
+
+  /** Ẩn content khi có attachments và content là placeholder/rỗng */
+  const shouldShowContent =
+    message.content.includes("Tải file thất bại") ||
+    !(message.attachments?.length && (isUploadPlaceholder || isEmptyContent));
+
+  const isForwardedMessage = Boolean(message.forwardSnapshot);
+
   const hasReacted = (reaction: Reaction) =>
     reaction.userIds.includes(currentUserId);
 
   if (isDeleted) {
-    return (
-      <DeletedMessage />
-    );
+    return <DeletedMessage />;
   }
 
   /** Tin carrier (upload folder, v.v.) — không render trong timeline */
@@ -259,14 +358,22 @@ export default function MessageItem({
     return null;
   }
 
+  const isTimelineRoot =
+    message.type === "timeline" ||
+    (message.type === "text" &&
+      message.allowEdit === false &&
+      !message.parentId);
+
   return (
     <div
       className={cn(
-        "group relative flex gap-x-2 px-4 transition-colors",
+        "group relative flex flex-col px-4 transition-colors",
         isCompact ? "py-0.5" : "py-1.5",
-        (isTemporaryHighlight || (message.alsoSendToChannel && message.parentId && isInsideThreadPanel))
+        isTemporaryHighlight ||
+          message.isPinned ||
+          (message.alsoSendToChannel && message.parentId && isInsideThreadPanel)
           ? "bg-[#FDF9F0] dark:bg-[#22221f] hover:bg-[#F9F3EA] dark:hover:bg-[#2a2a26]"
-          : "hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529]"
+          : "hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529]",
       )}
       onMouseEnter={() => {
         onHoverChange?.(message.id, true);
@@ -275,7 +382,35 @@ export default function MessageItem({
         }
       }}
       onMouseLeave={() => onHoverChange?.(message.id, false)}
+      onClick={() => {
+        onFocus?.(message.id);
+        if ((message as any).isUnread && onMarkAsRead) {
+          onMarkAsRead(message.id);
+        }
+      }}
     >
+      {isSavedForLater && !hideSaveForLaterUi && (
+        <div className="flex items-center gap-1.5 mb-1 text-[13px] font-semibold text-[#36C5F0] w-full min-w-0 flex-wrap">
+          <MdBookmark size={18} className="shrink-0" aria-hidden />
+          <span>Saved for later</span>
+          {(() => {
+            const dueLine = savedLaterRemindAtIso
+              ? savedLaterDueLabelFromIso(savedLaterRemindAtIso)
+              : null;
+            if (!dueLine) return null;
+            return (
+              <>
+                <span className="shrink-0 opacity-90" aria-hidden>
+                  ·
+                </span>
+                <span className="min-w-0">{dueLine}</span>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      <div className="relative flex w-full min-w-0 gap-x-2">
       {/* Cột trái: Avatar hoặc timestamp nhỏ (compact mode) */}
       <div className="w-9 shrink-0 flex justify-center">
         {isCompact ? (
@@ -287,15 +422,17 @@ export default function MessageItem({
             {formatCompactTime(message.createdAt)}
           </span>
         ) : (
-          <div className=""
-            onClick={() => {
-              openProfilePanel({ userData: message.user, workspaceId })
+          <div
+            className=""
+            onClick={(e) => {
+              e.stopPropagation();
+              openProfilePanel({ userData: displayUser, workspaceId });
             }}
           >
             <Avatar
-              src={message.user.avatar ?? ""}
+              src={displayUser.avatar ?? ""}
               className="w-9 h-9 rounded-lg cursor-pointer mt-0.5"
-              alt={message.user.displayName ?? message.user.email}
+              alt={displayUser.displayName ?? displayUser.email}
             />
           </div>
         )}
@@ -303,100 +440,201 @@ export default function MessageItem({
 
       <div className="flex-1 min-w-0">
         {/* Shared to channel indicator (CHỈ hiện trong context Thread Panel) */}
-        {isInsideThreadPanel && message.alsoSendToChannel && message.parentId && (
-          <div 
-            onClick={() => {
-              setFocusedMessageId(message.id);
-            }}
-            className="flex items-center gap-1.5 mb-0.5 text-[#797c81] dark:text-[#ababad] cursor-pointer hover:underline w-fit"
-          >
-             <div className="flex items-center gap-0.5">
-               <LuHash size={14} className="text-[#1d9bd1] stroke-3" />
-               <LuUndo2 size={10} className="stroke-3 -translate-y-px" />
-             </div>
-             <span className="text-[12px] font-medium leading-none">Also sent to the channel</span>
-          </div>
-        )}
-        
+        {isInsideThreadPanel &&
+          message.alsoSendToChannel &&
+          message.parentId && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setFocusedMessageId(message.id);
+              }}
+              className="flex items-center gap-1.5 mb-0.5 text-[#797c81] dark:text-[#ababad] cursor-pointer hover:underline w-fit"
+            >
+              <div className="flex items-center gap-0.5">
+                <LuHash size={14} className="text-[#1d9bd1] stroke-3" />
+                <LuUndo2 size={10} className="stroke-3 -translate-y-px" />
+              </div>
+              <span className="text-[12px] font-medium leading-none">
+                Also sent to the channel
+              </span>
+            </div>
+          )}
+
         {/* Header: tên + timestamp (chỉ non-compact) */}
-        {!isCompact && (
-          <div className="flex items-baseline gap-x-2 mb-0.5">
-            <span className="text-[15px] font-bold  cursor-pointer hover:underline">
-              {message.user.displayName ?? message.user.email}
-            </span>
-            <span className="text-[11px] dark:text-[#797c81]">
+        {!isCompact && displayUser && (
+          <div className="flex items-center gap-x-2 mb-0.5 flex-wrap">
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="text-[15px] font-bold cursor-pointer hover:underline truncate"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProfilePanel({ userData: displayUser, workspaceId });
+                }}
+              >
+                {displayUser.displayName ?? displayUser.email}
+              </span>
+              <UserStatusEmojiInline
+                statusEmoji={displayUser.statusEmoji}
+                statusText={displayUser.statusText}
+                emojiClassName="text-[15px]"
+              />
+            </div>
+            <span className="text-[11px] dark:text-[#797c81] shrink-0">
               {formatTimestamp(message.createdAt)}
             </span>
-            {isEdited && (
-              <span className="text-[11px] dark:text-[#797c81]">
-                (edited)
-              </span>
+            {(message as any).isUnread && (
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+            )}
+
+            {message.isPinned && (
+              <div className="flex items-center gap-1 text-[11px] text-[#797c81]">
+                <RiPushpinLine size={12} className="fill-[#797c81]" />
+                <span>Pinned</span>
+              </div>
             )}
           </div>
         )}
 
-        {/* Replied to thread summary: HIỆN ở Channel Timeline (isInsideThreadPanel=false) cho tin shared */}
-        {!isInsideThreadPanel && message.parentId && message.alsoSendToChannel && !parentMessage && (
-          <div className="flex items-center gap-1 mb-0.5 text-[14px]">
-            <span className="text-[#797c81]">replied to a thread:</span>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onFocus?.(message.id); // Trộn với highlight + scroll
-                // Tìm tin nhắn cha trong cache hoặc fetch full object
-                // Ở đây ta có item.message.parent, nhưng onReply cần full Message object (có user, v.v.)
-                // Tạm thời nếu ta gọi onReply với một phần, ThreadPanel sẽ fetch replies bằng parentId.
-                // Lưu ý: Nếu click vào đây, onReply sẽ được gọi với object "skeleton" của parent
-                if (message.parentId) {
-                   onReply?.({ 
-                     ...message,
-                     id: message.parentId, 
-                     parentId: null,
-                     content: message.parent?.content || "",
-                     attachments: message.parent?.attachments || [],
-                     reactions: [],
-                     replyCount: 0,
-                   } as any as Message, message.id);
-                }
-              }}
-              className="text-[#1d9bd1] font-bold hover:underline truncate max-w-[400px] text-left"
-            >
-              {getPlainText(message.parent?.content || "") || 
-               message.parent?.attachments?.[0]?.name || 
-               "thread"}
-            </button>
+        {/* Pinned indicator for compact mode */}
+        {isCompact && message.isPinned && (
+          <div className="flex items-center gap-1 mb-0.5">
+            <RiPushpinLine size={12} className="text-[#797c81]" />
+            <span className="text-[11px] text-[#797c81]">Pinned</span>
           </div>
         )}
+
+        {/* Replied to thread summary: HIỆN ở Channel Timeline (isInsideThreadPanel=false) cho tin shared */}
+        {!isInsideThreadPanel &&
+          message.parentId &&
+          message.alsoSendToChannel &&
+          !parentMessage && (
+            <div className="flex items-center gap-1 mb-0.5 text-[14px]">
+              <span className="text-[#797c81]">replied to a thread:</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFocus?.(message.id);
+                  if (message.parentId) {
+                    onReply?.(
+                      {
+                        ...message,
+                        id: message.parentId,
+                        parentId: null,
+                        content: message.parent?.content || "",
+                        attachments: message.parent?.attachments || [],
+                        reactions: [],
+                        replyCount: 0,
+                      } as any as Message,
+                      message.id,
+                    );
+                  }
+                }}
+                className="text-[#1d9bd1] font-bold hover:underline truncate max-w-[400px] text-left"
+              >
+                {getPlainText(message.parent?.content || "") ||
+                  message.parent?.attachments?.[0]?.name ||
+                  "thread"}
+              </button>
+            </div>
+          )}
 
         {/* Nội dung message / Editor khi edit */}
         {isEditing ? (
           <div className="w-full mt-1">
             <Editor
               variant="update"
+              workspaceId={workspaceId}
               initialContent={message.content}
-              onCancel={() => setIsEditing(false)}
-              onSubmit={(content) => {
-                onEdit?.({ ...message, content });
+              onCancel={() => {
                 setIsEditing(false);
+                setPendingFiles([]);
+                setDeletedAttachmentIds([]);
               }}
-              disabled={false}
+              onSubmit={async (content) => {
+                try {
+                  setIsUploading(true);
+                  // 1. Upload new files if any
+                  let newAttachments: any[] = [];
+                  if (pendingFiles.length > 0) {
+                    newAttachments = await Promise.all(
+                      pendingFiles.map((pf) => uploadFileBinary(pf.file))
+                    );
+                  }
+
+                  // 2. Call update mutation
+                  updateMessage({
+                    messageId: message.id,
+                    content,
+                    attachments: newAttachments,
+                    deletedAttachmentIds,
+                    parentId: message.parentId || undefined,
+                  }, {
+                    onSuccess: () => {
+                      setIsEditing(false);
+                      setPendingFiles([]);
+                      setDeletedAttachmentIds([]);
+                      setIsUploading(false);
+                    },
+                    onError: () => {
+                      setIsUploading(false);
+                    }
+                  });
+                } catch (error) {
+                  console.error("Failed to update message:", error);
+                  setIsUploading(false);
+                }
+              }}
+              disabled={isUpdatingMessage || isUploading}
+              pendingFiles={pendingFiles}
+              onRemoveFile={(id) => setPendingFiles(prev => prev.filter(f => f.id !== id))}
+              onFileAttach={(files) => {
+                const newItems: PendingFile[] = files.map((file) => ({
+                  id: Math.random().toString(36).substring(7),
+                  file,
+                }));
+                setPendingFiles((prev) => [...prev, ...newItems]);
+              }}
+              existingAttachments={editableBodyAttachments}
+              onRemoveExistingAttachment={(id) => setDeletedAttachmentIds(prev => [...prev, id])}
             />
           </div>
         ) : (
           shouldShowContent && (
-            <div
-              className={`text-[15px] leading-relaxed message-content ${isDeleted ? 'text-[#797c81] italic' : 'dark:text-[#d1d2d3]'
-                }`}
-              dangerouslySetInnerHTML={{
-                __html: isDeleted ? "Message deleted" : sanitizedContent
-              }}
-            />
+            <div className="flex items-center gap-1">
+              <div
+                className={`text-[15px] leading-relaxed message-content ${isDeleted ? "text-[#797c81] italic" : "dark:text-[#d1d2d3]"
+                  }`}
+                dangerouslySetInnerHTML={{
+                  __html: isDeleted ? "Message deleted" : sanitizedContent,
+                }}
+              />
+              {isEdited && (
+                <span className="text-[11px] text-[#797c81]">(edited)</span>
+              )}
+            </div>
           )
         )}
 
+        {isForwardedMessage ? (
+          <div
+            className={
+              isEditing
+                ? "pointer-events-none select-none opacity-90"
+                : undefined
+            }
+            aria-readonly={isEditing ? true : undefined}
+          >
+            <ForwardedMessageTimelineBlock
+              message={message}
+              workspaceId={workspaceId}
+            />
+          </div>
+        ) : null}
 
-        {/* Attachments — hiển thị files/images/videos */}
-        {message.attachments && message.attachments.length > 0 && (
+        {/* Attachments — hiển thị files/images/videos (forward: chỉ trong khối quote) */}
+        {!isEditing &&
+          message.attachments &&
+          message.attachments.length > 0 &&
+          !isForwardedMessage && (
           <>
             <AttachmentList
               message={message}
@@ -418,10 +656,13 @@ export default function MessageItem({
             {message.reactions.map((reaction) => (
               <button
                 key={reaction.emoji}
-                onClick={() => onReact?.(message.id, reaction.emoji)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReact?.(message.id, reaction.emoji);
+                }}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[13px] border transition-colors ${hasReacted(reaction)
-                  ? "bg-[#1d9bd1]/20 border-[#1d9bd1]/50 text-[#1d9bd1]"
-                  : "dark:bg-[#2a2d31] border-[#797c814d] dark:text-[#d1d2d3] hover:border-[#797c81]"
+                    ? "bg-[#1d9bd1]/20 border-[#1d9bd1]/50 text-[#1d9bd1]"
+                    : "dark:bg-[#2a2d31] border-[#797c814d] dark:text-[#d1d2d3] hover:border-[#797c81]"
                   }`}
               >
                 <span>{reaction.emoji}</span>
@@ -432,34 +673,46 @@ export default function MessageItem({
         )}
 
         {/* Thread reply bar */}
-        {message.replyCount > 0 && !message.parentId && !parentMessage && (
-          <div
-            onClick={() => onReply?.(message)}
-            className="flex items-center gap-2 mt-1 px-1 py-1 rounded-md hover:bg-[#797c811a] border border-transparent hover:border-[#797c814d] group/reply cursor-pointer w-fit transition-all"
-          >
-            <div className="flex -space-x-1.5 overflow-hidden">
-              {message.replyParticipantIds && message.replyParticipantIds.length > 0 ? (
-                message.replyParticipantIds.map((userId) => (
-                  <ThreadParticipantAvatar 
-                    key={userId}
-                    userId={userId}
-                    workspaceId={workspaceId}
-                  />
-                ))
-              ) : (
-                <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-[#1A1D21]">
-                  {message.replyCount}
-                </div>
-              )}
+        {message.replyCount > 0 &&
+          !message.parentId &&
+          !parentMessage &&
+          !hideThreadReplyBar &&
+          !isTimelineRoot && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onReply?.(message);
+              }}
+              className="flex items-center gap-2 mt-1 px-1 py-1 rounded-md hover:bg-[#797c811a] border border-transparent hover:border-[#797c814d] group/reply cursor-pointer w-fit transition-all"
+            >
+              <div className="flex -space-x-1.5 overflow-hidden">
+                {message.replyParticipantIds &&
+                  message.replyParticipantIds.length > 0 ? (
+                  message.replyParticipantIds.map((userId) => (
+                    <ThreadParticipantAvatar
+                      key={userId}
+                      userId={userId}
+                      workspaceId={workspaceId}
+                    />
+                  ))
+                ) : (
+                  <div className="w-6 h-6 rounded bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold border-2 border-white dark:border-[#1A1D21]">
+                    {message.replyCount}
+                  </div>
+                )}
+              </div>
+              <Typography className="text-xs text-[#1d9bd1] hover:underline">
+                {message.replyCount}{" "}
+                {message.replyCount === 1 ? "reply" : "replies"}
+              </Typography>
+              <Typography className="text-xs text-[#797c81]">
+                Last reply{" "}
+                {message.lastReplyAt
+                  ? formatTimestamp(message.lastReplyAt)
+                  : ""}
+              </Typography>
             </div>
-            <Typography className="text-xs text-[#1d9bd1] hover:underline">
-              {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}
-            </Typography>
-            <Typography className="text-xs text-[#797c81]">
-              Last reply {message.lastReplyAt ? formatTimestamp(message.lastReplyAt) : ""}
-            </Typography>
-          </div>
-        )}
+          )}
       </div>
 
       {/* Hover action toolbar — xuất hiện khi hover, highlight hoặc đang mở emoji picker */}
@@ -474,7 +727,8 @@ export default function MessageItem({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <button className={TOOLBAR_ITEM_STYLE}>
-                    <MdOutlineAddReaction size={20}
+                    <MdOutlineAddReaction
+                      size={20}
                       className={ICON_TRANSITION}
                     />
                   </button>
@@ -494,7 +748,7 @@ export default function MessageItem({
             >
               <EmojiPicker
                 onEmojiClick={handleEmojiSelect}
-                theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
                 width={320}
                 height={380}
                 searchPlaceHolder="Search emoji..."
@@ -503,31 +757,60 @@ export default function MessageItem({
             </PopoverContent>
           </Popover>
 
-          {/* Reply */}
-          {!hideReplyButton && (
+          {fromThreadPage && !isTimelineRoot && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => onReply?.(message)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReply?.(message);
+                  }}
                   className={TOOLBAR_ITEM_STYLE}
                 >
-                  <BiMessageRoundedDetail size={20}
-                    className={ICON_TRANSITION}
-                  />
+                  <LuHash size={20} className={ICON_TRANSITION} />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Reply in thread</p>
+                <p className="text-xs">Open in channel</p>
               </TooltipContent>
             </Tooltip>
           )}
 
+          {/* Reply */}
+          {isMember === false && fromPublicChannel
+            ? null
+            : !hideReplyButton && !isTimelineRoot && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReply?.(message);
+                    }}
+                    className={TOOLBAR_ITEM_STYLE}
+                  >
+                    <BiMessageRoundedDetail
+                      size={20}
+                      className={ICON_TRANSITION}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p className="text-xs">Reply in thread</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className={TOOLBAR_ITEM_STYLE}>
-                <RiShareForwardLine size={20}
-                  className={ICON_TRANSITION}
-                />
+              <button
+                className={TOOLBAR_ITEM_STYLE}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setForwardDialogOpen(true);
+                }}
+              >
+                <RiShareForwardLine size={20} className={ICON_TRANSITION} />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -535,21 +818,39 @@ export default function MessageItem({
             </TooltipContent>
           </Tooltip>
 
+          {!hideSaveForLaterUi && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className={TOOLBAR_ITEM_STYLE}>
-                <MdBookmarkBorder size={20}
-                  className={ICON_TRANSITION}
-                />
+              <button
+                className={TOOLBAR_ITEM_STYLE}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSaveForLater?.(message.id);
+                }}
+              >
+                {isSavedForLater ? (
+                  <MdBookmark
+                    size={20}
+                    className={cn(ICON_TRANSITION, "text-[#36C5F0]")}
+                  />
+                ) : (
+                  <MdBookmarkBorder size={20} className={ICON_TRANSITION} />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs">Save for later</p>
+              <p className="text-xs">
+                {isSavedForLater ? "Remove from Later" : "Save for later"}
+              </p>
             </TooltipContent>
           </Tooltip>
+          )}
 
           {/* More actions */}
-          <Popover>
+          <Popover
+            open={moreActionPopoverOpen}
+            onOpenChange={setMoreActionPopoverOpen}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
@@ -560,9 +861,7 @@ export default function MessageItem({
                       // onMoreActions?.()
                     }}
                   >
-                    <MdMoreVert size={20}
-                      className={ICON_TRANSITION}
-                    />
+                    <MdMoreVert size={20} className={ICON_TRANSITION} />
                   </p>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -580,12 +879,14 @@ export default function MessageItem({
             >
               <div className="py-2 ">
                 <div className="flex flex-col space-y-1">
-                  {isOwner && !isDeleted && (
+                  {isOwner && !isDeleted && (message.allowEdit ?? true) && (
                     <>
                       <div
                         className={MENU_ITEM_STYLE}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setIsEditing(true);
+                          setMoreActionPopoverOpen(false);
                         }}
                       >
                         <LuPencil size={16} />
@@ -599,10 +900,12 @@ export default function MessageItem({
                     </>
                   )}
 
-                  <div className={MENU_ITEM_STYLE}>
-                    <MdOutlineMarkChatUnread size={16} />
-                    <Typography variant="p" text="Mark unread" />
-                  </div>
+                  {isMember == false && fromPublicChannel ? null : (
+                    <div className={MENU_ITEM_STYLE}>
+                      <MdOutlineMarkChatUnread size={16} />
+                      <Typography variant="p" text="Mark unread" />
+                    </div>
+                  )}
 
                   <div
                     onMouseEnter={() => setIsRemindMeOpen(true)}
@@ -618,7 +921,6 @@ export default function MessageItem({
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 20 20"
-                          data-pef="true"
                           data-qa="reminder"
                           aria-hidden="true"
                           className="size-4"
@@ -635,39 +937,35 @@ export default function MessageItem({
                       <MdOutlineKeyboardArrowRight size={13} />
                     </div>
                     {isRemindMeOpen && (
-                      <div className="absolute bottom-2 right-65 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md">
-                        <div className={SUBMENU_ITEM_STYLE}>
-                          <Typography variant="p" text="In 5 minutes" />
-                        </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
-                          <Typography variant="p" text="In 10 minutes" />
-                        </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
+                      <div className="absolute bottom-2 right-40 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md z-50">
+                        <div className={SUBMENU_ITEM_STYLE} onClick={() => { remindInMinutes(30, { type: 'message', messageId: message.id }); setMoreActionPopoverOpen(false); }}>
                           <Typography variant="p" text="In 30 minutes" />
                         </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
+                        <div className={SUBMENU_ITEM_STYLE} onClick={() => { remindInHours(1, { type: 'message', messageId: message.id }); setMoreActionPopoverOpen(false); }}>
                           <Typography variant="p" text="In 1 hour" />
                         </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
+                        <div className={SUBMENU_ITEM_STYLE} onClick={() => { remindInHours(3, { type: 'message', messageId: message.id }); setMoreActionPopoverOpen(false); }}>
                           <Typography variant="p" text="In 3 hours" />
                         </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
-                          <Typography variant="p" text="Tomorrow" />
+                        <div className={SUBMENU_ITEM_STYLE} onClick={() => { remindTomorrow({ type: 'message', messageId: message.id }); setMoreActionPopoverOpen(false); }}>
+                          <Typography variant="p" text="Tomorrow at 9:00 AM" />
                         </div>
-                        <div className={SUBMENU_ITEM_STYLE}>
-                          <Typography variant="p" text="Next week" />
+                        <div className={SUBMENU_ITEM_STYLE} onClick={() => { remindNextMonday({ type: 'message', messageId: message.id }); setMoreActionPopoverOpen(false); }}>
+                          <Typography variant="p" text="Monday at 9:00 AM" />
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div className={MENU_ITEM_STYLE}>
-                    <FiBellOff size={16} />
-                    <Typography
-                      variant="p"
-                      text="Turn off notifications for replies"
-                    />
-                  </div>
+                  {isMember == false && fromPublicChannel ? null : (
+                    <div className={MENU_ITEM_STYLE}>
+                      <FiBellOff size={16} />
+                      <Typography
+                        variant="p"
+                        text="Turn off notifications for replies"
+                      />
+                    </div>
+                  )}
 
                   <Separator />
 
@@ -680,11 +978,25 @@ export default function MessageItem({
                     <Typography variant="p" text="Copy message" />
                   </div>
 
-                  <div className={MENU_ITEM_STYLE}>
-                    <RiPushpinLine size={16} />
-                    <Typography variant="p" text="Pin to channel" />
-                  </div>
-
+                  {isMember == false && fromPublicChannel ? null : (
+                    <div
+                      className={MENU_ITEM_STYLE}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPin?.(message.id);
+                      }}
+                    >
+                      <RiPushpinLine size={16} />
+                      <Typography
+                        variant="p"
+                        text={
+                          message.isPinned
+                            ? "Unpin from channel"
+                            : "Pin to channel"
+                        }
+                      />
+                    </div>
+                  )}
 
                   {isOwner && !isDeleted && (
                     <>
@@ -694,13 +1006,17 @@ export default function MessageItem({
                           MENU_ITEM_STYLE,
                           "text-red-500 hover:text-white hover:bg-red-700 cursor-pointer ",
                         )}
-                        onClick={() => {
-                          console.log("Delete message", message)
-                          onDelete?.(message.id)
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete?.(message.id);
                         }}
                       >
                         <LuTrash2 size={16} />
-                        <Typography variant="p" text="Delete message" className="mt-0.5 " />
+                        <Typography
+                          variant="p"
+                          text="Delete message"
+                          className="mt-0.5 "
+                        />
                       </div>
                     </>
                   )}
@@ -710,6 +1026,15 @@ export default function MessageItem({
           </Popover>
         </div>
       )}
+
+      </div>
+
+      <ForwardMessageDialog
+        open={forwardDialogOpen}
+        onOpenChange={setForwardDialogOpen}
+        workspaceId={workspaceId}
+        message={message}
+      />
     </div>
   );
 }

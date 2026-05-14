@@ -9,9 +9,9 @@ import Typography from "../ui/typography";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Message, MessageAttachment } from "@/lib/types";
-import { ShareFileModal } from "./share-file-modal";
+import { ShareFileDialog } from "../dialogs/share-file-dialog";
 import { useFileDetailStore } from "@/stores/useFileDetailStore";
-import { useDeleteAttachment } from "@/hooks/use-messages";
+import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages";
 import { toast } from "sonner";
 import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog";
 import { useUserStore } from "@/stores/useUserStore";
@@ -19,25 +19,24 @@ import { AddToFolderSubmenu } from "./add-to-folder-submenu";
 import { useChannelFolderActions } from "@/contexts/channel-folder-actions";
 import { Button } from "../ui/button";
 
+import { useTrackAttachmentView } from "@/hooks/use-attachments";
+import { ICON_TRANSITION, MENU_ITEM_STYLE, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
+
 interface Props {
   isHovered: boolean
   attachment: MessageAttachment
   message: Message
   onDownload?: () => void
   onOpen?: () => void
-  effectiveFolderId?: string | null 
+  effectiveFolderId?: string | null
+  isMember?: boolean;
+  fromPublicChannel?: boolean;
 }
 
-const MENU_ITEM_STYLE =
-  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
-const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
-const TOOLBAR_ITEM_STYLE = "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]"
-const ICON_TRANSITION = "hover:scale-115 transition-all duration-300"
-
-const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effectiveFolderId = null }: Props) => {
+const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effectiveFolderId = null, isMember, fromPublicChannel }: Props) => {
   const currentUser = useUserStore((state) => state.user)
   const { requestNewFolder } = useChannelFolderActions()
+  const { trackView } = useTrackAttachmentView()
   const isOwner = message.user.id === currentUser?.id
 
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
@@ -45,7 +44,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
   const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState<boolean>(false);
   const openFileDetail = useFileDetailStore((s) => s.open);
 
-  const { mutate: deleteAttachment } = useDeleteAttachment(message.channelId);
+  const { mutate: deleteAttachment } = useDeleteAttachment(message.channelId || message.conversationId || '');
+
+  const handleOpenDetail = () => {
+    trackView({ id: attachment.id, workspaceId: attachment.workspaceId });
+    openFileDetail({ attachment, message });
+  };
 
   const handleDelete = () => {
     deleteAttachment(attachment.id, {
@@ -57,6 +61,13 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
       }
     });
   }
+
+  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId!)
+  const handleSaveForLater = (
+    (attachmentId: string) => {
+      saveForLater({ type: "attachment", attachmentId });
+    }
+  );
 
   return (
     <div
@@ -105,7 +116,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           <p className={TOOLBAR_ITEM_STYLE}
             onClick={(e) => {
               e.stopPropagation()
-              openFileDetail({ attachment, message })
+              handleOpenDetail()
             }}
           >
             <RiInformationLine size={20}
@@ -150,31 +161,40 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
               <Button variant="submenu" onClick={onOpen}>
                 <Typography variant="p" text="Open in new tab" onClick={onOpen} />
               </Button>
-              <Button variant="submenu" onClick={onOpen}>
+              <Button variant="submenu" onClick={() => {
+                handleSaveForLater(attachment?.id!)
+              }}>
                 <Typography variant="p" text="Save for later" />
               </Button>
 
-              <Separator />
 
-              <div
-                onMouseEnter={() => setIsAddToFolderOpen(true)}
-                onMouseLeave={() => setIsAddToFolderOpen(false)}
-              >
-                <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
-                  {effectiveFolderId ? <Typography variant="p" text="Move to folder" /> : <Typography variant="p" text="Add to folder" />}
-                  <MdOutlineKeyboardArrowRight size={13} />
-                </div>
-                {isAddToFolderOpen && (
-                  <div className="absolute left-35 bottom-0 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
-                    <AddToFolderSubmenu
-                      channelId={message.channelId}
-                      attachmentId={attachment.id}
-                      onRequestCreateFolder={requestNewFolder}
-                      effectiveFolderId={effectiveFolderId}
-                    />
+
+              {isMember === false && fromPublicChannel ? (
+                null
+              ) : (
+                <>
+                  <Separator />
+                  <div
+                    onMouseEnter={() => setIsAddToFolderOpen(true)}
+                    onMouseLeave={() => setIsAddToFolderOpen(false)}
+                  >
+                    <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
+                      {effectiveFolderId ? <Typography variant="p" text="Move to folder" /> : <Typography variant="p" text="Add to folder" />}
+                      <MdOutlineKeyboardArrowRight size={13} />
+                    </div>
+                    {isAddToFolderOpen && (
+                      <div className="absolute left-35 bottom-0 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
+                        <AddToFolderSubmenu
+                          targetId={message.channelId || message.conversationId || ''}
+                          attachmentId={attachment.id}
+                          onRequestCreateFolder={requestNewFolder}
+                          effectiveFolderId={effectiveFolderId}
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
 
               <Separator />
               {isOwner && (
@@ -194,10 +214,11 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
       </Popover>
 
       {/* Share file modal */}
-      <ShareFileModal
+      <ShareFileDialog
         open={isShareFileModalOpen}
         onOpenChange={setIsShareFileModalOpen}
         attachment={attachment}
+        workspaceId={attachment.workspaceId}
       />
 
       <ConfirmDeleteFileDialog

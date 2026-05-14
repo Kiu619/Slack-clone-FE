@@ -15,6 +15,8 @@ import {
 } from "react-icons/lu";
 import { MdPictureInPictureAlt } from "react-icons/md";
 
+import { useTrackAttachmentView } from "@/hooks/use-attachments";
+
 // Helper
 function fmtTime(sec: number) {
   if (!isFinite(sec)) return "0:00";
@@ -45,6 +47,8 @@ interface VideoPreviewProps {
     playbackRate: number;
   };
   onDetachedClose?: (resume: { time: number; play: boolean }) => void;
+  isMember?: boolean;
+  fromPublicChannel?: boolean;
 }
 
 export default function VideoPreview({
@@ -57,7 +61,10 @@ export default function VideoPreview({
   autoEnterFullscreen = false,
   initialPlayback,
   onDetachedClose,
+  isMember,
+  fromPublicChannel,
 }: VideoPreviewProps) {
+  const { trackView } = useTrackAttachmentView();
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const portalFsAttemptedRef = useRef(false);
@@ -248,7 +255,10 @@ export default function VideoPreview({
   const togglePlay = () => {
     if (videoRef.current) {
       if (isPlaying) videoRef.current.pause();
-      else videoRef.current.play();
+      else {
+        trackView({ id: attachment.id, workspaceId: attachment.workspaceId });
+        videoRef.current.play();
+      }
     }
   };
 
@@ -409,6 +419,8 @@ export default function VideoPreview({
           attachment={attachment}
           onDownload={handleDownload}
           onOpen={handleOpenInNewTab}
+          isMember={isMember}
+          fromPublicChannel={fromPublicChannel}
         />
       ) : null}
 

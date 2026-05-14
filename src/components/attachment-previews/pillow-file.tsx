@@ -2,14 +2,8 @@
 
 import type { MessageAttachment } from "@/lib/types";
 import React from "react";
-import {
-  FaFileExcel,
-  FaFilePdf,
-  FaFilePowerpoint,
-  FaFileWord,
-} from "react-icons/fa";
-import { LuFile, LuFileArchive, LuFileText, LuImage } from "react-icons/lu";
 import { getFileIcon } from "./file-preview";
+
 interface FilePreviewProps {
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
@@ -19,16 +13,38 @@ export default function PillowFile({ attachment }: FilePreviewProps) {
   const fileIcon = getFileIcon(attachment.name);
   const fileSize = formatFileSize(attachment.size);
 
+  const mime = (attachment.mimeType ?? "").toLowerCase();
+  const typeLower = (attachment.type ?? "").toLowerCase();
+  const isImage =
+    typeLower === "image" || mime.startsWith("image/");
+  const isVideo =
+    typeLower === "video" || mime.startsWith("video/");
+
   return (
-    <div className="group relative w-full flex items-center gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors bg-white dark:bg-[#1A1D21]">
-      {/* File icon */}
-      <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
-        {fileIcon}
+    <div className="group relative flex w-full items-center gap-3 rounded-lg border border-[#797c814d] bg-white p-3 transition-colors hover:border-[#797c81] dark:bg-[#1A1D21]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-[#e8e8e8] dark:bg-[#2a2d31]">
+        {isImage && attachment.url ? (
+          <img
+            src={attachment.url}
+            alt={attachment.name}
+            className="h-full w-full object-cover"
+          />
+        ) : isVideo && attachment.url ? (
+          <video
+            src={attachment.url}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+            aria-hidden
+          />
+        ) : (
+          fileIcon
+        )}
       </div>
 
-      {/* File info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium dark:text-[#d1d2d3] truncate">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium dark:text-[#d1d2d3]">
           {attachment.name}
         </p>
         <p className="text-xs text-[#797c81]">{fileSize}</p>
@@ -37,9 +53,6 @@ export default function PillowFile({ attachment }: FilePreviewProps) {
   );
 }
 
-/**
- * Format file size: bytes → "2.5 MB"
- */
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;

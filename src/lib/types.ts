@@ -9,6 +9,40 @@ export type IsoDateString = string
 
 export type WorkspaceMemberRole = "owner" | "admin" | "member"
 
+// ─── Direct Messages ────────────────────────────────────────────────────────
+
+export type DirectMessageConversation = {
+  id: string
+  workspaceId: string
+  isGroup: boolean
+  lastMessageAt: IsoDateString | null
+  lastMessageContent: string | null
+  lastMessageUserId: string | null
+  lastMessageId: string | null
+  lastMessageUser: {
+    id: string
+    name: string | null
+    displayName: string | null
+  } | null
+  topic: string | null
+  description: string | null
+  createdAt: IsoDateString
+  updatedAt: IsoDateString
+  members: User[]
+  /** Star cá nhân (membership); từ API list/detail */
+  starredAt?: IsoDateString | null
+}
+
+export type CreateDirectMessagePayload = {
+  userIds: string[]
+}
+
+/** PATCH /workspaces/:wid/direct-messages/:conversationId */
+export type UpdateConversationPayload = {
+  topic?: string | null
+  description?: string | null
+}
+
 // ─── Schema: `users` ─────────────────────────────────────────────────────────
 
 export type UsersRow = {
@@ -43,6 +77,7 @@ export type WorkspaceMembersRow = {
   userId: string
   role: WorkspaceMemberRole
   joinedAt: IsoDateString
+  email: string | null
   name: string | null
   displayName: string | null
   avatar: string | null
@@ -57,6 +92,50 @@ export type WorkspaceMembersRow = {
   statusExpiration: IsoDateString | null
   notificationsPausedUntil: IsoDateString | null,
   theme: string | null
+}
+
+// ─── Schema: `saved_items` ───────────────────────────────────────────────────
+
+export type SavedItemStatus = 'in_progress' | 'completed' | 'archived'
+
+export type SavedItem = {
+  id: string
+  type: 'message' | 'attachment' | 'reminder'
+  status: SavedItemStatus
+  note: string | null
+  remindAt: IsoDateString | null
+  completedAt: IsoDateString | null
+  createdAt: IsoDateString
+  // Dữ liệu Message (nếu type === 'message')
+  message?: Message | null
+  // Dữ liệu Attachment (nếu type === 'attachment')
+  attachment?: MessageAttachment | null
+  // Dữ liệu User (nếu type === 'reminder')
+  user?: {
+    id: string
+    name: string
+    displayName: string
+    avatar: string | null
+  } | null
+}
+
+export type SavedItemsPage = {
+  items: SavedItem[]
+  nextCursor: string | null
+}
+
+export type SaveItemPayload = {
+  type: 'message' | 'attachment' | 'reminder'
+  messageId?: string | null
+  attachmentId?: string | null
+  note?: string | null
+  remindAt?: IsoDateString | null
+}
+
+export type UpdateSavedItemPayload = {
+  status?: SavedItemStatus
+  note?: string | null
+  remindAt?: string | null // ISO string or null to clear
 }
 
 // ─── Schema: `channels` / `channel_members` ────────────────────────────────────
@@ -88,11 +167,12 @@ export type ChannelMembersRow = {
 
 // ─── Schema: `messages` / `reactions` / `attachments` ─────────────────────────
 
-export type MessageType = "text" | "system"
+export type MessageType = "text" | "system" | "timeline"
 
 export type MessagesRow = {
   id: string
-  channelId: string
+  channelId: string | null
+  conversationId: string | null
   userId: string
   content: string
   type: MessageType
@@ -103,6 +183,9 @@ export type MessagesRow = {
   replyCount: number
   replyParticipantIds: string[]
   lastReplyAt: IsoDateString | null
+  isPinned: boolean
+  /** false = tin server (topic/…), không cho PATCH — thiếu field coi như true */
+  allowEdit?: boolean
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }
@@ -115,9 +198,21 @@ export type ReactionsRow = {
   createdAt: IsoDateString
 }
 
+export type AttachmentsUser = {
+  id: string
+  displayName: string
+  name: string
+  avatar: string
+}
+
 export type AttachmentsRow = {
   id: string
   messageId: string
+  workspaceId: string
+  userId: string
+  channelId: string | null
+  conversationId: string | null
+  fileCategory: string
   url: string
   /** 'image' | 'video' | 'audio' | 'file' */
   type: string
@@ -127,7 +222,13 @@ export type AttachmentsRow = {
   width: number | null
   height: number | null
   duration: number | null
+  /** `message_body` = user file; `forward_quote` = copy from forwarded source (Nest). */
+  originScope?: 'message_body' | 'forward_quote'
   createdAt: IsoDateString
+  updatedAt: IsoDateString
+
+
+  user: AttachmentsUser
 }
 
 // ─── API DTO: user hiển thị (join `users` + `workspace_members`, không phải `UsersRow`) ─
@@ -188,7 +289,10 @@ export type CreateWorkspacePayload = {
   memberEmails?: string[]
 }
 
-export type Channel = ChannelsRow
+export type Channel = ChannelsRow & {
+  /** Star cá nhân (membership); từ API list/detail */
+  starredAt?: IsoDateString | null
+}
 
 export type ChannelMember = {
   id: string
@@ -200,6 +304,11 @@ export type ChannelMember = {
   isAway: boolean
   statusEmoji?: string | null
   statusText?: string | null
+}
+
+/** GET .../direct-messages/:id/invite-candidates */
+export type DmInviteCandidate = ChannelMember & {
+  inConversation: boolean
 }
 
 /** GET .../channels/:id/members — tab Members (in channel / not in channel). */
@@ -231,9 +340,27 @@ export type Reaction = {
   userIds: string[]
 }
 
-export type MessageAttachment = AttachmentsRow
+export type MessageAttachment = AttachmentsRow & {
+  channelName?: string | null
+  conversationName?: string | null
+
+  // for later module
+  parentId: string | null // đây là parentId của message chứa attachment này (tức là nếu attachment ở trong thread)
+  parentMessage: Message | null
+}
+
+export type MessageForwardSnapshot = {
+  sourceMessageId: string
+  sourceUser: User
+  sourceContent: string
+  sourceEditedAt: IsoDateString | null
+}
 
 export type Message = Omit<MessagesRow, "userId"> & {
+  /** Snapshot tin gốc khi message là forward (từ API) */
+  forwardSnapshot?: MessageForwardSnapshot | Record<string, unknown> | null
+  /** Có trên payload API / realtime khi gửi kèm workspace */
+  workspaceId?: string
   /** Thông tin user gửi tin — join `users` + `workspace_members` */
   user: User
   reactions: Reaction[]
@@ -243,6 +370,8 @@ export type Message = Omit<MessagesRow, "userId"> & {
     deletedAt: IsoDateString | null
     attachments: MessageAttachment[]
   }
+  channelName?: string
+  parentMessage?: Message
 }
 
 /**
@@ -253,6 +382,7 @@ export type MessagesPage = {
   messages: Message[]
   /** null = đã hết messages (đầu lịch sử) */
   nextCursor: string | null
+  prevCursor?: string | null
   hasMore: boolean
 }
 
@@ -269,13 +399,25 @@ export type ChannelAttachmentsPage = {
   hasMore: boolean
 }
 
-/** Folder trong channel (API folders) */
+/** Folder trong channel hoặc DM (API folders) */
 export type ChannelFolder = {
   id: string
-  channelId: string
+  channelId: string | null
+  conversationId: string | null
   name: string
   createdAt: string
   updatedAt: string
+}
+
+export type UploadFileToFolderDto = {
+  url: string
+  type: string
+  name: string
+  size: number
+  mimeType?: string | null
+  width?: number | null
+  height?: number | null
+  duration?: number | null
 }
 
 export type SendMessagePayload = {
@@ -315,4 +457,78 @@ export type WorkspaceMemberStatus = {
 export type PendingFile = {
   id: string
   file: File
+}
+
+export type NotificationType = "mention" | "reply" | "dm" | "reaction" | "channel_invite"
+
+export type Notification = {
+  id: string
+  userId: string
+  workspaceId: string
+  type: NotificationType
+  messageId: string | null
+  channelId: string | null
+  conversationId: string | null
+  actorId: string | null
+  isRead: boolean
+  readAt: IsoDateString | null
+  createdAt: IsoDateString
+  // Joined data
+  actor?: {
+    id: string
+    name: string | null
+    avatar: string | null
+  }
+  channel?: {
+    id: string
+    name: string
+  }
+  message?: {
+    id: string
+    content: string
+    createdAt: IsoDateString
+  }
+}
+
+export type NotificationsPage = {
+  items: Notification[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+// ─── Threads ──────────────────────────────────────────────────────────────────
+
+export type ThreadSubscription = {
+  id: string
+  userId: string
+  parentMessageId: string
+  workspaceId: string
+  lastReadAt: IsoDateString
+  isMuted: boolean
+  createdAt: IsoDateString
+  updatedAt: IsoDateString
+}
+
+export type ThreadMessage = Message & {
+  lastReadAt: IsoDateString
+  isUnread: boolean
+  channel: {
+    id: string
+    name: string
+    type: ChannelType
+    isPrivate: boolean
+  } | null
+  conversation: {
+    id: string
+    isGroup: boolean
+    members: User[]
+  } | null
+  replies: Message[]
+  hasMoreReplies: boolean
+}
+
+export type ThreadsPage = {
+  threads: ThreadMessage[]
+  nextCursor: string | null
+  hasMore: boolean
 }

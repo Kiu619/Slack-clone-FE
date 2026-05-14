@@ -16,15 +16,20 @@ import { channelKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import type { Channel, ChannelMember, User } from "@/lib/types";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
+import {
+  mergeChannelMemberWithOverlay,
+  useWorkspaceMemberOverlay,
+} from "@/stores/useWorkspaceMemberStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FiSearch } from "react-icons/fi";
 import { GoDot, GoDotFill } from "react-icons/go";
 import { LuUserPlus } from "react-icons/lu";
 import { toast } from "sonner";
 import AddChannelMemberDialog from "@/components/dialogs/add-channel-member-dialog";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -39,14 +44,14 @@ function displayLabel(m: ChannelMember): string {
 
 function secondaryLine(m: ChannelMember): string {
   if (m.statusText?.trim()) {
-    const emoji = m.statusEmoji?.trim() ?? "";
-    return emoji ? `${emoji} ${m.statusText.trim()}` : m.statusText.trim();
+    return m.statusText.trim();
   }
   return m.email.split("@")[0] || m.email;
 }
 
 function MemberRow({
   m,
+  workspaceId,
   currentUserId,
   onOpenProfile,
   onCloseDialog,
@@ -58,6 +63,7 @@ function MemberRow({
   onRemove,
 }: {
   m: ChannelMember;
+  workspaceId: string;
   currentUserId: string | undefined;
   onOpenProfile: (m: ChannelMember) => void;
   onCloseDialog: () => void;
@@ -68,16 +74,18 @@ function MemberRow({
   onAdd: () => void;
   onRemove: () => void;
 }) {
-  const isYou = currentUserId === m.id;
-  const primary = displayLabel(m);
-  const secondary = secondaryLine(m);
+  const overlay = useWorkspaceMemberOverlay(workspaceId, m.id);
+  const row = useMemo(() => mergeChannelMemberWithOverlay(m, overlay), [m, overlay]);
+  const isYou = currentUserId === row.id;
+  const primary = displayLabel(row);
+  const secondary = secondaryLine(row);
 
   return (
     <li className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
       <button
         type="button"
         onClick={() => {
-          onOpenProfile(m);
+          onOpenProfile(row);
           onCloseDialog();
         }}
         className={cn(
@@ -85,17 +93,26 @@ function MemberRow({
         )}
       >
         <Avatar
-          src={m.avatar}
+          src={row.avatar}
           alt={primary}
           className="h-10! w-10! shrink-0 rounded-md"
         />
         <div className="min-w-0 flex-1 text-left">
-          <Typography
-            text={isYou ? `${primary} (you)` : primary}
-            className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
-          />
+          <div className="flex min-w-0 items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <Typography
+                text={isYou ? `${primary} (you)` : primary}
+                className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
+              />
+            </div>
+            <UserStatusEmojiInline
+              statusEmoji={row.statusEmoji}
+              statusText={row.statusText}
+              emojiClassName="text-[15px]"
+            />
+          </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-[#616061] dark:text-[#ababad]">
-            {m.isAway ? (
+            {row.isAway ? (
               <GoDot className="shrink-0 text-[12px] text-[#e8912d]" />
             ) : (
               <GoDotFill className="size-3 shrink-0 text-[#007a5a]" />
@@ -141,9 +158,11 @@ function MemberRow({
 export default function MembersTab({
   currentChannelData,
   onOpenChange,
+  isMember,
 }: {
   currentChannelData: Channel;
   onOpenChange: (open: boolean) => void;
+  isMember: boolean;
 }) {
   const [openAddMemberDialog, setOpenAddMemberDialog] = useState(false);
   const [addMemberDialogNonce, setAddMemberDialogNonce] = useState(0);
@@ -298,19 +317,21 @@ export default function MembersTab({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        onClick={handleAddPeople}
-        className="flex w-full shrink-0 items-center gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-black/4 dark:hover:bg-white/6"
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1264a3]/12 text-[#1264a3] dark:bg-[#1d9bd1]/15 dark:text-[#1d9bd1]">
-          <LuUserPlus className="size-5" aria-hidden />
-        </span>
-        <Typography
-          text="Add people"
-          className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
-        />
-      </button>
+      {isMember ? (
+        <button
+          type="button"
+          onClick={handleAddPeople}
+          className="flex w-full shrink-0 items-center gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-black/4 dark:hover:bg-white/6"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1264a3]/12 text-[#1264a3] dark:bg-[#1d9bd1]/15 dark:text-[#1d9bd1]">
+            <LuUserPlus className="size-5" aria-hidden />
+          </span>
+          <Typography
+            text="Add people"
+            className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
+          />
+        </button>
+      ) : null}
 
       <div className="min-h-0 flex-1">
         {isPending ? (
@@ -351,6 +372,7 @@ export default function MembersTab({
                       <MemberRow
                         key={m.id}
                         m={m}
+                        workspaceId={workspaceId}
                         currentUserId={currentUser?.id}
                         onOpenProfile={openMemberProfile}
                         onCloseDialog={() => onOpenChange(false)}
@@ -382,6 +404,7 @@ export default function MembersTab({
                     <MemberRow
                       key={m.id}
                       m={m}
+                      workspaceId={workspaceId}
                       currentUserId={currentUser?.id}
                       onOpenProfile={openMemberProfile}
                       onCloseDialog={() => onOpenChange(false)}

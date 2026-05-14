@@ -1,6 +1,6 @@
 "use client";
 
-import type { Message, MessageAttachment } from "@/lib/types";
+import type { AttachmentsUser, Message, MessageAttachment, User } from "@/lib/types";
 import { enUS } from "date-fns/locale";
 import React, { useState } from "react";
 import {
@@ -21,21 +21,26 @@ import FileToolbar from "./file-toolbar";
 
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useUserStore } from "@/stores/useUserStore";
+import {
+  mergeUserForDisplay,
+  useWorkspaceMemberOverlay,
+} from "@/stores/useWorkspaceMemberStore";
 
 interface FilePreviewProps {
-  message: Message;
+  message?: Message;
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
   formDetailPanel?: boolean;
   fromFilesTab?: boolean;
   effectiveFolderId?: string | null;
+  isMember?: boolean;
+  fromPublicChannel?: boolean;
+
+  uploader?: AttachmentsUser
 }
 
-function sharerLabel(message: Message): string {
-  return (
-    message.user.displayName?.trim() || message.user.name?.trim() || "Someone"
-  );
-}
+
 
 export default function FilePreview({
   message,
@@ -44,8 +49,24 @@ export default function FilePreview({
   formDetailPanel = false,
   fromFilesTab = false,
   effectiveFolderId = null,
+  isMember,
+  fromPublicChannel,
+
+  uploader
 }: FilePreviewProps) {
+  const { user: currentUser } = useUserStore();
   const [isHovered, setIsHovered] = useState(false);
+
+  const workspaceId = message?.workspaceId ?? "";
+  const messageUser = message?.user;
+  const memberOverlay = useWorkspaceMemberOverlay(
+    workspaceId,
+    messageUser?.id,
+  );
+  const messageAuthor: User | null = messageUser
+    ? mergeUserForDisplay(messageUser, memberOverlay)
+    : null;
+
   const handleDownload = () => {
     if (onDownload) {
       onDownload(attachment.url, attachment.name);
@@ -58,7 +79,31 @@ export default function FilePreview({
   };
 
   const fileIcon = getFileIcon(attachment.name);
-  const fileSize = formatFileSize(attachment.size)
+  const fileSize = formatFileSize(attachment.size);
+
+  const mime = (attachment.mimeType ?? "").toLowerCase();
+  const typeLower = (attachment.type ?? "").toLowerCase();
+  const isImage =
+    typeLower === "image" || mime.startsWith("image/");
+  const isVideo =
+    typeLower === "video" || mime.startsWith("video/");
+
+  function sharerLabel(message?: Message, uploader?: AttachmentsUser): string {
+    if (uploader?.id === currentUser?.id || !message) {
+      return "you";
+    }
+
+    if(message?.user.id === currentUser?.id){
+      return "you";
+    }
+
+    if (uploader) {
+      return uploader.displayName?.trim() || uploader.name?.trim() || "Someone";
+    }
+    if (!message) return "Someone";
+    const u = messageAuthor;
+    return u?.displayName?.trim() || u?.name?.trim() || "Someone";
+  }
 
   return (
     <>
@@ -71,10 +116,9 @@ export default function FilePreview({
         onMouseLeave={() => setIsHovered(false)}
         onClick={(event) => {
           event.stopPropagation();
-          console.log("clicked");
         }}
       >
-        {!formDetailPanel ? (
+        {!formDetailPanel && message ? (
           <FileToolbar
             isHovered={isHovered}
             message={message}
@@ -82,12 +126,31 @@ export default function FilePreview({
             onDownload={handleDownload}
             onOpen={handleOpenInNewTab}
             effectiveFolderId={effectiveFolderId}
+            isMember={isMember}
+            fromPublicChannel={fromPublicChannel}
           />
         ) : null}
 
-        {/* File icon */}
-        <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8]">
-          {fileIcon}
+        {/* Thumbnail (image / video) or extension icon — aligned with PendingFilePreview in editor */}
+        <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded dark:bg-[#2a2d31] bg-[#e8e8e8] overflow-hidden">
+          {isImage && attachment.url ? (
+            <img
+              src={attachment.url}
+              alt={attachment.name}
+              className="h-full w-full object-cover"
+            />
+          ) : isVideo && attachment.url ? (
+            <video
+              src={attachment.url}
+              className="h-full w-full object-cover"
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+            />
+          ) : (
+            fileIcon
+          )}
         </div>
 
         {/* File info */}
@@ -100,7 +163,7 @@ export default function FilePreview({
           )}
           {fromFilesTab && (
             <p className="text-[13px] text-[#616061] dark:text-[#ababad] truncate">
-              Shared by {sharerLabel(message)} on{" "}
+              {message || uploader ? `Shared by ${sharerLabel(message, uploader)} on ` : "Updated "}
               {format(new Date(attachment.createdAt), "MMM do", {
                 locale: enUS,
               })}

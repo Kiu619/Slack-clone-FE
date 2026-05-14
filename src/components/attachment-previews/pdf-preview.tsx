@@ -11,6 +11,8 @@ import "react-pdf/dist/Page/TextLayer.css"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
+import { useTrackAttachmentView } from "@/hooks/use-attachments"
+
 // Worker cho PDF.js — dùng unpkg chính thức theo version của pdfjs-dist
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -31,6 +33,7 @@ export default function PdfPreview({
   onDownload,
   formDetailPanel = false,
 }: PdfPreviewProps) {
+  const { trackView } = useTrackAttachmentView()
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [numPages, setNumPages] = useState<number | null>(null)
@@ -117,7 +120,11 @@ export default function PdfPreview({
       >
         <button
           type="button"
-          onClick={() => setIsExpanded(true)}
+          onClick={() => {
+            console.log('trackView', attachment.id, attachment.workspaceId)
+            trackView({ id: attachment.id, workspaceId: attachment.workspaceId })
+            setIsExpanded(true)
+          }}
           className="block w-full text-left"
 
         >

@@ -14,12 +14,19 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import Typography from "@/components/ui/typography";
 import { useChannelFolders } from "@/hooks/use-channel-folders";
+import { useFileUpload } from "@/hooks/use-file-upload";
 import { useFolderAttachments } from "@/hooks/use-folder-attachments";
 import { folderKeys, messageKeys } from "@/lib/query-keys";
-import type { Channel, ChannelFolder } from "@/lib/types";
+import type {
+  Channel,
+  ChannelFolder,
+  DirectMessageConversation,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useThemeStore } from "@/stores/useThemeStore";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
+import { motion } from "framer-motion";
 import { File, Laptop, Loader2, LucideMoreVertical } from "lucide-react";
 import {
   useCallback,
@@ -31,10 +38,15 @@ import {
   type DragEvent,
 } from "react";
 import { FiPlus } from "react-icons/fi";
-import { toast } from "sonner";
 import { Virtuoso } from "react-virtuoso";
-import { useThemeStore } from "@/stores/useThemeStore";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { toast } from "sonner";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { CreateFolderDialog } from "../dialogs/create-folder-dialog";
 
 /** Vỏ nội dung: full width trên mobile, max ~Slack desktop, padding ngang theo breakpoint */
 const FOLDER_TAB_SHELL =
@@ -42,17 +54,24 @@ const FOLDER_TAB_SHELL =
 
 export default function FolderTab({
   currentChannelData,
-  onOpenCreateFolderDialog,
+  currentConversationData,
   onGoToFilesTab,
+  isMember,
 }: {
-  currentChannelData: Channel;
-  onOpenCreateFolderDialog?: () => void;
+  currentChannelData?: Channel;
+  currentConversationData?: DirectMessageConversation;
   onGoToFilesTab?: () => void;
+  isMember?: boolean;
 }) {
-  const channelId = currentChannelData.id;
+  const targetId = currentChannelData?.id ?? currentConversationData?.id ?? "";
+  const isDM = !!currentConversationData;
+
   const { theme: storeTheme } = useThemeStore();
   const queryClient = useQueryClient();
-  const { data, isPending, isError, refetch } = useChannelFolders(channelId);
+  const { data, isPending, isError, refetch } = useChannelFolders(
+    targetId,
+    isDM,
+  );
   const folders = useMemo(() => data?.folders ?? [], [data?.folders]);
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -63,6 +82,8 @@ export default function FolderTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileDragDepthRef = useRef(0);
   const { uploadFileToFolder, uploadingFiles } = useFileUpload();
+
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   const isFileDrag = useCallback((e: DragEvent<Element>) => {
     return Array.from(e.dataTransfer.types).includes("Files");
@@ -79,16 +100,17 @@ export default function FolderTab({
 
   const effectiveFolderId = useMemo(() => {
     if (folders.length === 0) return null;
-    if (
-      selectedFolderId &&
-      folders.some((f) => f.id === selectedFolderId)
-    ) {
+    if (selectedFolderId && folders.some((f) => f.id === selectedFolderId)) {
       return selectedFolderId;
     }
     return folders[0]!.id;
   }, [folders, selectedFolderId]);
 
-  const attachmentsQuery = useFolderAttachments(channelId, effectiveFolderId);
+  const attachmentsQuery = useFolderAttachments(
+    targetId,
+    effectiveFolderId,
+    isDM,
+  );
   const {
     data: attData,
     isPending: attPending,
@@ -104,18 +126,17 @@ export default function FolderTab({
 
   const { mutate: removeFolder } = useMutation({
     mutationFn: (folderId: string) =>
-      deleteChannelFolderApi(channelId, folderId),
+      deleteChannelFolderApi(targetId, folderId, isDM),
     onSuccess: () => {
       toast.success("Folder deleted");
       void queryClient.invalidateQueries({
-        queryKey: folderKeys.list(channelId),
+        queryKey: folderKeys.list(targetId),
       });
       setDeleteFolder(null);
     },
     onError: (err: unknown) => {
       const msg = isAxiosError(err)
-        ? (err.response?.data as { message?: string })?.message ??
-          err.message
+        ? ((err.response?.data as { message?: string })?.message ?? err.message)
         : "Delete failed";
       toast.error(typeof msg === "string" ? msg : "Delete failed");
     },
@@ -146,33 +167,48 @@ export default function FolderTab({
   const invalidateAfterFolderUpload = useCallback(() => {
     if (effectiveFolderId) {
       void queryClient.invalidateQueries({
-        queryKey: folderKeys.attachments(channelId, effectiveFolderId),
+        queryKey: folderKeys.attachments(targetId, effectiveFolderId),
       });
     }
     void queryClient.invalidateQueries({
       predicate: (q) =>
         Array.isArray(q.queryKey) &&
-        q.queryKey[0] === "channels" &&
-        q.queryKey[1] === channelId &&
-        q.queryKey[2] === "folders" &&
-        q.queryKey.length >= 5 &&
-        q.queryKey[4] === "attachments",
+        q.queryKey[0] === "folders" &&
+        q.queryKey[1] === targetId &&
+        q.queryKey.length >= 4 &&
+        q.queryKey[3] === "attachments",
     });
     void queryClient.invalidateQueries({
-      queryKey: messageKeys.list(channelId),
+      queryKey: messageKeys.list(targetId),
     });
-    void queryClient.invalidateQueries({
-      queryKey: messageKeys.channelAttachments(channelId),
-    });
-  }, [channelId, effectiveFolderId, queryClient]);
+    if (isDM) {
+      void queryClient.invalidateQueries({
+        queryKey: messageKeys.conversationAttachments(targetId),
+      });
+    } else {
+      void queryClient.invalidateQueries({
+        queryKey: messageKeys.channelAttachments(targetId),
+      });
+    }
+  }, [targetId, effectiveFolderId, queryClient, isDM]);
 
   const uploadFilesToCurrentFolder = useCallback(
     async (files: File[]) => {
       if (!files.length || !effectiveFolderId) return;
+      const workspaceId =
+        currentChannelData?.workspaceId ?? currentConversationData?.workspaceId;
+      if (!workspaceId) return;
+
       let ok = 0;
       for (const file of files) {
         try {
-          await uploadFileToFolder(file, channelId, effectiveFolderId);
+          await uploadFileToFolder(
+            file,
+            workspaceId,
+            targetId,
+            effectiveFolderId,
+            isDM,
+          );
           ok += 1;
         } catch {
           toast.error(`Could not upload: ${file.name}`);
@@ -186,10 +222,13 @@ export default function FolderTab({
       }
     },
     [
-      channelId,
       effectiveFolderId,
-      invalidateAfterFolderUpload,
+      currentChannelData?.workspaceId,
+      currentConversationData?.workspaceId,
       uploadFileToFolder,
+      targetId,
+      isDM,
+      invalidateAfterFolderUpload,
     ],
   );
 
@@ -256,12 +295,7 @@ export default function FolderTab({
 
   if (isPending) {
     return (
-      <div
-        className={cn(
-          FOLDER_TAB_SHELL,
-          "flex flex-col mt-3 gap-3 pb-6",
-        )}
-      >
+      <div className={cn(FOLDER_TAB_SHELL, "flex flex-col mt-3 gap-3 pb-6")}>
         <Skeleton className="h-10 w-full max-w-md" />
         <Skeleton className="h-32 w-full" />
       </div>
@@ -306,11 +340,25 @@ export default function FolderTab({
           text="Create a folder to organize files from this channel."
           className="text-[#616061] dark:text-[#ababad] max-w-md"
         />
-        {onOpenCreateFolderDialog ? (
-          <Button type="button" variant="success" onClick={onOpenCreateFolderDialog}>
-            Create folder
+        {isMember == false && currentChannelData?.isPrivate === false ? null : (
+          <Button
+            type="button"
+            variant="success"
+            onClick={(e) => {
+              console.log("create folder button clicked", isMember);
+              e.preventDefault();
+              setCreateFolderOpen(true);
+            }}
+          >
+            Create a folder
           </Button>
-        ) : null}
+        )}
+        <CreateFolderDialog
+          open={createFolderOpen}
+          onOpenChange={setCreateFolderOpen}
+          targetId={targetId}
+          isDM={isDM}
+        />
       </div>
     );
   }
@@ -320,7 +368,8 @@ export default function FolderTab({
       className={cn(
         FOLDER_TAB_SHELL,
         "relative flex h-full min-h-0 flex-1 flex-col bg-white dark:bg-[#1A1D21]",
-        isFileDragOver && "ring-2 ring-inset ring-[#1264a3] dark:ring-[#1d9bd1]",
+        isFileDragOver &&
+          "ring-2 ring-inset ring-[#1264a3] dark:ring-[#1d9bd1]",
       )}
       onDragEnter={handleFolderDragEnter}
       onDragLeave={handleFolderDragLeave}
@@ -351,34 +400,58 @@ export default function FolderTab({
         className="-mx-3 mt-2 flex shrink-0 touch-pan-x items-center gap-0.5 overflow-x-auto border-b border-[#797c814d] px-3 sm:-mx-4 sm:gap-1 sm:px-4 md:-mx-5 md:px-5"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {folders.map((f) => {
-          const active = f.id === effectiveFolderId;
-          return (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setSelectedFolderId(f.id)}
-              className={cn(
-                "shrink-0 px-2.5 py-2 text-[12px] font-semibold rounded-t-md border-b-2 transition-colors max-w-[min(200px,45vw)] truncate sm:px-3 sm:text-[13px] sm:max-w-[200px]",
-                active
-                  ? ""
-                  : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
-              )}
-              style={
-                active
-                  ? {
-                      borderColor: storeTheme.selectedItems,
-                      borderBottomWidth: 3,
-                      color: storeTheme.selectedItems,
-                    }
-                  : {}
-              }
-              title={f.name}
-            >
-              {f.name}
-            </button>
-          );
-        })}
+        <>
+          {folders.map((f) => {
+            const active = f.id === effectiveFolderId;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setSelectedFolderId(f.id)}
+                className={cn(
+                  "shrink-0 px-2.5 py-2 text-[12px] font-semibold rounded-t-md border-b-2 transition-colors max-w-[min(200px,45vw)] truncate sm:px-3 sm:text-[13px] sm:max-w-[200px]",
+                  active
+                    ? ""
+                    : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
+                )}
+                style={
+                  active
+                    ? {
+                        borderColor: storeTheme.selectedItems,
+                        borderBottomWidth: 3,
+                        color: storeTheme.selectedItems,
+                      }
+                    : {}
+                }
+                title={f.name}
+              >
+                {f.name}
+              </button>
+            );
+          })}
+
+          {isMember == false &&
+          currentChannelData?.isPrivate === false ? null : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="cursor-pointer flex items-center justify-center p-1 rounded-full dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9]"
+                  onClick={() => setCreateFolderOpen(true)}
+                >
+                  <FiPlus size={16} />
+                </div>
+              </TooltipTrigger>
+
+              <TooltipContent side="top" align="center">
+                <Typography
+                  text="Create new folder"
+                  variant="p"
+                  className="text-[14px]!"
+                />
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </>
       </div>
 
       <div className="flex shrink-0 flex-col gap-3 pt-3 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
@@ -442,7 +515,9 @@ export default function FolderTab({
                 <button
                   type="button"
                   className="flex w-full items-center gap-x-2 hover:text-white! hover:bg-selection-hover! px-5 py-1 cursor-pointer text-left"
-                  onClick={() => selectedFolder && setRenameFolder(selectedFolder)}
+                  onClick={() =>
+                    selectedFolder && setRenameFolder(selectedFolder)
+                  }
                 >
                   <Typography text="Rename folder" variant="p" />
                 </button>
@@ -450,7 +525,9 @@ export default function FolderTab({
                 <button
                   type="button"
                   className="flex items-center gap-x-2 text-red-500 hover:text-white! hover:bg-red-700! px-5 py-1 cursor-pointer text-left"
-                  onClick={() => selectedFolder && setDeleteFolder(selectedFolder)}
+                  onClick={() =>
+                    selectedFolder && setDeleteFolder(selectedFolder)
+                  }
                 >
                   <Typography text="Delete folder" variant="p" />
                 </button>
@@ -465,8 +542,7 @@ export default function FolderTab({
           <Loader2 className="size-4 shrink-0 animate-spin" />
           <span className="min-w-0 break-all">
             Uploading{" "}
-            {uploadingFiles.find((u) => u.status === "uploading")?.file.name}
-            …
+            {uploadingFiles.find((u) => u.status === "uploading")?.file.name}…
           </span>
         </div>
       ) : null}
@@ -513,13 +589,21 @@ export default function FolderTab({
         )}
       </div>
 
+      <CreateFolderDialog
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        targetId={targetId}
+        isDM={isDM}
+      />
+
       <RenameFolderDialog
         open={!!renameFolder}
         onOpenChange={(o) => {
           if (!o) setRenameFolder(null);
         }}
-        channelId={channelId}
+        targetId={targetId}
         folder={renameFolder}
+        isDM={isDM}
       />
 
       <ConfirmDeleteFolderDialog

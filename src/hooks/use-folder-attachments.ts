@@ -6,18 +6,20 @@ import type { ChannelAttachmentsPage } from '@/lib/types'
 import { useInfiniteQuery } from '@tanstack/react-query'
 
 export function useFolderAttachments(
-  channelId: string,
+  targetId: string,
   folderId: string | null,
+  isDM = false,
 ) {
   return useInfiniteQuery<ChannelAttachmentsPage>({
-    queryKey: folderKeys.attachments(channelId, folderId ?? '_'),
+    queryKey: folderKeys.attachments(targetId, folderId ?? '_'),
     queryFn: ({ pageParam }) =>
       listFolderAttachmentsApi(
-        channelId,
+        targetId,
         folderId!,
         pageParam as string | undefined,
+        isDM,
       ),
-    enabled: !!channelId && !!folderId,
+    enabled: !!targetId && !!folderId,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 10_000,

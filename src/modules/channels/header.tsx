@@ -2,66 +2,101 @@
 
 import Typography from "@/components/ui/typography";
 import { Channel } from "@/lib/types";
-import { FiHash, FiPlus } from "react-icons/fi";
-import { RiHeadphoneLine } from "react-icons/ri";
-import { motion } from "framer-motion";
+import { FiHash } from "react-icons/fi";
+import { RiHeadphoneLine, RiPushpinLine } from "react-icons/ri";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { IoMdMore } from "react-icons/io";
-import { IoChevronDownOutline, IoPersonOutline, IoSettingsOutline } from "react-icons/io5";
+import ChannelNotificationPopover from "@/components/popovers/channel-notification-popover";
 import { Button } from "@/components/ui/button";
-import { SlStar } from "react-icons/sl";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { MENU_ITEM_STYLE } from "@/constants/styles";
+import { cn } from "@/lib/utils";
+import ChannelDetailDialog from "@/modules/channels/channel-details/channel-detail-dialog";
+import { useStarChannel } from "@/hooks/use-channel";
+import { useMainPanelStore } from "@/stores/useMainPanelStore";
+import { useThemeStore } from "@/stores/useThemeStore";
+import { X } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useState } from "react";
 import { BiMessageRounded } from "react-icons/bi";
-import { ImFilesEmpty } from "react-icons/im";
-import { Separator } from "@/components/ui/separator";
-import { BsCardChecklist } from "react-icons/bs";
-import { FaRegFolderClosed } from "react-icons/fa6";
-import { LuSquareChartGantt } from "react-icons/lu";
-import { cn } from "@/lib/utils";
-import { useThemeStore } from "@/stores/useThemeStore";
 import { FaRegFolderOpen } from "react-icons/fa";
-import ChannelDetailDialog from "@/modules/channels/channel-details/channel-detail-dialog";
+import { FaRegFolderClosed } from "react-icons/fa6";
+import { ImFilesEmpty } from "react-icons/im";
+import { IoMdMore } from "react-icons/io";
+import { IoChevronDownOutline, IoPersonOutline } from "react-icons/io5";
+import { SlStar } from "react-icons/sl";
+import { FaStar } from "react-icons/fa6";
+import { toast } from "sonner";
 
-export type ChannelViewTab = "messages" | "files" | "folders";
+export type ChannelViewTab = "messages" | "files" | "folders" | "pins";
 
 const Header = ({
   currentChannelData,
   activeTab,
   onTabChange,
-  onOpenCreateFolderDialog,
+  isMember,
+  showXIcon = false
 }: {
   currentChannelData: Channel;
   activeTab: ChannelViewTab;
   onTabChange: (tab: ChannelViewTab) => void;
-  onOpenCreateFolderDialog: () => void;
+  isMember: boolean;
+  showXIcon?: boolean;
 }) => {
-  const [open, setOpen] = useState(false)
-  const [openChannelDetailDialog, setOpenChannelDetailDialog] = useState(false)
+  const params = useParams<{ workspaceId: string }>();
+  const workspaceId = params.workspaceId ?? "";
+  const starMutation = useStarChannel(workspaceId, currentChannelData.id);
+  const isStarred = Boolean(currentChannelData.starredAt);
 
-  const { theme: storeTheme } = useThemeStore()
+  const { reset } = useMainPanelStore();
+  const [openChannelDetailDialog, setOpenChannelDetailDialog] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+
+  const toggleChannelStar = () => {
+    if (!isMember) {
+      toast.message("Tham gia channel để gắn sao.");
+      return;
+    }
+    starMutation.mutate(!isStarred);
+  };
+
+  const { theme: storeTheme } = useThemeStore();
   return (
     <div className="flex flex-col border-b border-[#797c814d]">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Button
-            size="custom"
-            className="p-2"
-          >
-          <SlStar size={18} className="text-workspace-side-panel-text" />
-          </Button>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button className="flex items-center p-1 gap-0.5"
+              <Button
+                size="custom"
+                className="p-2"
+                disabled={!isMember || starMutation.isPending}
+                onClick={toggleChannelStar}
+              >
+                {isStarred ? (
+                  <FaStar size={18} className="text-amber-400" />
+                ) : (
+                  <SlStar size={18} className="text-workspace-side-panel-text" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <Typography
+                text={isStarred ? "Unstar channel" : "Star channel"}
+                variant="p"
+                className="text-[14px]!"
+              />
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className="flex items-center p-1 gap-0.5"
                 size="custom"
                 onClick={() => setOpenChannelDetailDialog(true)}
               >
@@ -123,6 +158,8 @@ const Header = ({
 
             <span className="h-4 w-px bg-[#797c814d]"></span>
 
+
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-r-md">
@@ -139,20 +176,139 @@ const Header = ({
             </Tooltip>
           </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-md">
-                <IoMdMore size={20} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" align="center">
-              <Typography
-                text="More actions"
-                variant="p"
-                className="text-[14px]!"
-              />
-            </TooltipContent>
-          </Tooltip>
+          <ChannelNotificationPopover />
+
+          <Popover open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
+            <PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-md">
+                    <IoMdMore size={20} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="center">
+                  <Typography
+                    text="More actions"
+                    variant="p"
+                    className="text-[14px]!"
+                  />
+                </TooltipContent>
+              </Tooltip>
+            </PopoverTrigger>
+            <PopoverContent
+              side="bottom"
+              align="end"
+              className="w-auto border-[#797c814d] bg-white dark:bg-[#1A1D21]"
+              withOverlay={true}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <div className="py-2 flex flex-col space-y-1">
+                <div
+                  className={MENU_ITEM_STYLE}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenChannelDetailDialog(true);
+                    setMoreActionsOpen(false);
+                  }}
+                >
+                  <Typography
+                    variant="p"
+                    text="Open channel details"
+                    className="text-[15px]"
+                  />
+                </div>
+                <Separator />
+                <div
+                  className={cn(
+                    MENU_ITEM_STYLE,
+                    "relative justify-between",
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleChannelStar();
+                    setMoreActionsOpen(false);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Typography
+                      variant="p"
+                      text={isStarred ? "Unstar channel" : "Star channel"}
+                    />
+                  </div>
+                </div>
+
+                {/* <div
+                  className={cn(
+                    MENU_ITEM_STYLE,
+                    "relative justify-between",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Typography variant="p" text="Edit settings" />
+                  </div>
+                </div> */}
+
+                <Separator />
+
+                <div className={MENU_ITEM_STYLE}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(window.location.href)
+                    toast.success("Link copied to clipboard")
+                  }}
+                >
+                  <Typography variant="p" text="Copy link" />
+                </div>
+                <div className={MENU_ITEM_STYLE}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigator.clipboard.writeText(currentChannelData.name)
+                    toast.success("Name copied to clipboard")
+                  }}
+                >
+                  <Typography variant="p" text="Copy name" />
+                </div>
+
+                <Separator />
+
+                <div
+                  className={cn(
+                    MENU_ITEM_STYLE,
+                    "relative justify-between",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Typography variant="p" text="Search in channel" />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div
+                  className={cn(
+                    MENU_ITEM_STYLE,
+                    "text-red-500 hover:text-white hover:bg-red-700 cursor-pointer ",
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <Typography
+                    variant="p"
+                    text="Leave channel"
+                    className="mt-0.5 "
+                  />
+                </div>
+              </div>
+
+            </PopoverContent>
+          </Popover>
+
+          {showXIcon && (
+            <button onClick={() => reset()} className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 mr-1 rounded-md">
+              <X size={20} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -166,10 +322,21 @@ const Header = ({
               ? ``
               : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
           )}
-          style={activeTab === "messages" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
+          style={
+            activeTab === "messages"
+              ? {
+                borderColor: storeTheme.selectedItems,
+                borderBottomWidth: 3,
+                color: storeTheme.selectedItems,
+              }
+              : {}
+          }
         >
-          <BiMessageRounded size={16}
-          style={activeTab === "messages" ? { fill: storeTheme.selectedItems } : {}}
+          <BiMessageRounded
+            size={16}
+            style={
+              activeTab === "messages" ? { fill: storeTheme.selectedItems } : {}
+            }
           />
           <Typography text="Messages" variant="p" className="text-[13px]!" />
         </button>
@@ -183,7 +350,15 @@ const Header = ({
               ? ``
               : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
           )}
-          style={activeTab === "files" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
+          style={
+            activeTab === "files"
+              ? {
+                borderColor: storeTheme.selectedItems,
+                borderBottomWidth: 3,
+                color: storeTheme.selectedItems,
+              }
+              : {}
+          }
         >
           <ImFilesEmpty size={16} />
           <Typography text="Files" variant="p" className="text-[13px]!" />
@@ -198,84 +373,54 @@ const Header = ({
               ? ``
               : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
           )}
-          style={activeTab === "folders" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
+          style={
+            activeTab === "folders"
+              ? {
+                borderColor: storeTheme.selectedItems,
+                borderBottomWidth: 3,
+                color: storeTheme.selectedItems,
+              }
+              : {}
+          }
         >
-          {activeTab === "folders" ? <FaRegFolderOpen size={17} /> : <FaRegFolderClosed size={16} />}
+          {activeTab === "folders" ? (
+            <FaRegFolderOpen size={17} />
+          ) : (
+            <FaRegFolderClosed size={16} />
+          )}
           <Typography text="Folders" variant="p" className="text-[13px]!" />
         </button>
 
-        <Tooltip>
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <TooltipTrigger asChild>
-                <motion.div
-                  animate={{
-                    rotate: open ? 45 : 0,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 10,
-                    mass: 1,
-                  }}
-                  className="cursor-pointer flex items-center justify-center p-1 rounded-full dark:hover:bg-[#222529] dark:text-[#797c81] dark:hover:text-white hover:bg-[#e8e8e8] hover:text-black"
-                >
-                  <FiPlus size={16} />
-                </motion.div>
-              </TooltipTrigger>
-            </PopoverTrigger>
-
-            <PopoverContent side="bottom" align="start" withOverlay={true}>
-              <div className="flex flex-col py-2">
-                <div className="flex items-center gap-x-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
-                  onClick={() => {
-                    onOpenCreateFolderDialog()
-                    setOpen(false)
-                  }}
-                >
-                  <FaRegFolderClosed size={16} />
-                  <Typography
-                    text="Folder"
-                    variant="p"
-                  />
-                </div>
-                <div className="flex items-center gap-x-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                  <LuSquareChartGantt size={16} />
-                  <Typography
-                    text="Canvas"
-                    variant="p"
-                  />
-                </div>
-                <div className="flex items-center gap-x-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                  <BsCardChecklist size={16} />
-                  <Typography
-                    text="List"
-                    variant="p"
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center gap-x-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                  <IoSettingsOutline size={16} />
-                  <Typography
-                    text="Customize tabs"
-                    variant="p"
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <TooltipContent side="top" align="center">
-            <Typography
-              text="Add new tab"
-              variant="p"
-              className="text-[14px]!"
-            />
-          </TooltipContent>
-        </Tooltip>
+        <button
+          type="button"
+          onClick={() => onTabChange("pins")}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-2 -mb-px border-b-2 transition-colors rounded-t-md font-bold",
+            activeTab === "pins"
+              ? ``
+              : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
+          )}
+          style={
+            activeTab === "pins"
+              ? {
+                borderColor: storeTheme.selectedItems,
+                borderBottomWidth: 3,
+                color: storeTheme.selectedItems,
+              }
+              : {}
+          }
+        >
+          <RiPushpinLine size={16} />
+          <Typography text="Pins" variant="p" className="text-[13px]!" />
+        </button>
       </div>
 
-      <ChannelDetailDialog open={openChannelDetailDialog} onOpenChange={setOpenChannelDetailDialog} currentChannelData={currentChannelData} />
+      <ChannelDetailDialog
+        open={openChannelDetailDialog}
+        onOpenChange={setOpenChannelDetailDialog}
+        currentChannelData={currentChannelData}
+        isMember={isMember}
+      />
     </div>
   );
 };

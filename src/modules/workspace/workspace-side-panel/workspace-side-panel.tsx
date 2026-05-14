@@ -10,7 +10,7 @@ import Setting from "./setting"
 import Starred from "./starred/starred"
 import Thread from "./threads/threads"
 import Channels from "./channels/channels"
-import DirectMessages from "./direct-messages/direct-messages"
+import DirectMessages from "../../direct-messages/direct-messages"
 import { useThemeStore, type Theme } from "@/stores/useThemeStore"
 
 interface Props {
@@ -36,21 +36,21 @@ const WorkspaceSidePanel = ({ theme, currentWorkspaceData, userData, userWorkspa
       </div>
 
       <div className="">
-        <Thread />
+        <Thread theme={theme} workspaceId={currentWorkspaceData.id} />
 
         <Huddle />
 
-        <DraftsAndSend />
+        <DraftsAndSend theme={theme} workspaceId={currentWorkspaceData.id} />
       </div>
 
       <Separator className="my-2 h-[0.5px]" />
 
       <div className="">
-        <Starred />
+        <Starred theme={theme} currentWorkspaceData={currentWorkspaceData} />
 
         <Channels theme={theme} currentWorkspaceData={currentWorkspaceData} userWorkspaceChannels={userWorkspaceChannels} />
 
-        {/* <DirectMessages /> */}
+        <DirectMessages theme={theme} currentWorkspaceData={currentWorkspaceData} />
       </div>
     </>
   )

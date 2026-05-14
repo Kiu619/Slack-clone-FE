@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/popover";
 import Typography from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 // import ProgressBar from './progress-bar'
 
 import { FiHash, FiPlus } from "react-icons/fi";
@@ -36,9 +36,15 @@ import { FaRegSmile, FaSmile } from "react-icons/fa";
 import { HiOutlinePencilAlt } from "react-icons/hi";
 import { MdOutlinePersonAddAlt } from "react-icons/md";
 import { Separator } from "./ui/separator";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SetAStatusDialog } from "./dialogs/set-a-status-dialog";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { useNewMessageStore } from "@/stores/useNewMessageStore";
+import {
+  mergeUserForDisplay,
+  useWorkspaceMemberOverlay,
+} from "@/stores/useWorkspaceMemberStore";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 
 const UserSidebar = ({
   userData,
@@ -49,6 +55,11 @@ const UserSidebar = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [openAvatarPopover, setOpenAvatarPopover] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const isDMsPage = pathname.includes('/dms');
+
+  const { openNewMessage: openNewMessageComposer } = useNewMessageStore();
   const { open: openProfilePanel } = useProfilePanelStore();
   const { open: openPreferences } = usePreferencesStore();
   const { clearUser } = useUserStore();
@@ -56,12 +67,19 @@ const UserSidebar = ({
 
   const [openSetAStatusDialog, setOpenSetAStatusDialog] = useState(false);
 
-  const router = useRouter();
+  const memberOverlay = useWorkspaceMemberOverlay(
+    currentWorkspaceData.id,
+    userData.id,
+  );
+  const displayUser = useMemo(
+    () => mergeUserForDisplay(userData, memberOverlay),
+    [userData, memberOverlay],
+  );
 
   const handleUpdateStatus = async () => {
     setOpenAvatarPopover(false)
     await updateProfileApi(currentWorkspaceData.id, {
-      isAway: !userData?.isAway,
+      isAway: !displayUser.isAway,
     });
     await queryClient.invalidateQueries({
       queryKey: authKeys.workspaceProfile(currentWorkspaceData.id),
@@ -130,113 +148,123 @@ const UserSidebar = ({
                 align="center"
                 withOverlay={true}
               >
-                <div className=" text-white rounded-lg">
+                <div className=" rounded-lg">
                   <div className="px-4 py-2">
                     <Typography
                       text="Create"
-                      variant="h5"
-                      className="text-white font-semibold"
+                      variant="p"
+                      className="text-left font-bold"
                     />
                   </div>
 
                   <div className="">
                     {/* Message */}
-                    <div className="flex items-center gap-3 py-1 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none"
+                      type="button"
+                      onClick={() => {
+                        if (isDMsPage) {
+                          openNewMessageComposer();
+                        } else {
+                          router.push(`/workspace/${currentWorkspaceData.id}/`)
+                          openNewMessageComposer()
+                        }
+                      }}
+                    >
                       <div className="w-10 h-10 bg-[#5F2568] rounded-full flex items-center justify-center">
                         <HiOutlinePencilAlt size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Message" variant="p" />
+                        <Typography text="Message" variant="p" className="text-left font-semibold" />
                         <Typography
                           text="Start a conversation in a DM or channel"
                           variant="p"
-                          className="text-gray-400 text-sm"
+                          className="text-gray-400 text-xs"
                         />
                       </div>
-                    </div>
+                    </button>
 
                     {/* Channel */}
-                    <div className="flex items-center gap-3 py-1 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#323538] rounded-full flex items-center justify-center">
                         <FiHash size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Channel" variant="p" />
+                        <Typography text="Channel" variant="p" className="text-left font-semibold" />
                         <Typography
                           text="Start a group conversation by topic"
                           variant="p"
-                          className="text-gray-400 text-sm"
+                          className="text-gray-400 text-xs"
                         />
                       </div>
-                    </div>
+                    </button>
 
                     {/* Huddle */}
-                    <div className="flex items-center gap-3 py-1 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#00553D] rounded-full flex items-center justify-center">
                         <IoMdHeadset size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Huddle" variant="p" />
+                        <Typography text="Huddle" variant="p" className="text-left font-semibold" />
                         <Typography
                           text="Start a video or audio chat"
                           variant="p"
-                          className="text-gray-400 text-sm"
+                          className="text-gray-400 text-xs"
                         />
                       </div>
-                    </div>
+                    </button>
 
                     {/* Canvas */}
-                    <div className="flex items-center gap-3 py-1 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#0B4379] rounded-full flex items-center justify-center">
                         <LucideFilePlus2 size={20} className="text-white" />
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text="Canvas" variant="p" />
+                          <Typography text="Canvas" variant="p" className="text-left font-semibold" />
                           <Typography
                             text="Create and share content"
                             variant="p"
-                            className="text-gray-400 text-sm"
+                            className="text-gray-400 text-xs"
                           />
                         </div>
                         <span className="bg-[#bc80ce] text-black text-xs font-bold rounded px-1">
                           PRO
                         </span>
                       </div>
-                    </div>
+                    </button>
 
                     {/* List */}
-                    <div className="flex items-center gap-3 py-1 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#7C4C00] rounded-full flex items-center justify-center">
                         <BsCardChecklist size={20} className="text-white" />
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text="List" variant="p" />
+                          <Typography text="List" variant="p" className="text-left font-semibold" />
                           <Typography
                             text="Track and manage projects"
                             variant="p"
-                            className="text-gray-400 text-sm"
+                            className="text-gray-400 text-xs"
                           />
                         </div>
                         <span className="bg-[#bc80ce] text-black text-xs font-bold rounded px-1">
                           PRO
                         </span>
                       </div>
-                    </div>
+                    </button>
 
                     {/* Separator */}
                     <hr className="border-gray-700" />
 
                     {/* Invite people */}
-                    <div className="flex items-center gap-3 py-2 px-4 hover:bg-gray-700 cursor-pointer">
+                    <button className="flex w-full items-center gap-3 py-2 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 flex items-center justify-center">
                         <MdOutlinePersonAddAlt size={20} />
                       </div>
                       <div>
-                        <Typography text="Invite people" variant="p" />
+                        <Typography text="Invite people" variant="p" className="text-left font-semibold" />
                       </div>
-                    </div>
+                    </button>
                   </div>
                 </div>
               </PopoverContent>
@@ -257,18 +285,18 @@ const UserSidebar = ({
                     <Avatar
                       className="object-cover w-full h-full"
                       src={
-                        userData?.avatar ||
+                        displayUser.avatar ||
                         "https://a.slack-edge.com/bv1-13-br/ava_0002-72-c702398.png"
                       }
-                      alt={userData?.displayName || "user"}
+                      alt={displayUser.displayName || "user"}
                     />
                     <div
                       className={cn(
                         "absolute z-10 rounded-full -right-[5%] -bottom-0.5",
-                        userData?.isAway ? "bg-red-500" : "bg-green-500",
+                        displayUser.isAway ? "bg-red-500" : "bg-green-500",
                       )}
                     >
-                      {userData?.isAway ? (
+                      {displayUser.isAway ? (
                         <GoDot className="text-white text-[12px]" />
                       ) : (
                         <GoDotFill className="text-green-600" size={12} />
@@ -283,25 +311,33 @@ const UserSidebar = ({
                 <div className="flex space-x-3 px-5 py-2">
                   <Avatar
                     src={
-                      userData?.avatar ||
+                      displayUser.avatar ||
                       "https://a.slack-edge.com/bv1-13-br/ava_0002-72-c702398.png"
                     }
                     className="cursor-pointer w-9 h-9 rounded-lg"
                   />
-                  <div className="flex flex-col">
-                    <Typography
-                      text={userData?.name || userData?.email || ""}
-                      variant="p"
-                      className="font-bold text-sm"
-                    />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1">
+                      <Typography
+                        text={displayUser.name || displayUser.email || ""}
+                        variant="p"
+                        className="min-w-0 flex-1 truncate font-bold text-sm"
+                      />
+                      <UserStatusEmojiInline
+                        statusEmoji={displayUser.statusEmoji}
+                        statusText={displayUser.statusText}
+                        emojiClassName="text-[14px]"
+                        interactive={Boolean(displayUser.statusText?.trim())}
+                      />
+                    </div>
                     <div className="flex items-center space-x-1">
-                      {userData?.isAway ? (
+                      {displayUser.isAway ? (
                         <GiNightSleep size="12" />
                       ) : (
                         <GoDotFill className="text-green-600" size="12" />
                       )}
                       <span className="text-xs">
-                        {userData?.isAway ? "Away" : "Active"}
+                        {displayUser.isAway ? "Away" : "Active"}
                       </span>
                     </div>
                   </div>
@@ -311,15 +347,15 @@ const UserSidebar = ({
                   className="border group cursor-pointer px-2 py-2 mx-5 my-2 rounded flex items-center space-x-2 hover:border hover:border-[#797c81]"
                   onClick={() => setOpenSetAStatusDialog(true)}
                 >
-                  {userData?.statusText ? (
+                  {displayUser.statusText ? (
                     <>
                       <span
                         className="dark:text-[#d1d2d3] truncate"
                       >
-                        {userData?.statusEmoji ?? ""}
+                        {displayUser.statusEmoji ?? ""}
                       </span>
                       <Typography
-                        text={userData.statusText ?? undefined}
+                        text={displayUser.statusText ?? undefined}
                         variant="p"
                         className="text-sm font-medium dark:text-[#d1d2d3] truncate"
                       />
@@ -344,7 +380,7 @@ const UserSidebar = ({
                 </div>
 
                 <div className="flex flex-col space-y-1">
-                  {userData?.statusText && (
+                  {displayUser.statusText && (
                     <div
                       className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                       onClick={handleClearStatus}
@@ -363,7 +399,7 @@ const UserSidebar = ({
                     <Typography
                       variant="p"
                       text={
-                        userData?.isAway
+                        displayUser.isAway
                           ? "Set yourself as active"
                           : "Set yourself as away"
                       }
@@ -378,7 +414,7 @@ const UserSidebar = ({
                     className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                     onClick={() => {
                       openProfilePanel({
-                        userData,
+                        userData: displayUser,
                         workspaceId: currentWorkspaceData.id,
                       })
                       setOpenAvatarPopover(false)
@@ -414,7 +450,7 @@ const UserSidebar = ({
         </div>
         <TooltipContent side="right">
           <Typography
-            text={userData?.name || userData?.email || ""}
+            text={displayUser.name || displayUser.email || ""}
             variant="p"
           />
         </TooltipContent>
@@ -422,7 +458,7 @@ const UserSidebar = ({
       <SetAStatusDialog
         open={openSetAStatusDialog}
         setOpen={setOpenSetAStatusDialog}
-        userData={userData}
+        userData={displayUser}
         workspaceId={currentWorkspaceData.id}
         statusSource="sidebar"
         currentWorkspaceData={currentWorkspaceData}

@@ -18,11 +18,11 @@ import FilePreview from "./file-preview"
 import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils"
 import ImagePreview from "./image-preview"
 import OfficeFilePreview from "./office-file-preview"
-import { ShareFileModal } from "./share-file-modal"
+import { ShareFileDialog } from "../dialogs/share-file-dialog"
 import VideoPreview from "./video-preview"
 import { cn } from "@/lib/utils"
 import AudioPreview from "./audio-preview"
-import { useDeleteAttachment } from "@/hooks/use-messages"
+import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
@@ -31,33 +31,35 @@ import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
 import { useUserStore } from "@/stores/useUserStore"
 import { AddToFolderSubmenu } from "./add-to-folder-submenu"
 import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
+import { MENU_ITEM_STYLE } from "@/constants/styles"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
-
-const MENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
-const SUBMENU_ITEM_STYLE =
-  "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm"
 
 export default function FileDetailPanel() {
   const currentUser = useUserStore((state) => state.user)
   const { requestNewFolder } = useChannelFolderActions()
   const { attachment, message, close } = useFileDetailStore()
+  console.log("message, attachment: ", message, attachment);
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState(false)
   const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState(false);
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
 
-  const { mutate: deleteAttachment } = useDeleteAttachment(message?.channelId ?? "");
+  const targetId = message?.channelId || message?.conversationId;
+
+  const { mutate: deleteAttachment } = useDeleteAttachment(targetId ?? "");
   const [isDeleted, setIsDeleted] = useState(false);
   const queryClient = useQueryClient();
 
   const isOwner = message?.user.id === currentUser?.id
 
+  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId!)
+  
+
   useEffect(() => {
-    if (!message || !attachment) return;
+    if (!message || !attachment || !targetId) return;
 
     // Check initial state (chỉ infinite messages — không nhầm với attachments / files-search)
-    const data = queryClient.getQueryData<any>(messageKeys.list(message.channelId));
+    const data = queryClient.getQueryData<any>(messageKeys.list(targetId));
     if (data?.pages?.length) {
       const msg = data.pages
         .flatMap((p: any) => p.messages ?? [])
@@ -114,6 +116,12 @@ export default function FileDetailPanel() {
       }
     });
   }
+
+  const handleSaveForLater = (
+    (attachmentId: string) => {
+      saveForLater({ type: "attachment", attachmentId });
+    }
+  );
 
   if (!attachment) return null
   // Group theo type
@@ -221,14 +229,15 @@ export default function FileDetailPanel() {
           />
         )}
 
-        <div className="flex items-center gap-2 overflow-hidden">
+{/* TODO: Add conversation related to the file */}
+        {/* <div className="flex items-center gap-2 overflow-hidden">
           <Typography
             variant="p"
             text="Conversation"
             className="text-sm"
           />
           <Separator className="" />
-        </div>
+        </div> */}
       </div>
       ) : (
         <div className="flex flex-col w-full justify-center items-center gap-2 mt-2">
@@ -298,7 +307,11 @@ export default function FileDetailPanel() {
                 <div className={MENU_ITEM_STYLE} onClick={handleOpenInNewTab}>
                   <Typography variant="p" text="Open in new tab" />
                 </div>
-                <div className={MENU_ITEM_STYLE}>
+                <div className={MENU_ITEM_STYLE}
+                  onClick={() => {
+                    handleSaveForLater(attachment?.id!)
+                  }}
+                >
                   <Typography variant="p" text="Save for later" />
                 </div>
 
@@ -312,10 +325,10 @@ export default function FileDetailPanel() {
                   <div className={cn(MENU_ITEM_STYLE, "relative")}>
                     <Typography variant="p" text="Add to folder" />
                   </div>
-                  {isAddToFolderOpen && message && (
+                  {isAddToFolderOpen && message && targetId && (
                     <div className="absolute bottom-2 right-35 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
                       <AddToFolderSubmenu
-                        channelId={message.channelId}
+                        targetId={targetId}
                         attachmentId={attachment.id}
                         onRequestCreateFolder={requestNewFolder}
                       />
@@ -338,10 +351,11 @@ export default function FileDetailPanel() {
         </Popover>
       </div>
       )}
-      <ShareFileModal
+      <ShareFileDialog
         open={isShareFileModalOpen}
         onOpenChange={setIsShareFileModalOpen}
         attachment={attachment}
+        workspaceId={attachment.workspaceId}
       />
 
       <ConfirmDeleteFileDialog

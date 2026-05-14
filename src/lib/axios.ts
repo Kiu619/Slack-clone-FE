@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getChannelChatSocket, getChannelSocket } from '@/hooks/use-socket'
+import { getMainGatewaySocket } from '@/hooks/use-socket'
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -16,18 +16,11 @@ export const apiClient = axios.create({
  * backend có thể exclude socket của người gửi khỏi broadcast.
  * → Người gửi không nhận WebSocket event cho message của chính mình
  * → Tránh duplicate (optimistic update đã có message rồi)
- *
- * REST workspace channels → namespace /channel (broadcast exclude đúng room).
  */
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const path = config.url ?? ''
-    const isWorkspaceChannelsRest =
-      /\/workspaces\/[^/]+\/channels(\/|$)/.test(path)
-    const socket = isWorkspaceChannelsRest
-      ? getChannelSocket()
-      : getChannelChatSocket()
-    if (socket.id) {
+    const socket = getMainGatewaySocket()
+    if (socket?.id) {
       config.headers['X-Socket-Id'] = socket.id
     }
   }

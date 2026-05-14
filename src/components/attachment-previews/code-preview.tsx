@@ -33,6 +33,8 @@ import "prismjs/components/prism-markup";
 import FileToolbar from "./file-toolbar";
 import { useTheme } from "next-themes";
 
+import { useTrackAttachmentView } from "@/hooks/use-attachments";
+
 interface CodePreviewProps {
   message: Message;
   attachment: MessageAttachment;
@@ -89,6 +91,7 @@ export default function CodePreview({
   onDownload,
   formDetailPanel = false,
 }: CodePreviewProps) {
+  const { trackView } = useTrackAttachmentView();
   const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -251,7 +254,12 @@ export default function CodePreview({
                   {/* <span className="table-cell pr-4 text-right text-[#484f58] select-none w-8" /> */}
                   <button
                     type="button"
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={() => {
+                      if (!isExpanded) {
+                        trackView({ id: attachment.id, workspaceId: attachment.workspaceId });
+                      }
+                      setIsExpanded(!isExpanded)
+                    }}
                     className="cursor-pointer flex items-center gap-1.5 px-2 py-1 rounded text-xs text-[#0000FF] hover:bg-[#0000FF]/10 dark:text-[#58a6ff] dark:hover:bg-[#21262d] transition-colors font-medium"
                   >
                     {isCollapsed ? (

@@ -6,11 +6,11 @@ import { Separator } from "../ui/separator";
 import { TbBell, TbBellOff, TbBellRinging } from "react-icons/tb";
 import Typography from "../ui/typography";
 
-export default function NotificationPopover() {
+export default function ChannelNotificationPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button size="custom" className="p-1 border">
+        <Button size="custom" className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-r-md border border-[#797c814d]">
           <Bell size={18} />
         </Button>
       </PopoverTrigger>

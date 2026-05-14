@@ -10,6 +10,7 @@ import {
   prefetchWorkspaceData,
 } from '@/lib/server-fetch'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
+import { parsePanelWidthsCookie } from '@/lib/workspace-panel-widths'
 import WorkspaceShell from '@/modules/workspace/workspace-shell'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { FontInjector } from '@/components/font-injector'
@@ -70,11 +71,7 @@ export default async function WorkspaceLayout({
 
   const cookieStore = await cookies()
   const widthsCookie = cookieStore.get(`panel-widths-${workspaceId}`)?.value
-  const initialWidths = widthsCookie ? JSON.parse(widthsCookie) : {
-    sidebarWidth: 260,
-    fileDetailWidth: 410,
-    profilePanelWidth: 420,
-  }
+  const initialWidths = parsePanelWidthsCookie(widthsCookie)
 
   /**
    * BƯỚC 4: Render với HydrationBoundary

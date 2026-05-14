@@ -176,6 +176,24 @@ button {
   @apply dark:hover:bg-[#222529] dark:text-[#797c81] dark:hover:text-white hover:bg-[#e8e8e8] hover:text-black
 }
 
+::-webkit-scrollbar {
+  width: 8px!important;
+  background: transparent!important;
+  margin-left: 4px!important;
+}
+
+/* Track: phần nền của cuộn */
+::-webkit-scrollbar-track {
+  background: transparent!important;
+  /* background: rgba(44, 45, 47, 0.5)!important; */
+}
+
+/* Thumb: phần rê kéo */
+::-webkit-scrollbar-thumb {
+  border-radius: 10px!important;
+  background-color: rgba(116, 121, 132, 0.5)!important;
+}
+
 /* Tiptap Editor Styles */
 .tiptap {
   outline: none;

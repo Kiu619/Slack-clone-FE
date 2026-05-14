@@ -36,14 +36,16 @@ const formSchema = z.object({
 });
 
 export function CreateFolderDialog({
-  open,
+  open = true,
   onOpenChange,
-  channelId,
+  targetId,
+  isDM = false,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  channelId: string;
+  targetId: string;
+  isDM?: boolean;
   onCreated?: (folder: ChannelFolder) => void;
 }) {
   const queryClient = useQueryClient();
@@ -54,11 +56,11 @@ export function CreateFolderDialog({
 
   const { mutate, isPending } = useMutation({
     mutationFn: (name: string) =>
-      createChannelFolderApi(channelId, name.trim()),
+      createChannelFolderApi(targetId, name.trim(), isDM),
     onSuccess: (data) => {
       toast.success("Folder created");
       void queryClient.invalidateQueries({
-        queryKey: folderKeys.list(channelId),
+        queryKey: folderKeys.list(targetId),
       });
       onCreated?.(data.folder);
       onOpenChange(false);

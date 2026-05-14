@@ -6,6 +6,7 @@ import { EditProfileDialog } from "@/components/dialogs/edit-profile-dialog";
 import { SetAStatusDialog } from "@/components/dialogs/set-a-status-dialog";
 import {
   getMemberStatusApi,
+  getOrCreateDirectMessageApi,
   getWorkspaceProfileApi,
   updateProfileApi,
 } from "@/apis";
@@ -13,10 +14,12 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
 import { mergeAccountWithWorkspaceProfile } from "@/lib/merge-user";
 import DOMPurify from "dompurify";
 import { X } from "lucide-react";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { GoDot, GoDotFill } from "react-icons/go";
 import { LuClock3 } from "react-icons/lu";
 import {
@@ -36,9 +39,38 @@ import { Separator } from "../../components/ui/separator";
 import Typography from "../../components/ui/typography";
 import { timeZoneValueToIana } from "@/lib/timezone";
 import { toast } from "sonner";
+import { isAxiosError } from "axios";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
-import { authKeys } from "@/lib/query-keys";
-import { User } from "@/lib/types";
+import { authKeys, messageKeys } from "@/lib/query-keys";
+import type { User, WorkspaceMemberStatus } from "@/lib/types";
+import {
+  mergeMemberStatusWithOverlay,
+  mergeUserForDisplay,
+  useWorkspaceMemberOverlay,
+} from "@/stores/useWorkspaceMemberStore";
+import { Skeleton } from "@/components/ui/skeleton";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
+
+/** Gộp GET member status vào `User` (dùng khi mở profile từ cookie chỉ có `{ id }`). */
+function memberStatusToUserPatch(s: WorkspaceMemberStatus): Partial<User> {
+  return {
+    id: s.id,
+    email: s.email,
+    name: s.name ?? undefined,
+    displayName: s.displayName,
+    avatar: s.avatar ?? undefined,
+    isAway: s.isAway,
+    status: s.status ?? undefined,
+    namePronunciation: s.namePronunciation ?? undefined,
+    phone: s.phone ?? undefined,
+    description: s.description ?? undefined,
+    timeZone: s.timeZone ?? undefined,
+    statusText: s.statusText ?? undefined,
+    statusEmoji: s.statusEmoji ?? undefined,
+    statusExpiration: s.statusExpiration ?? undefined,
+    notificationsPausedUntil: s.notificationsPausedUntil ?? undefined,
+  };
+}
 
 export default function ProfilePanel() {
   const { user: currentUserData } = useUserStore();
@@ -66,24 +98,113 @@ export default function ProfilePanel() {
     staleTime: 60 * 1000,
   });
 
-  const userData = isOwner
+  /** Restore từ cookie: `openProfile` chỉ truyền `{ id }` — thiếu email/name/avatar. */
+  const isThinProfileRestore =
+    !isOwner &&
+    !!storeUserData?.id &&
+    Object.keys(storeUserData as object).length <= 1;
+
+  const userDataBeforeStatus = isOwner
     ? (mergeAccountWithWorkspaceProfile(
         currentUserData as any,
         workspaceProfile,
       ) ?? storeUserData)
     : storeUserData;
 
-  // Fetch workspace-specific status (statusText, statusEmoji) cho user đang xem
-  const { data: memberStatus } = useQuery({
-    queryKey: ["workspace-member-status", workspaceId, userData?.id],
-    queryFn: () => getMemberStatusApi(workspaceId!, userData!.id),
-    enabled: !!workspaceId && !!userData?.id,
+  const memberOverlay = useWorkspaceMemberOverlay(
+    workspaceId ?? "",
+    userDataBeforeStatus?.id,
+  );
+
+  const {
+    data: memberStatus,
+    isPending: memberStatusPending,
+    isError: memberStatusError,
+  } = useQuery({
+    queryKey: ["workspace-member-status", workspaceId, userDataBeforeStatus?.id],
+    queryFn: () =>
+      getMemberStatusApi(workspaceId!, userDataBeforeStatus!.id),
+    enabled: !!workspaceId && !!userDataBeforeStatus?.id,
     staleTime: 30_000,
   });
 
+  const userData = useMemo(() => {
+    if (!userDataBeforeStatus?.id) return null;
+    if (isOwner) return userDataBeforeStatus;
+    const base = userDataBeforeStatus as User;
+    if (memberStatus) {
+      return { ...base, ...memberStatusToUserPatch(memberStatus), id: base.id };
+    }
+    return base;
+  }, [isOwner, userDataBeforeStatus, memberStatus]);
+
+  const awaitingOtherMemberProfile =
+    isThinProfileRestore && memberStatusPending && !memberStatus;
+  const failedOtherMemberProfile =
+    isThinProfileRestore && memberStatusError && !memberStatus;
+
+  const displayUser = useMemo(() => {
+    if (!userData) return null;
+    return mergeUserForDisplay(userData as User, memberOverlay);
+  }, [userData, memberOverlay]);
+
+  const profileHeadline = useMemo(() => {
+    if (!displayUser) return "";
+    return (
+      displayUser.displayName?.trim() ||
+      displayUser.name?.trim() ||
+      displayUser.email?.split("@")[0]?.trim() ||
+      ""
+    );
+  }, [displayUser]);
+
+  const mergedMemberStatus = useMemo(
+    () => mergeMemberStatusWithOverlay(memberStatus, memberOverlay),
+    [memberStatus, memberOverlay],
+  );
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isOpeningDm, setIsOpeningDm] = useState(false);
+
+  const handleMessagePeer = async () => {
+    if (isViewAsCoworker) return;
+    if (!workspaceId || !userData?.id) {
+      toast.error("Could not open a DM from this profile.");
+      return;
+    }
+    if (userData.id === currentUserData?.id) {
+      toast.error("You cannot message yourself.");
+      return;
+    }
+    setIsOpeningDm(true);
+    try {
+      const conv = await getOrCreateDirectMessageApi(workspaceId, [
+        userData.id,
+      ]);
+      await queryClient.invalidateQueries({
+        queryKey: messageKeys.conversations(workspaceId),
+      });
+      close();
+      openDmInWorkspace(router, pathname, workspaceId, conv.id);
+    } catch (e: unknown) {
+      const msg = isAxiosError(e)
+        ? (e.response?.data as { message?: string } | undefined)?.message
+        : undefined;
+      toast.error(
+        typeof msg === "string" && msg.trim()
+          ? msg
+          : "Could not open a direct message.",
+      );
+    } finally {
+      setIsOpeningDm(false);
+    }
+  };
+
   const handleUpdateStatus = async () => {
-    const updated = await updateProfileApi(workspaceId!, {
-      isAway: !userData?.isAway,
+    if (!displayUser || !workspaceId) return;
+    await updateProfileApi(workspaceId, {
+      isAway: !displayUser.isAway,
     });
     await queryClient.invalidateQueries({
       queryKey: authKeys.workspaceProfile(workspaceId!),
@@ -99,7 +220,7 @@ export default function ProfilePanel() {
 
   const getLocalTime = () => {
     const date = new Date();
-    const tzValue = userData?.timeZone;
+    const tzValue = displayUser?.timeZone;
     if (!tzValue) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       return `${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: browserTz })} ${browserTz} (local time)`;
@@ -116,8 +237,8 @@ export default function ProfilePanel() {
   };
 
   const sanitizedContent = () => {
-    if (typeof window === "undefined") return userData?.description;
-    return DOMPurify.sanitize(userData?.description || "", {
+    if (typeof window === "undefined") return displayUser?.description;
+    return DOMPurify.sanitize(displayUser?.description || "", {
       ALLOWED_TAGS: [
         "p",
         "br",
@@ -137,6 +258,57 @@ export default function ProfilePanel() {
       ALLOWED_ATTR: ["href", "target", "rel", "class"],
     });
   };
+  if (!storeUserData?.id || !workspaceId) {
+    return null;
+  }
+
+  if (awaitingOtherMemberProfile) {
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
+          <span className="font-semibold text-[15px]">Profile</span>
+          <button
+            type="button"
+            onClick={close}
+            className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4 p-6 flex-1">
+          <Skeleton className="mx-auto mt-4 h-60 w-60 rounded-lg" />
+          <Skeleton className="h-6 w-48 mx-auto" />
+          <Skeleton className="h-4 w-full max-w-md mx-auto" />
+          <Skeleton className="h-4 w-full max-w-sm mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (failedOtherMemberProfile) {
+    return (
+      <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
+          <span className="font-semibold text-[15px]">Profile</span>
+          <button
+            type="button"
+            onClick={close}
+            className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6 text-[15px] text-[#616061] dark:text-[#ababad]">
+          Could not load this member profile. Try closing and opening the profile again.
+        </div>
+      </div>
+    );
+  }
+
+  if (!userData || !displayUser) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-y-auto overflow-x-hidden">
       {/* Header */}
@@ -168,15 +340,15 @@ export default function ProfilePanel() {
       {/* Body */}
       <div className="flex-1 h-full overflow-y-auto">
         <Avatar
-          src={userData?.avatar ?? ""}
-          alt={userData?.name ?? ""}
+          src={displayUser?.avatar ?? ""}
+          alt={(profileHeadline || displayUser?.name) ?? ""}
           className="mx-auto mt-4 w-60 h-60 rounded-lg"
         />
 
         <div className="flex flex-col p-4 space-y-3">
           <div className="flex items-center justify-between">
             <Typography
-              text={userData?.name ?? ""}
+              text={(profileHeadline || displayUser?.name) ?? ""}
               variant="h5"
               className="font-semibold"
             />
@@ -190,16 +362,16 @@ export default function ProfilePanel() {
             )}
           </div>
 
-          {userData?.namePronunciation &&
-            userData?.namePronunciation !== null && (
+          {displayUser?.namePronunciation &&
+            displayUser?.namePronunciation !== null && (
               <Typography
-                text={userData?.namePronunciation}
+                text={displayUser?.namePronunciation}
                 variant="p"
                 className="text-[#2BA5CE] font-normal"
               />
             )}
 
-          {showOwnerView && userData?.namePronunciation === null && (
+          {showOwnerView && displayUser?.namePronunciation === null && (
             <button
               className="flex items-center"
               onClick={() => setIsOpenEditProfileDialog(true)}
@@ -213,7 +385,7 @@ export default function ProfilePanel() {
             </button>
           )}
 
-          {memberStatus?.isAway ? (
+          {mergedMemberStatus?.isAway ? (
             <div className="flex items-center gap-2 ">
               <GoDot className="text-red-500 text-[12px]" />
               <Typography
@@ -234,14 +406,18 @@ export default function ProfilePanel() {
           )}
 
           {/* Workspace status (statusEmoji + statusText) */}
-          {memberStatus?.statusText && (
+          {(mergedMemberStatus?.statusEmoji?.trim() ||
+            mergedMemberStatus?.statusText?.trim()) && (
             <div className="flex items-center gap-2">
-              {memberStatus.statusEmoji && (
-                <span className="text-[18px]">{memberStatus.statusEmoji}</span>
-              )}
-              {memberStatus.statusText && (
+              <UserStatusEmojiInline
+                statusEmoji={mergedMemberStatus?.statusEmoji}
+                statusText={mergedMemberStatus?.statusText}
+                emojiClassName="text-[18px]"
+                interactive={Boolean(mergedMemberStatus?.statusText?.trim())}
+              />
+              {mergedMemberStatus?.statusText?.trim() && (
                 <Typography
-                  text={memberStatus.statusText}
+                  text={mergedMemberStatus.statusText}
                   variant="p"
                   className="dark:text-[#d1d2d3] font-normal"
                 />
@@ -264,7 +440,7 @@ export default function ProfilePanel() {
                 className="flex-1 px-3 py-1 border border-[#797c81] rounded-md"
                 onClick={() => setIsOpenSetStatusDialog(true)}
               >
-                {memberStatus?.statusText ? (
+                {mergedMemberStatus?.statusText ? (
                   <Typography
                     text="Edit status"
                     variant="p"
@@ -307,7 +483,7 @@ export default function ProfilePanel() {
                         className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            userData?.displayName || "",
+                            displayUser?.displayName || "",
                           );
                           toast.success("Display name copied to clipboard");
                         }}
@@ -338,7 +514,7 @@ export default function ProfilePanel() {
                         <Typography
                           variant="p"
                           text={
-                            userData?.isAway
+                            displayUser?.isAway
                               ? "Set yourself as active"
                               : "Set yourself as away"
                           }
@@ -362,17 +538,15 @@ export default function ProfilePanel() {
           ) : (
             <div className="flex items-center gap-2">
               <button
-                className="flex-1 px-3 py-1 border border-[#797c81] rounded-md"
+                type="button"
+                className="flex-1 px-3 py-1 border border-[#797c81] rounded-md disabled:opacity-50 disabled:pointer-events-none"
+                disabled={isOpeningDm}
                 onClick={() => {
-                  console.log("message");
-                  if (isViewAsCoworker) {
-                    return;
-                  }
-                  // router.push(`/messages/${userData?.userId}`);
+                  void handleMessagePeer();
                 }}
               >
                 <Typography
-                  text="Message"
+                  text={isOpeningDm ? "Opening…" : "Message"}
                   variant="p"
                   className="dark:text-[#d1d2d3] font-semibold"
                 />
@@ -412,7 +586,7 @@ export default function ProfilePanel() {
                         className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            userData?.displayName || "",
+                            displayUser?.displayName || "",
                           );
                           toast.success("Display name copied to clipboard");
                         }}
@@ -578,7 +752,7 @@ export default function ProfilePanel() {
               userData={userData!}
               workspaceId={workspaceId}
               statusSource="profile"
-              memberStatus={memberStatus}
+              memberStatus={mergedMemberStatus}
               workspaceName={workspaceMeta?.name}
             />
           )}

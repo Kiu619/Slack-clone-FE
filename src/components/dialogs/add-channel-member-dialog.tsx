@@ -15,7 +15,13 @@ import {
   CustomDialogTitle,
 } from "../custom-dialog";
 import { Channel } from "@/lib/types";
-import type { WorkspaceMember } from "@/lib/types";
+import type { User, WorkspaceMember } from "@/lib/types";
+import {
+  mergeUserForDisplay,
+  useWorkspaceMemberStore,
+  type WorkspaceMemberDisplay,
+} from "@/stores/useWorkspaceMemberStore";
+import { useShallow } from "zustand/react/shallow";
 import { BiHash } from "react-icons/bi";
 import Typography from "../ui/typography";
 import { Button } from "../ui/button";
@@ -29,6 +35,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Avatar from "../avatar";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { IoIosInformationCircleOutline } from "react-icons/io";
 import { LuMailPlus, LuSend, LuX } from "react-icons/lu";
 import { Form, FormControl, FormField } from "../ui/form";
@@ -49,12 +56,17 @@ const defaultFormValues: AddChannelMemberFormValues = {
   pendingInviteEmails: [],
 };
 
-function matchesMemberSearch(m: WorkspaceMember, raw: string): boolean {
+function matchesMemberSearch(
+  m: WorkspaceMember,
+  raw: string,
+  overlay?: WorkspaceMemberDisplay | null,
+): boolean {
   const q = raw.trim().toLowerCase();
   if (!q) return true;
-  const name = (m.name ?? "").toLowerCase();
-  const displayName = (m.displayName ?? "").toLowerCase();
-  const email = m.email.toLowerCase();
+  const d = mergeUserForDisplay(m as User, overlay);
+  const name = (d.name ?? "").toLowerCase();
+  const displayName = (d.displayName ?? "").toLowerCase();
+  const email = (d.email ?? m.email).toLowerCase();
   return (
     name.includes(q) || displayName.includes(q) || email.includes(q)
   );
@@ -63,21 +75,6 @@ function matchesMemberSearch(m: WorkspaceMember, raw: string): boolean {
 function isValidEmailFormat(value: string): boolean {
   const t = value.trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
-}
-
-function memberLabel(m: WorkspaceMember): string {
-  return (
-    m.displayName?.trim() || m.name?.trim() || m.email.split("@")[0] || m.email
-  );
-}
-
-function memberHandleLine(m: WorkspaceMember): string {
-  const h =
-    m.displayName?.trim() ||
-    m.name?.trim() ||
-    m.email.split("@")[0] ||
-    m.email;
-  return h.startsWith("@") ? h : `@${h}`;
 }
 
 export default function AddChannelMemberDialog({
@@ -138,6 +135,30 @@ export default function AddChannelMemberDialog({
     staleTime: 30_000,
   });
 
+  const memberOverlayMap = useWorkspaceMemberStore(
+    useShallow((s) => s.byWorkspace[workspaceId] ?? {}),
+  );
+
+  const displayMember = (m: WorkspaceMember) =>
+    mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
+
+  const memberLabel = (m: WorkspaceMember) => {
+    const d = displayMember(m);
+    return (
+      d.displayName?.trim() || d.name?.trim() || m.email.split("@")[0] || m.email
+    );
+  };
+
+  const memberHandleLine = (m: WorkspaceMember) => {
+    const d = displayMember(m);
+    const h =
+      d.displayName?.trim() ||
+      d.name?.trim() ||
+      m.email.split("@")[0] ||
+      m.email;
+    return h.startsWith("@") ? h : `@${h}`;
+  };
+
   const { data: directory } = useQuery({
     queryKey: channelKeys.members(workspaceId, channelId, ""),
     queryFn: () =>
@@ -165,8 +186,8 @@ export default function AddChannelMemberDialog({
     () =>
       notInChannelPool
         .filter((m) => !pendingIdSet.has(m.id))
-        .filter((m) => matchesMemberSearch(m, searchKey)),
-    [notInChannelPool, searchKey, pendingIdSet],
+        .filter((m) => matchesMemberSearch(m, searchKey, memberOverlayMap[m.id])),
+    [notInChannelPool, searchKey, pendingIdSet, memberOverlayMap],
   );
 
   const inviteEmailParsed = useMemo(() => {
@@ -497,11 +518,23 @@ export default function AddChannelMemberDialog({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Avatar
-                      src={m.avatar}
+                      src={displayMember(m).avatar ?? null}
                       alt={memberLabel(m)}
                       className="size-6 shrink-0 rounded-sm"
                     />
-                    <span className="max-w-[180px] truncate">{memberLabel(m)}</span>
+                    <div className="inline-flex min-w-0 max-w-[220px] items-center gap-0.5">
+                      <span className="min-w-0 flex-1 truncate">
+                        {memberLabel(m)}
+                      </span>
+                      <UserStatusEmojiInline
+                        statusEmoji={displayMember(m).statusEmoji}
+                        statusText={displayMember(m).statusText}
+                        emojiClassName="text-[12px]"
+                        interactive={Boolean(
+                          displayMember(m).statusText?.trim(),
+                        )}
+                      />
+                    </div>
                     <button
                       type="button"
                       className="rounded p-0.5 text-[#616061] hover:bg-black/10 hover:text-[#1d1c1d] dark:hover:bg-white/10"
@@ -587,13 +620,20 @@ export default function AddChannelMemberDialog({
                           onClick={() => addPendingUser(m.id)}
                         >
                           <Avatar
-                            src={m.avatar}
+                            src={displayMember(m).avatar ?? null}
                             alt={memberLabel(m)}
                             className="size-9 shrink-0 rounded-md"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-[15px] font-bold text-[#1d1c1d] dark:text-[#f9f8f9]">
-                              {memberLabel(m)}
+                            <div className="flex min-w-0 items-center gap-1">
+                              <div className="min-w-0 flex-1 truncate text-[15px] font-bold text-[#1d1c1d] dark:text-[#f9f8f9]">
+                                {memberLabel(m)}
+                              </div>
+                              <UserStatusEmojiInline
+                                statusEmoji={displayMember(m).statusEmoji}
+                                statusText={displayMember(m).statusText}
+                                emojiClassName="text-[14px]"
+                              />
                             </div>
                             <div className="truncate text-[13px] text-[#616061] dark:text-[#ababad]">
                               {memberHandleLine(m)}

@@ -2,15 +2,17 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
-import { useUserStore } from '@/stores/useUserStore'
-import { useFileDetailStore } from '@/stores/useFileDetailStore'
+import { getUserApi, getWorkspaceProfileApi } from '@/apis'
+import FileDetailPanel from '@/components/attachment-previews/file-detail-panel'
 import Sidebar from '@/components/sidebar'
 import Toolbar from '@/components/toolbar'
-import WorkspaceSidePanel from '@/modules/workspace/workspace-side-panel/workspace-side-panel'
-import FileDetailPanel from '@/components/attachment-previews/file-detail-panel'
-import { useWorkspaces } from '@/hooks/use-workspace'
 import { useChannels } from '@/hooks/use-channel'
+import { useGlobalSync } from '@/hooks/use-global-sync'
+import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
+import { useWorkspaces } from '@/hooks/use-workspace'
+import { useWorkspacePanelResize } from '@/hooks/use-workspace-panel-resize'
+import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
+import { authKeys } from '@/lib/query-keys'
 import type {
   AccountUser,
   ChannelMember,
@@ -19,20 +21,33 @@ import type {
   Workspace,
   WorkspaceMember,
 } from '@/lib/types'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import ProfilePanel from '@/modules/profile/profile-panel'
-import { useProfilePanelStore } from '@/stores/useProfilePanelStore'
-import { authKeys } from '@/lib/query-keys'
-import { getUserApi, getWorkspaceProfileApi } from '@/apis'
-import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
-import { useWorkspaceChannelSocket } from '@/hooks/use-channel'
-import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
+import {
+  getWorkspaceSidePanelIdFromPathname,
+  type WorkspacePanelInitialWidths,
+} from '@/lib/workspace-panel-widths'
+import ChannelView from '@/modules/channels/channel-view'
+import DMView from '@/modules/direct-messages/dm-view'
 import { PreferencesDialog } from '@/modules/preferences/preferences-dialog'
+import ProfilePanel from '@/modules/profile/profile-panel'
+import WorkspaceSidePanel from '@/modules/workspace/workspace-side-panel/workspace-side-panel'
+import { useFileDetailStore } from '@/stores/useFileDetailStore'
+import { useMainPanelStore } from '@/stores/useMainPanelStore'
+import { useNewMessageStore } from '@/stores/useNewMessageStore'
+import { useProfilePanelStore } from '@/stores/useProfilePanelStore'
 import { useThemeStore, type Theme } from '@/stores/useThemeStore'
-import { useTheme } from 'next-themes'
-import Cookies from 'js-cookie'
-import ThreadPanel from '../threads/thread-panel'
 import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
+import { useUserStore } from '@/stores/useUserStore'
+import { useWorkspaceMemberStore } from '@/stores/useWorkspaceMemberStore'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import Cookies from 'js-cookie'
+import { usePathname } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ActivitySidePanel from '../activity/activity-side-panel'
+import FilesSidePanel from '../all-files/files-side-panel'
+import DMSidePanel from '../direct-messages/dms-side-panel'
+import LaterSidePanel from '../later/later-side-panel'
+import ThreadPanel from '../threads/thread-panel'
+import NewMessageComposer from './new-message-composer'
 
 /** Merge payload `user_profile_updated` vào row channel member (Members tab). */
 function mergeChannelMemberProfile(
@@ -82,18 +97,18 @@ function mergeWorkspaceMemberProfile(
         data.statusExpiration === null
           ? null
           : (typeof data.statusExpiration === 'string'
-              ? data.statusExpiration
-              : new Date(data.statusExpiration as string).toISOString()),
+            ? data.statusExpiration
+            : new Date(data.statusExpiration as string).toISOString()),
     }),
     ...(data.notificationsPausedUntil !== undefined && {
       notificationsPausedUntil:
         data.notificationsPausedUntil === null
           ? null
           : (typeof data.notificationsPausedUntil === 'string'
-              ? data.notificationsPausedUntil
-              : new Date(
-                  data.notificationsPausedUntil as string,
-                ).toISOString()),
+            ? data.notificationsPausedUntil
+            : new Date(
+              data.notificationsPausedUntil as string,
+            ).toISOString()),
     }),
   }
 }
@@ -105,11 +120,7 @@ interface Props {
   workspaceProfileData: User | null
   workspaceId: string
   children: React.ReactNode
-  initialWidths: {
-    sidebarWidth: number
-    fileDetailWidth: number
-    profilePanelWidth: number
-  }
+  initialWidths: WorkspacePanelInitialWidths
 }
 
 export default function WorkspaceShell({
@@ -121,6 +132,13 @@ export default function WorkspaceShell({
   children,
   initialWidths,
 }: Props) {
+  const pathname = usePathname()
+  const isDMsPage = pathname.includes('/dms')
+  const isFilesPage = pathname.includes("/files");
+  const isActivityPage = pathname.includes("/activity");
+  const isLaterPage = pathname.includes("/later");
+  const isSearchPage = pathname.includes("/search");
+
   const { theme: storeTheme, setTheme, confirmTheme } = useThemeStore()
   const [hasSynced, setHasSynced] = useState(false)
   const theme = useMemo(() => {
@@ -167,15 +185,17 @@ export default function WorkspaceShell({
   })
 
   const queryClient = useQueryClient();
-  const { isProfileConnected, isChannelConnected } = useSocket()
+  const { isMainGatewayConnected } = useSocket()
 
-  useWorkspaceChannelSocket(workspaceId, isChannelConnected)
+  useGlobalSync(workspaceId)
 
-  useWorkspaceSocket(workspaceId, isProfileConnected, {
+  useWorkspaceSocket(workspaceId, isMainGatewayConnected, {
     onUserProfileUpdated: useCallback((data: Record<string, unknown>) => {
       const userId = data.id as string | undefined
       const updatedWsId = data.workspaceId as string | undefined
       if (!userId || updatedWsId !== workspaceId) return
+
+      useWorkspaceMemberStore.getState().patchFromSocket(workspaceId, data)
 
       // 1. Cập nhật cache Member Status (cho Profile Panel và các chỗ khác)
       queryClient.setQueryData(['workspace-member-status', workspaceId, userId], (old: Record<string, unknown> | undefined) => {
@@ -189,37 +209,7 @@ export default function WorkspaceShell({
         })
       }
 
-      // 3. Cập nhật Avatar/Tên hiển thị trong Message List (Infinite Query)
-      queryClient.setQueriesData({ queryKey: ['messages'] }, (oldData: any) => {
-        if (!oldData?.pages) return oldData
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            messages: page.messages.map((msg: any) =>
-              msg.user.id === userId
-                ? { ...msg, user: { ...msg.user, ...data } }
-                : msg,
-            ),
-          })),
-        }
-      })
-
-      // 3.1 Cập nhật Avatar trong Thread Messages
-      queryClient.setQueriesData({ queryKey: ['thread-messages'] }, (oldData: any) => {
-        if (!oldData?.pages) return oldData
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page: any) => ({
-            ...page,
-            messages: page.messages.map((msg: any) => 
-              msg.user.id === userId
-                ? { ...msg, user: { ...msg.user, ...data } }
-                : msg
-            ),
-          })),
-        }
-      })
+      // Message list / thread panel: dùng useWorkspaceMemberStore + merge trong MessageItem (không quét infinite query)
 
       // 4. Danh sách members trong channel (Members tab) — tên + avatar + status
       queryClient.setQueriesData(
@@ -300,6 +290,8 @@ export default function WorkspaceShell({
   const isFileDetailOpen = useFileDetailStore((s) => s.isOpen)
   const isProfilePanelOpen = useProfilePanelStore((s) => s.isOpen)
   const isThreadPanelOpen = useThreadPanelStore((s) => s.isOpen)
+  const isCreatingNewMessage = useNewMessageStore((s) => s.isCreating)
+  const { view: mainPanelView, reset: resetMainPanel, setActiveSavedItemId } = useMainPanelStore()
 
 
 
@@ -307,74 +299,37 @@ export default function WorkspaceShell({
     if (account) setUser(account)
   }, [account, setUser])
 
-  // Use values from props as first source of truth to avoid hydration shift.
-  const [sidebarWidth, setSidebarWidth] = useState(initialWidths.sidebarWidth)
-  const [fileDetailWidth, setFileDetailWidth] = useState(initialWidths.fileDetailWidth)
-  const [profilePanelWidth, setProfilePanelWidth] = useState(initialWidths.profilePanelWidth)
+  // Reset main panel view khi user tự navigate qua sidebar (pathname thay đổi)
+  useEffect(() => {
+    resetMainPanel()
+  }, [pathname, resetMainPanel])
 
-  const saveWidthsToCookie = useCallback((sidebar: number, file: number, profile: number) => {
-    Cookies.set(`panel-widths-${workspaceId}`, JSON.stringify({
-      sidebarWidth: sidebar,
-      fileDetailWidth: file,
-      profilePanelWidth: profile
-    }), { expires: 365, path: '/' })
-  }, [workspaceId])
-  const isResizing = useRef<'sidebar' | 'file-detail' | 'profile' | null>(null)
+  const activeSidePanelId = getWorkspaceSidePanelIdFromPathname(pathname)
 
-  const handleMouseMoveRef = useRef<(e: MouseEvent) => void>(() => {})
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return
+  const sidebarPanelRef = useRef<HTMLDivElement>(null)
+  const fileDetailPanelRef = useRef<HTMLDivElement>(null)
+  const profilePanelRef = useRef<HTMLDivElement>(null)
+  const panelResizeRefs = useMemo(
+    () => ({
+      sidebar: sidebarPanelRef,
+      fileDetail: fileDetailPanelRef,
+      profile: profilePanelRef,
+    }),
+    [],
+  )
 
-    if (isResizing.current === 'sidebar') {
-      const newWidth = e.clientX - 70 
-      if (newWidth > 240 && newWidth < 500) {
-        setSidebarWidth(newWidth)
-        saveWidthsToCookie(newWidth, fileDetailWidth, profilePanelWidth)
-      }
-    } else if (isResizing.current === 'file-detail') {
-      const newWidth = window.innerWidth/window.devicePixelRatio - e.clientX
-      if (newWidth > 310 && newWidth < 400) {
-        setFileDetailWidth(newWidth)
-        saveWidthsToCookie(sidebarWidth, newWidth, profilePanelWidth)
-      }
-    } else if (isResizing.current === 'profile') {
-      const newWidth = window.innerWidth/window.devicePixelRatio - e.clientX
-      if (newWidth > 410 && newWidth < 500) {
-        setProfilePanelWidth(newWidth)
-        saveWidthsToCookie(sidebarWidth, fileDetailWidth, newWidth)
-      }
-    }
-  }, [sidebarWidth, fileDetailWidth, profilePanelWidth, saveWidthsToCookie])
-
-  useLayoutEffect(() => {
-    handleMouseMoveRef.current = handleMouseMove
-  }, [handleMouseMove])
-
-  const stableMouseMove = useCallback((e: MouseEvent) => {
-    handleMouseMoveRef.current(e)
-  }, [])
-
-  const stopResizingRef = useRef<(() => void) | null>(null)
-  const stopResizing = useCallback(() => {
-    isResizing.current = null
-    document.removeEventListener('mousemove', stableMouseMove)
-    const onUp = stopResizingRef.current
-    if (onUp) document.removeEventListener('mouseup', onUp)
-    document.body.style.cursor = 'default'
-    document.body.style.userSelect = 'auto'
-  }, [stableMouseMove])
-
-  useLayoutEffect(() => {
-    stopResizingRef.current = stopResizing
-  }, [stopResizing])
-
-  const startResizing = (type: 'sidebar' | 'file-detail' | 'profile') => {
-    isResizing.current = type
-    document.addEventListener('mousemove', stableMouseMove)
-    document.addEventListener('mouseup', stopResizing)
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }
+  const {
+    sidebarWidth,
+    fileDetailWidth,
+    profilePanelWidth,
+    startResizing,
+    dragResizeKind,
+  } = useWorkspacePanelResize({
+    workspaceId,
+    initialWidths,
+    activeSidePanelId,
+    panelRefs: panelResizeRefs,
+  })
 
   const displayUser = sidebarUser ?? initialSidebarUser
 
@@ -403,9 +358,9 @@ export default function WorkspaceShell({
         const state = JSON.parse(stateStr)
         if (state.isProfileOpen && state.profileUserId) {
           // Re-open profile panel with minimal data (ProfilePanel will fetch the rest)
-          openProfile({ 
-            userData: { id: state.profileUserId } as any, 
-            workspaceId 
+          openProfile({
+            userData: { id: state.profileUserId } as any,
+            workspaceId
           })
         }
         // Lưu ý: FileDetailPanel cần data message/attachment phức tạp nên tạm thời chỉ khôi phục Profile Panel
@@ -421,7 +376,9 @@ export default function WorkspaceShell({
       style={{ background: getSysNavBackground() }}
     >
       <Toolbar
-        currentWorkspaceData={currentWorkspaceData} />
+        workspaceId={workspaceId}
+        currentWorkspaceData={currentWorkspaceData}
+      />
 
       <div className="flex h-full overflow-x-hidden"
       >
@@ -434,20 +391,48 @@ export default function WorkspaceShell({
         <main className="flex-1 mr-1 mb-1 overflow-hidden"
         >
           <div className="flex h-full rounded-lg border border-[#462B4A] overflow-hidden">
+            {!isSearchPage && (
+              <>
             {/* Workspace Side Panel */}
             <div
+              ref={sidebarPanelRef}
               className="flex flex-col gap-2 h-full px-3 py-2 shrink-0 overflow-hidden"
               style={{
-                width: sidebarWidth,
+                ...(dragResizeKind !== 'sidebar' ? { width: sidebarWidth } : {}),
                 background: getWorkspaceSidePanelBackground(),
               }}
             >
-              <WorkspaceSidePanel
-                theme={theme}
-                userData={displayUser}
-                currentWorkspaceData={currentWorkspaceData}
-                userWorkspaceChannels={channels}
-              />
+              {isDMsPage && (
+                <DMSidePanel
+                  theme={theme}
+                  currentWorkspaceData={currentWorkspaceData}
+                />
+              )}
+              {isLaterPage && (
+                <LaterSidePanel
+                  theme={theme}
+                  currentWorkspaceData={currentWorkspaceData}
+                />
+              )}
+              {isFilesPage && (
+                <FilesSidePanel
+                  theme={theme}
+                />
+              )}
+              {isActivityPage && (
+                <ActivitySidePanel
+                  theme={theme}
+                  currentWorkspaceData={currentWorkspaceData}
+                />
+              )}
+              {!isDMsPage && !isLaterPage && !isFilesPage && !isActivityPage && (
+                <WorkspaceSidePanel
+                  theme={theme}
+                  userData={displayUser}
+                  currentWorkspaceData={currentWorkspaceData}
+                  userWorkspaceChannels={channels}
+                />
+              )}
             </div>
 
             {/* Resize Handle for Sidebar */}
@@ -455,10 +440,26 @@ export default function WorkspaceShell({
               className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
               onMouseDown={() => startResizing('sidebar')}
             />
+              </>
+            )}
 
             {/* Main Content (Channels/Messages) */}
             <div className="flex-1 min-w-0 h-full bg-white dark:bg-[#1A1D21] py-2 overflow-hidden flex flex-col">
-              {children}
+              {isCreatingNewMessage ? (
+                <NewMessageComposer workspaceId={workspaceId} />
+              ) : mainPanelView.type === 'channel' ? (
+                <ChannelView
+                  channelId={mainPanelView.channelId}
+                  workspaceId={workspaceId}
+                />
+              ) : mainPanelView.type === 'dm' ? (
+                <DMView
+                  conversationId={mainPanelView.conversationId}
+                  workspaceId={workspaceId}
+                />
+              ) : (
+                children
+              )}
             </div>
 
             {/* File Detail Panel */}
@@ -469,8 +470,11 @@ export default function WorkspaceShell({
                   onMouseDown={() => startResizing('file-detail')}
                 />
                 <div
+                  ref={fileDetailPanelRef}
                   className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{ width: fileDetailWidth }}
+                  style={{
+                    ...(dragResizeKind !== 'file-detail' ? { width: fileDetailWidth } : {}),
+                  }}
                 >
                   <FileDetailPanel />
                 </div>
@@ -485,8 +489,11 @@ export default function WorkspaceShell({
                   onMouseDown={() => startResizing('profile')}
                 />
                 <div
+                  ref={profilePanelRef}
                   className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{ width: profilePanelWidth }}
+                  style={{
+                    ...(dragResizeKind !== 'profile' ? { width: profilePanelWidth } : {}),
+                  }}
                 >
                   <ProfilePanel />
                 </div>
@@ -501,8 +508,11 @@ export default function WorkspaceShell({
                   onMouseDown={() => startResizing('profile')}
                 />
                 <div
+                  ref={profilePanelRef}
                   className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{ width: profilePanelWidth }}
+                  style={{
+                    ...(dragResizeKind !== 'profile' ? { width: profilePanelWidth } : {}),
+                  }}
                 >
                   <ThreadPanel workspaceId={workspaceId} />
                 </div>
