@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import {
@@ -38,9 +38,9 @@ export interface SendMessagePayload {
   content: string
   parentId?: string
   alsoSendToChannel?: boolean
-  /** userIds: dùng cho trường hợp gửi tin nhắn đầu tiên để tạo DM conversation */
+  /** userIds: dÃ¹ng cho trÆ°á»ng há»£p gá»­i tin nháº¯n Ä‘áº§u tiÃªn Ä‘á»ƒ táº¡o DM conversation */
   userIds?: string[]
-  /** workspaceId: dùng kèm với userIds */
+  /** workspaceId: dÃ¹ng kÃ¨m vá»›i userIds */
   workspaceId?: string
   attachments?: {
     url: string
@@ -55,9 +55,9 @@ export interface SendMessagePayload {
   }[]
 }
 
-// ─── Fetcher (Migrated to use-channel-messages.ts) ───────────────────────────
+// â”€â”€â”€ Fetcher (Migrated to use-channel-messages.ts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Pinned Messages ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Pinned Messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function usePinnedMessages(target: {
   channelId?: string
@@ -128,7 +128,7 @@ export function useTogglePin(targetId: string, workspaceId?: string) {
           },
         )
       }
-      // ... giữ nguyên phần threads cache update
+      // ... giá»¯ nguyÃªn pháº§n threads cache update
 
       // 2. Update Threads Page cache
       if (workspaceId) {
@@ -172,14 +172,14 @@ export function useTogglePin(targetId: string, workspaceId?: string) {
   })
 }
 
-// ─── Mutation Helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Mutation Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** Cập nhật reaction list cho 1 message object */
+/** Cáº­p nháº­t reaction list cho 1 message object */
 export function updateMessageReactions(msg: Message, emoji: string, userId: string, action?: 'added' | 'removed'): Reaction[] {
   const reactionsList = msg.reactions ?? []
   const existing = reactionsList.find((r) => r.emoji === emoji)
 
-  // Xác định xem nên add hay remove dựa trên action hoặc toggle nếu không có action
+  // XÃ¡c Ä‘á»‹nh xem nÃªn add hay remove dá»±a trÃªn action hoáº·c toggle náº¿u khÃ´ng cÃ³ action
   let shouldAdd: boolean
   if (action) {
     shouldAdd = action === 'added'
@@ -192,53 +192,52 @@ export function updateMessageReactions(msg: Message, emoji: string, userId: stri
     if (existing) {
       return reactionsList.map((r) =>
         r.emoji === emoji
-          ? { ...r, userIds: [...new Set([...r.userIds, userId])], count: [...new Set([...r.userIds, userId])].length }
+          ? {
+              ...r,
+              userIds: [...new Set([...r.userIds, userId])],
+              users: [
+                ...(r.users ?? []),
+                { id: userId, name: null, displayName: null, avatar: null },
+              ].filter(
+                (u, index, arr) => arr.findIndex((x) => x.id === u.id) === index,
+              ),
+              count: [...new Set([...r.userIds, userId])].length,
+            }
           : r,
       )
     }
-    return [...reactionsList, { emoji, count: 1, userIds: [userId] }]
+    return [
+      ...reactionsList,
+      {
+        emoji,
+        count: 1,
+        userIds: [userId],
+        users: [{ id: userId, name: null, displayName: null, avatar: null }],
+      },
+    ]
   } else {
     if (!existing) return reactionsList
     return reactionsList
       .map((r) =>
         r.emoji === emoji
-          ? { ...r, userIds: r.userIds.filter((id) => id !== userId), count: r.userIds.filter((id) => id !== userId).length }
+          ? {
+              ...r,
+              userIds: r.userIds.filter((id) => id !== userId),
+              users: (r.users ?? []).filter((u) => u.id !== userId),
+              count: r.userIds.filter((id) => id !== userId).length,
+            }
           : r,
       )
       .filter((r) => r.count > 0)
   }
 }
 
-/** Reaction từ thread socket — luôn sync cache kể cả khi message chưa có trong entities (vd. reply thread-only của sender). */
-export function applyThreadPanelReactionFromSocket(
-  data: {
-    messageId: string
-    emoji: string
-    userId: string
-    action?: 'added' | 'removed'
-  },
-  syncMessageUpdate: (updated: Partial<Message> & { id: string }) => void,
-) {
-  const msg = useMessageStore.getState().entities[data.messageId]
-  const base = (msg ?? {
-    id: data.messageId,
-    reactions: [] as Reaction[],
-  }) as Message
-  const newReactions = updateMessageReactions(
-    base,
-    data.emoji,
-    data.userId,
-    data.action,
-  )
-  syncMessageUpdate({ id: data.messageId, reactions: newReactions })
-}
-
-// ─── Hooks ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // useMessages has been migrated to use-channel-messages.ts
 
 /**
- * useThreads — Lấy danh sách threads trong workspace + nhận realtime
+ * useThreads â€” Láº¥y danh sÃ¡ch threads trong workspace + nháº­n realtime
  */
 export function useThreads(workspaceId: string, userId: string, isConnected: boolean) {
   const queryClient = useQueryClient()
@@ -247,7 +246,7 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
     queryKey: messageKeys.threads(workspaceId),
     queryFn: async ({ pageParam }) => {
       const data = await fetchThreadsApi(workspaceId, pageParam as string | undefined)
-      // Lưu trữ thực thể vào Zustand để đồng bộ toàn cục
+      // LÆ°u trá»¯ thá»±c thá»ƒ vÃ o Zustand Ä‘á»ƒ Ä‘á»“ng bá»™ toÃ n cá»¥c
       const allMessages: Message[] = []
       data.threads.forEach(t => {
         allMessages.push(t)
@@ -264,18 +263,26 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
   const { syncMessageUpdate, syncMessageDeletion } = useMessageSync()
 
 
-  // Khi có tin nhắn mới từ bất kỳ đâu, nếu là reply -> invalidate threads list
+  // Khi cÃ³ tin nháº¯n má»›i tá»« báº¥t ká»³ Ä‘Ã¢u, náº¿u lÃ  reply -> invalidate threads list
   const handleNewMessage = useCallback(
     (newMessage: any) => {
       const msg = newMessage as Message
       if (msg.parentId) {
-        // 1. Invalidate để server sắp xếp lại thứ tự threads (unread/lastActivity)
+        // 1. Invalidate Ä‘á»ƒ server sáº¯p xáº¿p láº¡i thá»© tá»± threads (unread/lastActivity)
         void queryClient.invalidateQueries({ queryKey: messageKeys.threads(workspaceId) })
 
-        // 2. Cập nhật Entity Store
+        // 2. Cáº­p nháº­t Entity Store - mark parent as unread if reply is from another user
+        const parentEntity = useMessageStore.getState().entities[msg.parentId]
+        if (parentEntity) {
+          useMessageStore.getState().updateEntity(msg.parentId, {
+            isUnread: msg.user.id !== userId,
+          } as Partial<Message>)
+        }
+
+        // 3. Thêm reply vào store
         useMessageStore.getState().upsertEntities([msg])
 
-        // 3. Cập nhật snippet (vẫn cần manual vì liên quan đến cấu trúc array snippet)
+        // 4. Cáº­p nháº­t snippet (váº«n cáº§n manual vÃ¬ liÃªn quan Ä‘áº¿n cáº¥u trÃºc array snippet)
         queryClient.setQueryData(
           messageKeys.threads(workspaceId),
           (old: { pages: ThreadsPage[]; pageParams: unknown[] } | undefined) => {
@@ -323,7 +330,7 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
 
   const handleMessageUpdated = useCallback(
     (data: any) => {
-      // Sử dụng Sync Engine tập trung - nó sẽ lo việc cập nhật Entities + RQ Threads Page
+      // Sá»­ dá»¥ng Sync Engine táº­p trung - nÃ³ sáº½ lo viá»‡c cáº­p nháº­t Entities + RQ Threads Page
       syncMessageUpdate(data)
     },
     [syncMessageUpdate],
@@ -334,7 +341,7 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
       const msg = newMessage as Message
       if (!msg.parentId) return
 
-      // Cập nhật snippet cho thread card tương ứng
+      // Cáº­p nháº­t snippet cho thread card tÆ°Æ¡ng á»©ng
       queryClient.setQueryData(
         messageKeys.threads(workspaceId),
         (old: { pages: ThreadsPage[]; pageParams: unknown[] } | undefined) => {
@@ -363,21 +370,6 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
       )
     },
     [workspaceId, queryClient, userId]
-  )
-
-  const handleReactionUpdate = useCallback(
-    (data: any) => {
-      applyThreadPanelReactionFromSocket(
-        {
-          messageId: data.messageId,
-          emoji: data.emoji,
-          userId: data.userId,
-          action: data.action,
-        },
-        syncMessageUpdate,
-      )
-    },
-    [syncMessageUpdate],
   )
 
   const handleMessageDeleted = useCallback(
@@ -411,24 +403,23 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
   useUserSocket(userId, isConnected, {
     onNewSidebarMessage: handleNewMessage,
     onAttachmentAdded: handleAttachmentAdded,
-    onMessageUpdated: handleMessageUpdated, // Lắng nghe thêm event update (để xóa placeholder)
+    onMessageUpdated: handleMessageUpdated, // Láº¯ng nghe thÃªm event update (Ä‘á»ƒ xÃ³a placeholder)
   })
 
-  // Lắng nghe thêm các sự kiện từ Thread Panel để cập nhật Snippet ở Threads Page
-  // Chúng ta dùng getChannelChatSocket trực tiếp vì useUserSocket không hỗ trợ thread-panel:*
+  // Láº¯ng nghe thÃªm cÃ¡c sá»± kiá»‡n tá»« Thread Panel Ä‘á»ƒ cáº­p nháº­t Snippet á»Ÿ Threads Page
+  // ChÃºng ta dÃ¹ng getChannelChatSocket trá»±c tiáº¿p vÃ¬ useUserSocket khÃ´ng há»— trá»£ thread-panel:*
   const socket = getChannelChatSocket()
   useEffect(() => {
     if (!isConnected || !userId) return
 
     socket.on('thread-panel:message', handleThreadPanelMessage)
     socket.on('thread-panel:message_updated', handleMessageUpdated)
-    socket.on('thread-panel:reaction_update', handleReactionUpdate)
     socket.on('thread-panel:message_deleted', handleMessageDeleted)
     socket.on('thread-panel:attachment_added', handleAttachmentAdded)
     socket.on('thread-panel:attachment_deleted', handleAttachmentDeleted)
     socket.on('thread-panel:message_pinned', handleMessagePinned)
 
-    // Reconnect logic: Khi socket reconnect, invalidate threads list để lấy data mới nhất
+    // Reconnect logic: Khi socket reconnect, invalidate threads list Ä‘á»ƒ láº¥y data má»›i nháº¥t
     const handleReconnect = () => {
       void queryClient.invalidateQueries({
         queryKey: messageKeys.threads(workspaceId),
@@ -439,20 +430,19 @@ export function useThreads(workspaceId: string, userId: string, isConnected: boo
     return () => {
       socket.off('thread-panel:message', handleThreadPanelMessage)
       socket.off('thread-panel:message_updated', handleMessageUpdated)
-      socket.off('thread-panel:reaction_update', handleReactionUpdate)
       socket.off('thread-panel:message_deleted', handleMessageDeleted)
       socket.off('thread-panel:attachment_added', handleAttachmentAdded)
       socket.off('thread-panel:attachment_deleted', handleAttachmentDeleted)
       socket.off('thread-panel:message_pinned', handleMessagePinned)
       socket.off('connect', handleReconnect)
     }
-  }, [isConnected, userId, socket, handleThreadPanelMessage, handleMessageUpdated, handleReactionUpdate, handleMessageDeleted, handleAttachmentAdded, handleAttachmentDeleted, handleMessagePinned, workspaceId, queryClient])
+  }, [isConnected, userId, socket, handleThreadPanelMessage, handleMessageUpdated, handleMessageDeleted, handleAttachmentAdded, handleAttachmentDeleted, handleMessagePinned, workspaceId, queryClient])
 
   return query
 }
 
 /**
- * useMarkThreadAsRead — Đánh dấu thread đã đọc
+ * useMarkThreadAsRead â€” ÄÃ¡nh dáº¥u thread Ä‘Ã£ Ä‘á»c
  */
 export function useMarkThreadAsRead(workspaceId: string) {
   const queryClient = useQueryClient()
@@ -462,14 +452,14 @@ export function useMarkThreadAsRead(workspaceId: string) {
   return useMutation({
     mutationFn: (parentId: string) => markThreadAsReadApi(parentId),
     onSuccess: (_, parentId) => {
-      // Cập nhật Entity Store và List Cache (isUnread thuộc ThreadMessage/snippet, không có trên Message)
+      // Cáº­p nháº­t Entity Store vÃ  List Cache (isUnread thuá»™c ThreadMessage/snippet, khÃ´ng cÃ³ trÃªn Message)
       syncMessageUpdate({ id: parentId, isUnread: false } as Partial<Message> & { id: string })
     },
   })
 }
 
 /**
- * useThreadMessages — load lịch sử reply + nhận realtime qua WebSocket
+ * useThreadMessages â€” load lá»‹ch sá»­ reply + nháº­n realtime qua WebSocket
  */
 export function useThreadMessages(parentId: string, userId: string, isConnected: boolean) {
   const queryClient = useQueryClient()
@@ -502,8 +492,8 @@ export function useThreadMessages(parentId: string, userId: string, isConnected:
       const msg = newMessage as Message
       if (msg.parentId !== parentId || msg.type === 'system') return
 
-      // Lưu ý: Việc đưa vào Entity Store đã được useGlobalSync lo liệu
-      // Ở đây chúng ta chỉ cần cập nhật danh sách hiển thị của React Query
+      // LÆ°u Ã½: Viá»‡c Ä‘Æ°a vÃ o Entity Store Ä‘Ã£ Ä‘Æ°á»£c useGlobalSync lo liá»‡u
+      // á»ž Ä‘Ã¢y chÃºng ta chá»‰ cáº§n cáº­p nháº­t danh sÃ¡ch hiá»ƒn thá»‹ cá»§a React Query
 
       queryClient.setQueryData(
         messageKeys.thread(parentId),
@@ -528,35 +518,19 @@ export function useThreadMessages(parentId: string, userId: string, isConnected:
     [parentId, queryClient],
   )
 
-  const handleReactionUpdate = useCallback(
-    (data: any) => {
-      applyThreadPanelReactionFromSocket(
-        {
-          messageId: data.messageId,
-          emoji: data.emoji,
-          userId: data.userId,
-          action: data.action,
-        },
-        syncMessageUpdate,
-      )
-    },
-    [syncMessageUpdate],
-  )
-
   useThreadSocket(parentId, isConnected, {
     onMessage: handleNewReply,
-    onReactionUpdate: handleReactionUpdate,
   })
 
   return query
 }
 
 /**
- * useSendMessage — gửi message qua REST API với optimistic update
+ * useSendMessage â€” gá»­i message qua REST API vá»›i optimistic update
  *
- * Sender KHÔNG nhận lại WS broadcast vì backend dùng X-Socket-Id header
- * để exclude sender's socket khỏi broadcast.
- * → Cập nhật cache danh sách DM (sidebar) trong onMutate/onSuccess, không chờ entity:sync.
+ * Sender KHÃ”NG nháº­n láº¡i WS broadcast vÃ¬ backend dÃ¹ng X-Socket-Id header
+ * Ä‘á»ƒ exclude sender's socket khá»i broadcast.
+ * â†’ Cáº­p nháº­t cache danh sÃ¡ch DM (sidebar) trong onMutate/onSuccess, khÃ´ng chá» entity:sync.
  */
 export function useSendMessage(
   target: { channelId?: string; conversationId?: string },
@@ -576,7 +550,7 @@ export function useSendMessage(
       } else if (conversationId) {
         url = `/direct-messages/${conversationId}/messages`
       } else {
-        // Trường hợp gửi tin nhắn đầu tiên để tạo DM
+        // TrÆ°á»ng há»£p gá»­i tin nháº¯n Ä‘áº§u tiÃªn Ä‘á»ƒ táº¡o DM
         url = `/direct-messages/messages`
       }
 
@@ -644,7 +618,7 @@ export function useSendMessage(
           (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
             if (!old?.pages.length) return old
             const firstPage = old.pages[0]
-            // Tránh duplicate nếu message đã tồn tại (do broadcast nhanh hơn REST response)
+            // TrÃ¡nh duplicate náº¿u message Ä‘Ã£ tá»“n táº¡i (do broadcast nhanh hÆ¡n REST response)
             const alreadyExists = firstPage.messages.some(m => m.id === tempMessage.id)
             if (alreadyExists) return old
 
@@ -659,19 +633,19 @@ export function useSendMessage(
         )
       }
 
-      // 2. Nếu là reply -> Prepend vào Thread cache
+      // 2. Náº¿u lÃ  reply -> Prepend vÃ o Thread cache
       if (payload.parentId) {
         queryClient.setQueryData(
           messageKeys.thread(payload.parentId),
           (old: { pages: MessagesPage[]; pageParams: unknown[] } | undefined) => {
-            // Nếu chưa có cache cho thread này, ta khởi tạo nó
+            // Náº¿u chÆ°a cÃ³ cache cho thread nÃ y, ta khá»Ÿi táº¡o nÃ³
             const current = old || { pages: [], pageParams: [] }
             const pages = current.pages.length > 0
               ? current.pages
               : [{ messages: [], nextCursor: null, hasMore: false }]
             const firstPage = pages[0]
 
-            // Tránh duplicate
+            // TrÃ¡nh duplicate
             const alreadyExists = firstPage.messages.some(m => m.id === tempMessage.id)
             if (alreadyExists) return old
 
@@ -685,7 +659,7 @@ export function useSendMessage(
           },
         )
 
-        // 3. Cập nhật replyCount cho tin nhắn cha trong Channel list (UI sync)
+        // 3. Cáº­p nháº­t replyCount cho tin nháº¯n cha trong Channel list (UI sync)
         if (targetId) {
           queryClient.setQueryData(
             messageKeys.list(targetId),
@@ -698,7 +672,7 @@ export function useSendMessage(
                   messages: page.messages.map(m => {
                     if (m.id !== payload.parentId) return m;
 
-                    // Cập nhật participantIds (thêm userId hiện tại nếu chưa có)
+                    // Cáº­p nháº­t participantIds (thÃªm userId hiá»‡n táº¡i náº¿u chÆ°a cÃ³)
                     const newParticipantIds = [...(m.replyParticipantIds || [])];
                     if (currentUser?.id && !newParticipantIds.includes(currentUser.id)) {
                       if (newParticipantIds.length < 5) {
@@ -736,7 +710,7 @@ export function useSendMessage(
         }
 
         // 5. Optimistic update cho Threads Page cache
-        // Chèn tempMessage vào mảng replies của thread cha tương ứng
+        // ChÃ¨n tempMessage vÃ o máº£ng replies cá»§a thread cha tÆ°Æ¡ng á»©ng
         queryClient.setQueriesData(
           { predicate: (query) => query.queryKey[0] === 'workspaces' && query.queryKey[2] === 'threads' },
           (old: any) => {
@@ -765,10 +739,10 @@ export function useSendMessage(
     },
 
     onSuccess: (newMessage, payload, context) => {
-      // Nếu là tin nhắn tạo conversation mới, ta cần cập nhật lại targetId
+      // Náº¿u lÃ  tin nháº¯n táº¡o conversation má»›i, ta cáº§n cáº­p nháº­t láº¡i targetId
       const actualTargetId = newMessage.channelId || newMessage.conversationId;
 
-      // Replace temp message trong Zustand Store (chuyển key temp → id thật để edit/reaction hoạt động)
+      // Replace temp message trong Zustand Store (chuyá»ƒn key temp â†’ id tháº­t Ä‘á»ƒ edit/reaction hoáº¡t Ä‘á»™ng)
       if (actualTargetId && (!payload.parentId || payload.alsoSendToChannel)) {
         const tempId = context?.tempId
         if (tempId && tempId !== newMessage.id) {
@@ -883,11 +857,54 @@ export function useSendMessage(
 }
 
 /**
- * useAddReaction — toggle reaction với optimistic update
+ * useAddReaction â€” toggle reaction vá»›i optimistic update
  */
 export function useAddReaction(targetId: string, workspaceId?: string) {
   const queryClient = useQueryClient()
   const store = useMessageStore()
+
+  const applyReactionSnapshot = useCallback(
+    (messageId: string, reactions: Reaction[]) => {
+      store.updateEntity(messageId, { reactions })
+
+      const updateTransform = (old: any) => {
+        if (!old?.pages) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            messages: page.messages.map((msg: any) =>
+              msg.id === messageId ? { ...msg, reactions } : msg,
+            ),
+          })),
+        }
+      }
+
+      queryClient.setQueriesData({ queryKey: messageKeys.all }, updateTransform)
+      queryClient.setQueriesData({ queryKey: messageKeys.threadsAll }, updateTransform)
+      if (workspaceId) {
+        queryClient.setQueriesData({ queryKey: messageKeys.threads(workspaceId) }, (old: any) => {
+          if (!old?.pages) return old
+          return {
+            ...old,
+            pages: old.pages.map((page: any) => ({
+              ...page,
+              threads: page.threads.map((t: any) => {
+                if (t.id === messageId) return { ...t, reactions }
+                return {
+                  ...t,
+                  replies: t.replies.map((r: any) =>
+                    r.id === messageId ? { ...r, reactions } : r,
+                  ),
+                }
+              }),
+            })),
+          }
+        })
+      }
+    },
+    [queryClient, store, workspaceId],
+  )
 
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string; userId: string; parentId?: string }) => {
@@ -896,7 +913,7 @@ export function useAddReaction(targetId: string, workspaceId?: string) {
     },
 
     onMutate: async ({ messageId, emoji, userId, parentId: _parentId }) => {
-      // 1. Zustand Store (Optimistic) — chỉ khi đã có entity (reply thread-only giờ đã được upsert)
+      // 1. Zustand Store (Optimistic) â€” chá»‰ khi Ä‘Ã£ cÃ³ entity (reply thread-only giá» Ä‘Ã£ Ä‘Æ°á»£c upsert)
       const entity = store.entities[messageId]
       if (entity) {
         store.updateEntity(messageId, {
@@ -904,7 +921,7 @@ export function useAddReaction(targetId: string, workspaceId?: string) {
         })
       }
 
-      // 2. React Query cache (Optimistic) - Cập nhật tất cả các loại list tin nhắn
+      // 2. React Query cache (Optimistic) - Cáº­p nháº­t táº¥t cáº£ cÃ¡c loáº¡i list tin nháº¯n
       const previousData = new Map()
 
       const updateTransform = (old: any) => {
@@ -921,7 +938,7 @@ export function useAddReaction(targetId: string, workspaceId?: string) {
         }
       }
 
-      // Channel lists + thread reply lists (cùng shape pages[].messages)
+      // Channel lists + thread reply lists (cÃ¹ng shape pages[].messages)
       queryClient.setQueriesData({ queryKey: messageKeys.all }, updateTransform)
       queryClient.setQueriesData({ queryKey: messageKeys.threadsAll }, updateTransform)
       // Threads Page (Snippet)
@@ -949,8 +966,17 @@ export function useAddReaction(targetId: string, workspaceId?: string) {
       return { previousData }
     },
 
+    onSuccess: (data, vars) => {
+      if (Array.isArray((data as { reactions?: Reaction[] }).reactions)) {
+        applyReactionSnapshot(
+          vars.messageId,
+          (data as { reactions: Reaction[] }).reactions,
+        )
+      }
+    },
+
     onError: (_err, _vars, _context) => {
-      // Invalidate để đảm bảo data chuẩn từ server khi có lỗi
+      // Invalidate Ä‘á»ƒ Ä‘áº£m báº£o data chuáº©n tá»« server khi cÃ³ lá»—i
       void queryClient.invalidateQueries({ queryKey: messageKeys.all })
       void queryClient.invalidateQueries({ queryKey: messageKeys.threadsAll })
       if (workspaceId) void queryClient.invalidateQueries({ queryKey: messageKeys.threads(workspaceId) })
@@ -959,7 +985,7 @@ export function useAddReaction(targetId: string, workspaceId?: string) {
 }
 
 /**
- * useUpdateMessage — chỉnh sửa message với optimistic update
+ * useUpdateMessage â€” chá»‰nh sá»­a message vá»›i optimistic update
  */
 export function useUpdateMessage(targetId: string, workspaceId?: string) {
   const queryClient = useQueryClient()
@@ -1067,7 +1093,7 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
     },
 
     onSuccess: (res) => {
-      // Cập nhật dữ liệu chuẩn từ server
+      // Cáº­p nháº­t dá»¯ liá»‡u chuáº©n tá»« server
       const updatedMessage = res.data as Message
       const ws = workspaceId ?? updatedMessage.workspaceId
       if (ws && updatedMessage.conversationId && !updatedMessage.channelId) {
@@ -1109,7 +1135,7 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
 }
 
 /**
- * useDeleteMessage - xóa message (soft delete)
+ * useDeleteMessage - xÃ³a message (soft delete)
  */
 export function useDeleteMessage(targetId: string, workspaceId?: string) {
   const queryClient = useQueryClient()
@@ -1171,7 +1197,7 @@ export function useDeleteMessage(targetId: string, workspaceId?: string) {
         })
       }
 
-      // 3. Sync với Thread Panel
+      // 3. Sync vá»›i Thread Panel
       const { updateMessage: syncThreadPanel, messageId: openParentId } = useThreadPanelStore.getState()
       if (openParentId === messageId) {
         syncThreadPanel({ id: messageId, deletedAt, content: '' })
@@ -1195,7 +1221,7 @@ export function useDeleteMessage(targetId: string, workspaceId?: string) {
 }
 
 /**
- * useDeleteAttachment - xóa attachment vĩnh viễn
+ * useDeleteAttachment - xÃ³a attachment vÄ©nh viá»…n
  */
 export function useDeleteAttachment(targetId: string) {
   const queryClient = useQueryClient()
@@ -1209,7 +1235,7 @@ export function useDeleteAttachment(targetId: string) {
       await queryClient.cancelQueries({ queryKey: messageKeys.all })
       const previousData = queryClient.getQueryData(messageKeys.list(targetId))
 
-      // Cập nhật optimistic: Xóa attachment khỏi tất cả tin nhắn trong cache này
+      // Cáº­p nháº­t optimistic: XÃ³a attachment khá»i táº¥t cáº£ tin nháº¯n trong cache nÃ y
       queryClient.setQueriesData(
         { queryKey: messageKeys.all },
         (old: any) => {
@@ -1231,7 +1257,7 @@ export function useDeleteAttachment(targetId: string) {
     },
 
     onSuccess: () => {
-      // Invalidate để đảm bảo data chuẩn từ server
+      // Invalidate Ä‘á»ƒ Ä‘áº£m báº£o data chuáº©n tá»« server
       void queryClient.invalidateQueries({ queryKey: messageKeys.all })
     },
 
@@ -1244,7 +1270,7 @@ export function useDeleteAttachment(targetId: string) {
 }
 
 /**
- * useSaveForLater - lưu tin nhắn hoặc file vào danh sách Later
+ * useSaveForLater - lÆ°u tin nháº¯n hoáº·c file vÃ o danh sÃ¡ch Later
  */
 export function useSaveForLater(workspaceId: string) {
   const queryClient = useQueryClient()
@@ -1253,6 +1279,7 @@ export function useSaveForLater(workspaceId: string) {
     mutationFn: (payload: SaveItemPayload) => saveItemApi(workspaceId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['saved-items', workspaceId] })
+      void queryClient.invalidateQueries({ queryKey: ['saved-items-summary', workspaceId] })
       void queryClient.invalidateQueries({ queryKey: ['later-saved-messages'] })
       toast.success('Saved for later')
     },
@@ -1284,6 +1311,7 @@ export function useToggleLaterMessage(workspaceId: string) {
     },
     onSuccess: (action) => {
       void queryClient.invalidateQueries({ queryKey: ['saved-items', workspaceId] })
+      void queryClient.invalidateQueries({ queryKey: ['saved-items-summary', workspaceId] })
       void queryClient.invalidateQueries({ queryKey: ['later-saved-messages'] })
       toast.success(
         action === 'removed' ? 'Removed from Later' : 'Saved for later',

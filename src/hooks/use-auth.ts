@@ -8,6 +8,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import type { AccountUser } from '@/lib/types'
 import { getUserApi } from '@/apis'
 import { authKeys } from '@/lib/query-keys'
+import { forceLightTheme } from '@/lib/theme-utils'
 
 export function useAuth() {
   const queryClient = useQueryClient()
@@ -41,9 +42,10 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: () => apiClient.post('/auth/logout'),
     onSuccess: () => {
+      forceLightTheme()
       clearUser()
       queryClient.clear()
-      router.push('/auth')
+      router.replace('/auth')
     },
   })
 

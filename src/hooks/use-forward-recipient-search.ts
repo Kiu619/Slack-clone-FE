@@ -17,6 +17,10 @@ import {
   mergeUserForDisplay,
   useWorkspaceMemberStore,
 } from "@/stores/useWorkspaceMemberStore";
+import {
+  getDmMemberDisplayName,
+  isActiveWorkspaceMember,
+} from "@/lib/dm-members";
 
 export type ForwardRecipientTargetType = "channel" | "member" | "conversation";
 
@@ -88,6 +92,7 @@ export const useForwardRecipientSearch = (workspaceId: string) => {
     const memberResults =
       filterType !== "channel"
         ? allMembers?.filter((member) => {
+            if (!isActiveWorkspaceMember(member)) return false;
             if (member.id === currentUser?.id) return false;
             if (
               selectedTargets.some((t) => t.id === member.id && t.type === "member")
@@ -184,7 +189,6 @@ export const useForwardRecipientSearch = (workspaceId: string) => {
         });
       }
       setSearchQuery("");
-      setIsSearchFocused(false);
     },
     [displayMember],
   );
@@ -195,7 +199,7 @@ export const useForwardRecipientSearch = (workspaceId: string) => {
       const label = `${otherMembers
         .map((m) => {
           const d = displayMember(m as WorkspaceMember);
-          return d.displayName || d.name || m.email;
+          return getDmMemberDisplayName(d);
         })
         .join(", ")} (group)`;
       setSelectedTargets((prev) => {
@@ -208,7 +212,6 @@ export const useForwardRecipientSearch = (workspaceId: string) => {
         ];
       });
       setSearchQuery("");
-      setIsSearchFocused(false);
     },
     [currentUser?.id, displayMember],
   );

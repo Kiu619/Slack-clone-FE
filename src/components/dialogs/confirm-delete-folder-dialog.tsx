@@ -32,7 +32,7 @@ export function ConfirmDeleteFolderDialog({
         </p>
       </CustomDialogBody>
       <CustomDialogFooter>
-        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
         <Button

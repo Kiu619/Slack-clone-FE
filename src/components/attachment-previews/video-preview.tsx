@@ -4,6 +4,7 @@ import type { Message, MessageAttachment } from "@/lib/types";
 import { useVideoFullscreenStore } from "@/stores/useVideoFullscreenStore";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { openSafeUrl } from "@/lib/open-safe-url";
 import FileToolbar from "./file-toolbar";
 import {
   LuPlay,
@@ -244,12 +245,12 @@ export default function VideoPreview({
     if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
-      window.open(attachment.url, "_blank");
+      openSafeUrl(attachment.url);
     }
   };
 
   const handleOpenInNewTab = () => {
-    window.open(attachment.url, "_blank");
+    openSafeUrl(attachment.url);
   };
 
   const togglePlay = () => {

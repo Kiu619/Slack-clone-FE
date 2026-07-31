@@ -2,36 +2,36 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import dynamic from "next/dynamic"
+import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
 import { formatTimestamp } from "@/helpers/format-time-stamp"
+import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages"
+import { openSafeUrl } from "@/lib/open-safe-url"
+import { messageKeys } from "@/lib/query-keys"
+import { cn } from "@/lib/utils"
 import { useFileDetailStore } from "@/stores/useFileDetailStore"
+import { useUserStore } from "@/stores/useUserStore"
+import { useQueryClient } from "@tanstack/react-query"
 import { X } from "lucide-react"
-import { useState } from "react"
-import { MdMoreVert, MdOutlineCloudDownload } from "react-icons/md"
+import dynamic from "next/dynamic"
+import { useEffect, useState } from "react"
+import { MdMoreVert, MdOutlineCloudDownload, MdOutlineKeyboardArrowRight } from "react-icons/md"
 import { RiShareForwardLine } from "react-icons/ri"
+import { toast } from "sonner"
+import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
+import { ShareFileDialog } from "../dialogs/share-file-dialog"
+import { Button } from "../ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import { Separator } from "../ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import Typography from "../ui/typography"
+import { AddToFolderSubmenu } from "./add-to-folder-submenu"
+import AudioPreview from "./audio-preview"
 import CodePreview from "./code-preview"
 import FilePreview from "./file-preview"
-import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils"
+import { getAttachmentPreviewKind } from "./file-utils"
 import ImagePreview from "./image-preview"
 import OfficeFilePreview from "./office-file-preview"
-import { ShareFileDialog } from "../dialogs/share-file-dialog"
 import VideoPreview from "./video-preview"
-import { cn } from "@/lib/utils"
-import AudioPreview from "./audio-preview"
-import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages"
-import { toast } from "sonner"
-import { useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
-import { messageKeys } from "@/lib/query-keys"
-import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
-import { useUserStore } from "@/stores/useUserStore"
-import { AddToFolderSubmenu } from "./add-to-folder-submenu"
-import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
-import { MENU_ITEM_STYLE } from "@/constants/styles"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -52,7 +52,7 @@ export default function FileDetailPanel() {
 
   const isOwner = message?.user.id === currentUser?.id
 
-  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId!)
+  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId ?? "")
   
 
   useEffect(() => {
@@ -94,15 +94,15 @@ export default function FileDetailPanel() {
     });
 
     return unsubscribe;
-  }, [message, attachment, queryClient]);
+  }, [message, attachment, queryClient, targetId]);
 
 
   const handleDownload = () => {
-    window.open(attachment?.url ?? "", "_blank")
+    openSafeUrl(attachment?.url)
   }
 
   const handleOpenInNewTab = () => {
-    window.open(attachment?.url ?? "", "_blank")
+    openSafeUrl(attachment?.url)
   }
 
   const handleDelete = () => {
@@ -124,23 +124,14 @@ export default function FileDetailPanel() {
   );
 
   if (!attachment) return null
-  // Group theo type
-  const images = attachment?.type === "image"
-  const videos = attachment?.type === "video"
-  const audioFiles = attachment?.type === "audio"
-  const officeFiles = isOfficeFile(attachment.name)
-  const pdfFiles = isPdfFile(attachment.name, attachment.mimeType)
-  const codeFiles =
-    !isOfficeFile(attachment.name) &&
-    !isPdfFile(attachment.name, attachment.mimeType) &&
-    isCodeOrTextFile(attachment.name, attachment.mimeType)
-  const otherFiles =
-    !isOfficeFile(attachment.name) &&
-    !isPdfFile(attachment.name, attachment.mimeType) &&
-    !isCodeOrTextFile(attachment.name, attachment.mimeType) &&
-    !images &&
-    !videos &&
-    !audioFiles
+  const previewKind = getAttachmentPreviewKind(attachment)
+  const images = previewKind === "image"
+  const videos = previewKind === "video"
+  const audioFiles = previewKind === "audio"
+  const officeFiles = previewKind === "office"
+  const pdfFiles = previewKind === "pdf"
+  const codeFiles = previewKind === "code"
+  const otherFiles = previewKind === "other"
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
@@ -304,16 +295,16 @@ export default function FileDetailPanel() {
           >
             <div className="py-2">
               <div className="flex flex-col space-y-1">
-                <div className={MENU_ITEM_STYLE} onClick={handleOpenInNewTab}>
+                <Button variant="submenu" onClick={handleOpenInNewTab}>
                   <Typography variant="p" text="Open in new tab" />
-                </div>
-                <div className={MENU_ITEM_STYLE}
+                </Button>
+                <Button variant="submenu"
                   onClick={() => {
-                    handleSaveForLater(attachment?.id!)
+                    handleSaveForLater(attachment.id)
                   }}
                 >
                   <Typography variant="p" text="Save for later" />
-                </div>
+                </Button>
 
                 <Separator className="bg-[#797c814d]" />
 
@@ -322,9 +313,10 @@ export default function FileDetailPanel() {
                   onMouseEnter={() => setIsAddToFolderOpen(true)}
                   onMouseLeave={() => setIsAddToFolderOpen(false)}
                 >
-                  <div className={cn(MENU_ITEM_STYLE, "relative")}>
+                  <Button variant="checkedMenu" className={cn("relative")}>
                     <Typography variant="p" text="Add to folder" />
-                  </div>
+                    <MdOutlineKeyboardArrowRight size={13} />
+                  </Button>
                   {isAddToFolderOpen && message && targetId && (
                     <div className="absolute bottom-2 right-35 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
                       <AddToFolderSubmenu

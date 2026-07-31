@@ -2,6 +2,7 @@
 
 import Typography from "@/components/ui/typography";
 import { User } from "@/lib/types";
+import { getDmDisplayName } from "@/lib/dm-members";
 import { Avatar, AvatarFallback, AvatarImage, AvatarGroup } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -37,12 +38,7 @@ const DMIntro = ({ members, isGroup, createdAt, workspaceId }: DMIntroProps) => 
 
   const getDMName = () => {
     if (isSelf) return "you";
-    return otherMembers
-      .map((m) => {
-        const d = displayMember(m);
-        return d.displayName || d.name || d.email || "";
-      })
-      .join(", ");
+    return getDmDisplayName(members, currentUser?.id, displayMember);
   };
 
   const renderAvatar = () => {

@@ -99,7 +99,10 @@ export default function ChannelDetailDialog({
                 <SlStar size={18} />
               )}
             </Button>
-            <ChannelNotificationPopover />
+            <ChannelNotificationPopover
+              workspaceId={workspaceId}
+              channelId={channelId}
+            />
             <Button size="custom" className="p-1 border">
               <RiHeadphoneLine size={20} />
             </Button>
@@ -168,7 +171,7 @@ export default function ChannelDetailDialog({
 
           <button
             type="button"
-            onClick={() => setActiveTab("about")}
+            onClick={() => setActiveTab("settings")}
             className={cn(
               "flex items-center gap-1.5 py-2 -mb-px border-b-2 transition-colors rounded-t-md font-bold",
               activeTab === "settings"

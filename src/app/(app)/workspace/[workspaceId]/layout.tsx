@@ -7,13 +7,16 @@ import {
   getServerWorkspace,
   getServerWorkspaces,
   getServerChannels,
+  getServerDirectMessages,
   prefetchWorkspaceData,
 } from '@/lib/server-fetch'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import { parsePanelWidthsCookie } from '@/lib/workspace-panel-widths'
 import WorkspaceShell from '@/modules/workspace/workspace-shell'
-import { ThemeProvider } from '@/providers/theme-provider'
 import { FontInjector } from '@/components/font-injector'
+import { ThemeScope } from '@/components/theme-scope'
+import { EmojiSyncListener } from '@/components/emoji-sync-listener'
+import { defaultTheme, type Theme } from '@/stores/useThemeStore'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -26,13 +29,14 @@ export default async function WorkspaceLayout({
 }: WorkspaceLayoutProps) {
   const { workspaceId } = await params
 
-  const [account, workspaceProfile, currentWorkspace, allWorkspaces, channels] =
+  const [account, workspaceProfile, currentWorkspace, allWorkspaces, channels, conversations] =
     await Promise.all([
       getServerUser(),
       getServerWorkspaceProfile(workspaceId),
       getServerWorkspace(workspaceId),
       getServerWorkspaces(),
       getServerChannels(workspaceId),
+      getServerDirectMessages(workspaceId),
     ])
 
   if (!account) {
@@ -46,6 +50,15 @@ export default async function WorkspaceLayout({
 
   if (!currentWorkspace) {
     redirect('/')
+  }
+
+  let initialTheme: Theme = defaultTheme
+  if (workspaceProfile?.theme) {
+    try {
+      initialTheme = JSON.parse(workspaceProfile.theme) as Theme
+    } catch {
+      initialTheme = defaultTheme
+    }
   }
 
   /**
@@ -67,6 +80,7 @@ export default async function WorkspaceLayout({
     workspace: currentWorkspace,
     workspaces: allWorkspaces,
     channels,
+    conversations,
   })
 
   const cookieStore = await cookies()
@@ -89,25 +103,22 @@ export default async function WorkspaceLayout({
    * Sau khi hydrate, các hooks trong Channels.tsx đọc từ cache.
    */
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
-      <HydrationBoundary state={dehydratedState}>
+    <HydrationBoundary state={dehydratedState}>
+      <ThemeScope scope={workspaceId} initialTheme={initialTheme}>
         <WorkspaceShell
           accountUser={account}
           initialSidebarUser={user}
           currentWorkspaceData={currentWorkspace}
           workspaceId={workspaceId}
           workspaceProfileData={workspaceProfile}
+          initialTheme={initialTheme}
           initialWidths={initialWidths}
         >
           <FontInjector />
+          <EmojiSyncListener workspaceId={workspaceId} />
           {children}
         </WorkspaceShell>
-      </HydrationBoundary>
-    </ThemeProvider>
+      </ThemeScope>
+    </HydrationBoundary>
   )
 }

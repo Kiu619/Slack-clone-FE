@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import Typography from "@/components/ui/typography";
 import { useDebouncedValue } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
+import { getMemberBaseDisplayName, isDeactivatedUser } from "@/lib/dm-members";
 import type { DirectMessageConversation, User } from "@/lib/types";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -22,12 +23,7 @@ import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 const SEARCH_DEBOUNCE_MS = 300;
 
 function displayLabel(m: User): string {
-  return (
-    m.displayName?.trim() ||
-    m.name?.trim() ||
-    m.email.split("@")[0] ||
-    m.email
-  );
+  return getMemberBaseDisplayName(m);
 }
 
 function secondaryLine(m: User): string {
@@ -53,8 +49,9 @@ function MemberRow({
   const overlay = useWorkspaceMemberOverlay(workspaceId, m.id);
   const row = useMemo(() => mergeUserForDisplay(m, overlay), [m, overlay]);
   const isYou = currentUserId === row.id;
+  const isDeactivated = isDeactivatedUser(row);
   const primary = displayLabel(row);
-  const secondary = secondaryLine(row);
+  const secondary = isDeactivated ? "Deactivated account" : secondaryLine(row);
 
   return (
     <li className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
@@ -66,6 +63,7 @@ function MemberRow({
         }}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-2.5 text-left transition-colors hover:bg-black/4 dark:hover:bg-white/6",
+          isDeactivated && "opacity-75",
         )}
       >
         <Avatar
@@ -81,14 +79,20 @@ function MemberRow({
                 className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
               />
             </div>
-            <UserStatusEmojiInline
-              statusEmoji={row.statusEmoji}
-              statusText={row.statusText}
-              emojiClassName="text-[15px]"
-            />
+            {isDeactivated ? (
+              <span className="shrink-0 rounded bg-[#e8e8e8] px-1.5 py-0.5 text-[11px] font-semibold text-[#616061] dark:bg-[#2f3338] dark:text-[#ababad]">
+                deactivated
+              </span>
+            ) : (
+              <UserStatusEmojiInline
+                statusEmoji={row.statusEmoji}
+                statusText={row.statusText}
+                emojiClassName="text-[15px]"
+              />
+            )}
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-[#616061] dark:text-[#ababad]">
-            {row.isAway ? (
+            {isDeactivated ? null : row.isAway ? (
               <GoDot className="shrink-0 text-[12px] text-[#e8912d]" />
             ) : (
               <GoDotFill className="size-3 shrink-0 text-[#007a5a]" />

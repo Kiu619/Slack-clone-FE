@@ -1,7 +1,7 @@
 "use client"
 
 import { useThemeStore } from "@/stores/useThemeStore"
-import { useEffect } from "react"
+import { useLayoutEffect } from "react"
 
 const FONT_MAP: Record<string, string> = {
   arial: "Arial, sans-serif",
@@ -19,7 +19,7 @@ const FONT_MAP: Record<string, string> = {
 export function FontInjector() {
   const { theme } = useThemeStore()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const fontFamily = theme.fontFamily ? FONT_MAP[theme.fontFamily] : FONT_MAP["lato"]
     if (fontFamily) {
       document.documentElement.style.setProperty("--font-family", fontFamily)

@@ -55,7 +55,8 @@ export const useWorkspaceMemberStore = create<WorkspaceMemberState>((set) => ({
 
   resetWorkspace: (workspaceId) => {
     set((state) => {
-      const { [workspaceId]: _, ...rest } = state.byWorkspace
+      const rest = { ...state.byWorkspace }
+      delete rest[workspaceId]
       return { byWorkspace: rest }
     })
   },
@@ -99,8 +100,10 @@ export function mergeMemberStatusWithOverlay(
       name: overlay.name ?? null,
       displayName: overlay.displayName,
       email: overlay.email ?? '',
+      role: overlay.role ?? null,
       avatar: overlay.avatar ?? null,
       isAway: overlay.isAway ?? false,
+      membershipStatus: overlay.membershipStatus ?? null,
       status: overlay.status ?? null,
       namePronunciation: overlay.namePronunciation ?? null,
       phone: overlay.phone ?? null,
@@ -117,8 +120,12 @@ export function mergeMemberStatusWithOverlay(
     ...(overlay.name !== undefined && { name: overlay.name ?? null }),
     ...(overlay.displayName !== undefined && { displayName: overlay.displayName }),
     ...(overlay.avatar !== undefined && { avatar: overlay.avatar ?? null }),
+    ...(overlay.role !== undefined && { role: overlay.role ?? null }),
     ...(overlay.email !== undefined && { email: overlay.email }),
     ...(overlay.isAway !== undefined && { isAway: overlay.isAway }),
+    ...(overlay.membershipStatus !== undefined && {
+      membershipStatus: overlay.membershipStatus ?? null,
+    }),
     ...(overlay.statusText !== undefined && { statusText: overlay.statusText ?? null }),
     ...(overlay.statusEmoji !== undefined && { statusEmoji: overlay.statusEmoji ?? null }),
     ...(overlay.statusExpiration !== undefined && {
@@ -153,5 +160,6 @@ export function mergeChannelMemberWithOverlay(
     ...(overlay.statusText !== undefined && { statusText: overlay.statusText }),
     ...(overlay.email !== undefined &&
       typeof overlay.email === 'string' && { email: overlay.email }),
+    ...(overlay.role !== undefined && { role: overlay.role ?? null }),
   }
 }

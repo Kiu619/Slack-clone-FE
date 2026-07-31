@@ -1,26 +1,26 @@
 "use client"
 
+import { useChannelFolderActions } from "@/contexts/channel-folder-actions";
+import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages";
+import { Message, MessageAttachment } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { useFileDetailStore } from "@/stores/useFileDetailStore";
+import { useUserStore } from "@/stores/useUserStore";
+import { useState } from "react";
 import { MdMoreVert, MdOutlineCloudDownload, MdOutlineKeyboardArrowRight } from "react-icons/md";
 import { RiInformationLine, RiShareForwardLine } from "react-icons/ri";
+import { toast } from "sonner";
+import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog";
+import { ShareFileDialog } from "../dialogs/share-file-dialog";
+import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import Typography from "../ui/typography";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { Message, MessageAttachment } from "@/lib/types";
-import { ShareFileDialog } from "../dialogs/share-file-dialog";
-import { useFileDetailStore } from "@/stores/useFileDetailStore";
-import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages";
-import { toast } from "sonner";
-import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog";
-import { useUserStore } from "@/stores/useUserStore";
 import { AddToFolderSubmenu } from "./add-to-folder-submenu";
-import { useChannelFolderActions } from "@/contexts/channel-folder-actions";
-import { Button } from "../ui/button";
 
+import { ICON_TRANSITION, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
-import { ICON_TRANSITION, MENU_ITEM_STYLE, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
 
 interface Props {
   isHovered: boolean
@@ -178,12 +178,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
                     onMouseEnter={() => setIsAddToFolderOpen(true)}
                     onMouseLeave={() => setIsAddToFolderOpen(false)}
                   >
-                    <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
+                    <Button variant="checkedMenu" className={cn("relative justify-between")}>
                       {effectiveFolderId ? <Typography variant="p" text="Move to folder" /> : <Typography variant="p" text="Add to folder" />}
                       <MdOutlineKeyboardArrowRight size={13} />
-                    </div>
+                    </Button>
                     {isAddToFolderOpen && (
-                      <div className="absolute left-35 bottom-0 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
+                      <div className="absolute py-1 left-35 bottom-0 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
                         <AddToFolderSubmenu
                           targetId={message.channelId || message.conversationId || ''}
                           attachmentId={attachment.id}

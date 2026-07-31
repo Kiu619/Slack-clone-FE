@@ -15,6 +15,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { channelKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import type { Channel, ChannelMember, User } from "@/lib/types";
+import { hasWorkspacePermission } from "@/lib/workspace-permissions";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
 import {
   mergeChannelMemberWithOverlay,
@@ -25,11 +26,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useCallback, useMemo, useState } from "react";
 import { FiSearch } from "react-icons/fi";
-import { GoDot, GoDotFill } from "react-icons/go";
 import { LuUserPlus } from "react-icons/lu";
 import { toast } from "sonner";
 import AddChannelMemberDialog from "@/components/dialogs/add-channel-member-dialog";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
+import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -112,11 +113,12 @@ function MemberRow({
             />
           </div>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-[#616061] dark:text-[#ababad]">
-            {row.isAway ? (
-              <GoDot className="shrink-0 text-[12px] text-[#e8912d]" />
-            ) : (
-              <GoDotFill className="size-3 shrink-0 text-[#007a5a]" />
-            )}
+            <UserPresenceIndicator
+              workspaceId={workspaceId}
+              userId={row.id}
+              isAway={row.isAway}
+              size="sm"
+            />
             <span className="truncate">{secondary}</span>
           </div>
         </div>
@@ -175,7 +177,13 @@ export default function MembersTab({
 
   const { data: workspaceMeta } = useWorkspace(workspaceId);
   const role = workspaceMeta?.role;
-  const canRemoveOthers = role === "admin" || role === "owner";
+  const canRemoveOthers = hasWorkspacePermission(
+    workspaceMeta,
+    role ?? null,
+    currentChannelData.isPrivate
+      ? "remove_users_from_private_channels"
+      : "remove_users_from_public_channels",
+  );
 
   const [inputValue, setInputValue] = useState("");
   const debouncedSearch = useDebouncedValue(inputValue, SEARCH_DEBOUNCE_MS);

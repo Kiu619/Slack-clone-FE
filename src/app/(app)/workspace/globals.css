@@ -1,0 +1,454 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-workspace-sidebar: var(--color-workspace-sidebar);
+  --color-workspace-header: var(--color-workspace-header);
+  --color-workspace-active-item: var(--color-workspace-active-item);
+  --color-workspace-active-item-text: var(--color-workspace-active-item-text);
+  --color-workspace-hover: var(--color-workspace-hover);
+  --color-workspace-text: var(--color-workspace-text);
+  --color-workspace-text-active: var(--color-workspace-text-active);
+
+  --color-selection-hover: var(--color-selection-hover);
+  --color-focus-ring: var(--color-focus-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+
+  --color-workspace-sidebar: #3A0F3E;
+  --color-workspace-header: #350d36;
+  --color-workspace-active-item: #1164a3;
+  --color-workspace-active-item-text: #ffffff;
+  --color-workspace-hover: rgba(255, 255, 255, 0.1);
+  --color-workspace-text: #D1D2D3;
+  --color-workspace-text-active: #ffffff;
+
+  --color-selection-hover: #1264A3;
+  --color-focus-ring: #B7D0E3;
+  
+  /* Theme-aware mixing variables for WorkspaceShell background */
+  --theme-mix-base: white;
+  --theme-mix-sysnav: 30%;
+  --theme-mix-sidepanel: 50%;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+
+  --color-workspace-sidebar: #3A0F3E;
+  --color-workspace-header: #350d36;
+  --color-workspace-active-item: #1164a3;
+  --color-workspace-active-item-text: #ffffff;
+  --color-workspace-hover: rgba(255, 255, 255, 0.1);
+  --color-workspace-text: #D1D2D3;
+  --color-workspace-text-active: #ffffff;
+
+  --color-selection-hover: #1264A3;
+  --color-focus-ring: #1F4655;
+  --font-family: "Lato", sans-serif;
+
+  /* Dark mode overrides for mixing variables */
+  --theme-mix-base: black;
+  --theme-mix-sysnav: 65%;
+  --theme-mix-sidepanel: 75%;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    font-family: var(--font-family);
+    @apply bg-background text-foreground;
+  }
+}
+
+button {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  /* dar
+  hover:bg-[#222529] text-[#797c81] hover:text-white */
+  /* @apply dark:hover:bg-[#222529] dark:text-[#797c81] dark:hover:text-white hover:bg-[#e8e8e8] hover:text-black */
+  @apply dark:hover:bg-[#222529] dark:text-[#797c81] dark:hover:text-white hover:bg-[#e8e8e8] hover:text-black
+}
+
+::-webkit-scrollbar {
+  width: 8px!important;
+  background: transparent!important;
+  margin-left: 4px!important;
+}
+
+/* Track: phần nền của cuộn */
+::-webkit-scrollbar-track {
+  background: transparent!important;
+  /* background: rgba(44, 45, 47, 0.5)!important; */
+}
+
+/* Thumb: phần rê kéo */
+::-webkit-scrollbar-thumb {
+  border-radius: 10px!important;
+  background-color: rgba(116, 121, 132, 0.5)!important;
+}
+
+/* Tiptap Editor Styles */
+.tiptap {
+  outline: none;
+}
+
+.tiptap p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.25 !important;
+}
+
+.tiptap p+p {
+  margin-top: 0 !important;
+}
+
+.tiptap br {
+  display: inline;
+  line-height: 1.25;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #797c81;
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap strong {
+  font-weight: 700;
+  color: #fff;
+}
+
+.tiptap em {
+  font-style: italic;
+}
+
+.tiptap code {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid #797c814d;
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 0.9em;
+  color: #e8e8e8;
+}
+
+.tiptap pre {
+  background: #1a1d21;
+  border: 1px solid #797c814d;
+  border-radius: 6px;
+  color: #e8e8e8;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  padding: 12px 16px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+
+.tiptap pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+  list-style-position: outside;
+  padding-left: 1.5rem;
+  margin: 0.25rem 0;
+}
+
+.tiptap li {
+  margin: 0.1rem 0;
+  color: #e8e8e8;
+  line-height: 1.5;
+}
+
+.tiptap li p {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.tiptap ul ul,
+.tiptap ol ol {
+  margin: 0;
+}
+
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+}
+
+.tiptap ul[data-type="taskList"] li>label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+}
+
+.tiptap a {
+  color: #1d9bd1;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tiptap a:hover {
+  color: #1a7fab;
+}
+
+.tiptap blockquote {
+  border-left: 3px solid #797c81;
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: #d1d2d3;
+}
+
+.tiptap hr {
+  border: none;
+  border-top: 1px solid #797c814d;
+  margin: 1rem 0;
+}
+
+/* Scrollbar Styling */
+.tiptap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.tiptap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tiptap::-webkit-scrollbar-thumb {
+  background: #797c814d;
+  border-radius: 4px;
+}
+
+.tiptap::-webkit-scrollbar-thumb:hover {
+  background: #797c81;
+}
+
+/* ─── Message content (HTML từ Tiptap render) ───────────────────────────────── */
+.message-content p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.message-content p+p {
+  margin-top: 4px;
+}
+
+.message-content strong {
+  font-weight: 700;
+  color: #fff;
+}
+
+.message-content em {
+  font-style: italic;
+}
+
+.message-content s {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.message-content code {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.875em;
+  background: #2a2d31;
+  color: #e8e8e8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid #797c814d;
+}
+
+.message-content pre {
+  background: #1a1d21;
+  border: 1px solid #797c814d;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 6px 0;
+  overflow-x: auto;
+}
+
+.message-content pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.875em;
+  color: #e8e8e8;
+}
+
+.message-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 4px 0;
+}
+
+.message-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 4px 0;
+}
+
+.message-content li {
+  margin: 2px 0;
+}
+
+.message-content a {
+  color: #1d9bd1;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.message-content a:hover {
+  color: #62c5e8;
+}
+
+.message-content blockquote {
+  border-left: 3px solid #797c81;
+  padding-left: 12px;
+  margin: 4px 0;
+  color: #797c81;
+}
+
+/* VideoPreview: layout trong list giữ cố định; khi vào Fullscreen API style áp trên top-layer (:fullscreen), tránh phá chiều cao ô trong react-virtuoso */
+.slack-video-preview-root:fullscreen,
+.slack-video-preview-root:-webkit-full-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border-radius: 0;
+  border: none;
+}
+
+.slack-video-preview-root:fullscreen video,
+.slack-video-preview-root:-webkit-full-screen video {
+  max-height: 100vh;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}

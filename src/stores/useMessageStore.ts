@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Message } from '@/lib/types'
+import { Message, type Reaction } from '@/lib/types'
 
 interface ChannelMessageState {
   messageIds: string[]
@@ -55,6 +55,39 @@ interface MessageStore {
   syncEntity: (domain: string, action: string, payload: any) => void
 }
 
+type ReactionUserSnapshot = NonNullable<Reaction['users']>[number]
+
+const getMessageTimestamp = (message?: Message) => {
+  if (!message?.createdAt) return Number.POSITIVE_INFINITY
+  const timestamp = new Date(message.createdAt).getTime()
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp
+}
+
+const sortMessageIdsByCreatedAt = (
+  messageIds: string[],
+  entities: Record<string, Message>,
+) => {
+  const seen = new Set<string>()
+  const dedupedIds: string[] = []
+
+  for (const id of messageIds) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    dedupedIds.push(id)
+  }
+
+  const originalOrder = new Map(dedupedIds.map((id, index) => [id, index]))
+
+  return dedupedIds.sort((leftId, rightId) => {
+    const leftTime = getMessageTimestamp(entities[leftId])
+    const rightTime = getMessageTimestamp(entities[rightId])
+
+    if (leftTime !== rightTime) return leftTime - rightTime
+
+    return (originalOrder.get(leftId) ?? 0) - (originalOrder.get(rightId) ?? 0)
+  })
+}
+
 export const useMessageStore = create<MessageStore>((set, get) => ({
   entities: {},
   channels: {},
@@ -83,16 +116,15 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   updateEntity: (messageId, updates) => {
     set((state) => {
       const entity = state.entities[messageId]
-      if (!entity) return state
 
-      // Xử lý đặc biệt cho Reaction Update
+      // X? l? ??c bi?t cho Reaction Update
       if ((updates as any).reactionUpdate) {
         const { emoji, userId, action } = (updates as any).reactionUpdate
-        const currentReactions = (entity as any).reactions || []
-        
+        const currentReactions = (entity as any)?.reactions || []
+
         let newReactions = [...currentReactions]
         const existingReactionIndex = newReactions.findIndex(r => r.emoji === emoji)
-        
+
         if (action === 'add' || action === 'added') {
           if (existingReactionIndex >= 0) {
             const r = newReactions[existingReactionIndex]
@@ -100,11 +132,32 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
               newReactions[existingReactionIndex] = {
                 ...r,
                 count: r.count + 1,
-                userIds: [...r.userIds, userId]
+                userIds: [...r.userIds, userId],
+                users: [
+                  ...(r.users ?? []),
+                  {
+                    id: userId,
+                    name: null,
+                    displayName: null,
+                    avatar: null,
+                  },
+                ],
               }
             }
           } else {
-            newReactions.push({ emoji, count: 1, userIds: [userId] })
+            newReactions.push({
+              emoji,
+              count: 1,
+              userIds: [userId],
+              users: [
+                {
+                  id: userId,
+                  name: null,
+                  displayName: null,
+                  avatar: null,
+                },
+              ],
+            })
           }
         } else if (action === 'remove' || action === 'removed') {
           if (existingReactionIndex >= 0) {
@@ -116,19 +169,53 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
               newReactions[existingReactionIndex] = {
                 ...r,
                 count: newUserIds.length,
-                userIds: newUserIds
+                userIds: newUserIds,
+                users: (r.users ?? []).filter((u: ReactionUserSnapshot) => u.id !== userId),
               }
             }
           }
         }
-        
+
         updates = { reactions: newReactions } as any
       }
+
+      const fallbackEntity: Message = {
+        id: messageId,
+        workspaceId: (updates as any).workspaceId,
+        channelId: (updates as any).channelId ?? null,
+        conversationId: (updates as any).conversationId ?? null,
+        content: '',
+        type: 'text',
+        parentId: null,
+        huddleSessionId: null,
+        huddleSnapshot: null,
+        alsoSendToChannel: false,
+        replyCount: 0,
+        replyParticipantIds: [],
+        lastReplyAt: null,
+        editedAt: null,
+        deletedAt: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isPinned: false,
+        allowEdit: true,
+        user: {
+          id: '',
+          email: '',
+          name: null,
+          displayName: null,
+          avatar: null,
+        },
+        reactions: [],
+        attachments: [],
+      }
+
+      const baseEntity = entity ?? fallbackEntity
 
       return {
         entities: {
           ...state.entities,
-          [messageId]: { ...entity, ...updates } as Message,
+          [messageId]: { ...baseEntity, ...updates } as Message,
         },
       }
     })
@@ -177,13 +264,25 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
           !fromServerSet.has(id) &&
           entities[id],
       ) ?? []
+    const pendingRealtimeHuddleTail =
+      prev?.isInitialized
+        ? []
+        : prev?.messageIds.filter((id) => {
+            if (typeof id !== 'string' || fromServerSet.has(id)) return false
+            const entity = entities[id]
+            return entity?.type === 'huddle'
+          }) ?? []
+    const nextMessageIds = sortMessageIdsByCreatedAt(
+      [...fromServerIds, ...pendingRealtimeHuddleTail, ...pendingOptimisticTail],
+      entities,
+    )
 
     set((state) => ({
       channels: {
         ...state.channels,
         [channelId]: {
           ...DEFAULT_CHANNEL_STATE,
-          messageIds: [...fromServerIds, ...pendingOptimisticTail],
+          messageIds: nextMessageIds,
           olderCursor,
           newerCursor,
           hasOlder,
@@ -368,6 +467,12 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
         case 'UPDATE':
           if (data) {
             get().updateEntity(id, data)
+            if (targetId && data.type === 'huddle') {
+              const currentChannel = get().channels[targetId] || DEFAULT_CHANNEL_STATE
+              if (!currentChannel.messageIds.includes(id)) {
+                get().addMessage(targetId, data)
+              }
+            }
           } else {
             // Nếu chỉ có ID, có thể cần fetch lại hoặc xử lý partial (tùy Backend gửi gì)
             // Hiện tại Backend gửi partial data hoặc toàn bộ.

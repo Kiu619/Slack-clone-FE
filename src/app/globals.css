@@ -57,6 +57,7 @@
 
 :root {
   --radius: 0.625rem;
+  --font-family: var(--font-geist-sans), sans-serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -99,11 +100,15 @@
 
   --color-selection-hover: #1264A3;
   --color-focus-ring: #B7D0E3;
-  
+
   /* Theme-aware mixing variables for WorkspaceShell background */
   --theme-mix-base: white;
   --theme-mix-sysnav: 30%;
   --theme-mix-sidepanel: 50%;
+}
+
+.workspace-theme {
+  --font-family: "Lato", sans-serif;
 }
 
 .dark {
@@ -149,7 +154,6 @@
 
   --color-selection-hover: #1264A3;
   --color-focus-ring: #1F4655;
-  --font-family: "Lato", sans-serif;
 
   /* Dark mode overrides for mixing variables */
   --theme-mix-base: black;
@@ -162,12 +166,12 @@
     @apply border-border outline-ring/50;
   }
   body {
-    font-family: var(--font-family);
+    font-family: var(--font-family, var(--font-geist-sans), sans-serif);
     @apply bg-background text-foreground;
   }
 }
 
-button {
+.workspace-theme button {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   /* dar
@@ -451,4 +455,19 @@ button {
   width: 100%;
   height: auto;
   object-fit: contain;
+}
+
+@keyframes huddle-reaction-float {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-72px) scale(1.05);
+  }
 }

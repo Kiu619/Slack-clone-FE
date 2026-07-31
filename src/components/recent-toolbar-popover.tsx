@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { TbHistoryToggle } from "react-icons/tb";
-import { FiHash, FiLock } from "react-icons/fi";
+import { FiHash } from "react-icons/fi";
 import {
   Popover,
   PopoverContent,
@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChannels } from "@/hooks/use-channel";
 import { useConversations } from "@/hooks/use-conversations";
 import { useWorkspaceRecents } from "@/hooks/use-workspace-recents";
+import { getDmDisplayName, isDeactivatedUser } from "@/lib/dm-members";
 import type { Channel, DirectMessageConversation, User } from "@/lib/types";
 import {
   mergeUserForDisplay,
@@ -28,6 +29,10 @@ import {
 } from "@/stores/useWorkspaceMemberStore";
 import { useShallow } from "zustand/react/shallow";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { UserPresenceIndicator } from "./user-presence-indicator";
+import { MdOutlineLock } from "react-icons/md";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface RecentToolbarPopoverProps {
   workspaceId: string;
@@ -53,14 +58,7 @@ export const RecentToolbarPopover = ({
   const convById = new Map(conversations.map((c) => [c.id, c]));
 
   const getConversationName = (members: User[]) => {
-    const otherMembers = members.filter((m) => m.id !== currentUser?.id);
-    if (otherMembers.length === 0) return "You";
-    return otherMembers
-      .map((m) => {
-        const d = displayMember(m);
-        return d.displayName || d.name || d.email || "";
-      })
-      .join(", ");
+    return getDmDisplayName(members, currentUser?.id, displayMember);
   };
 
   const getConversationAvatar = (members: User[], isGroup: boolean) => {
@@ -146,12 +144,16 @@ export const RecentToolbarPopover = ({
           />
         </div>
         {isLoading ? (
-          <div className="px-3 py-4">
-            <Typography
-              text="Loading..."
-              variant="p"
-              className="text-xs text-neutral-500"
-            />
+          <div className="space-y-2 px-3 py-4">
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="size-4 rounded-full bg-white/10" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-3 w-2/3 bg-white/10" />
+                  <Skeleton className="h-3 w-1/3 bg-white/10" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : items.length === 0 ? (
           <div className="px-3 py-4">
@@ -162,7 +164,7 @@ export const RecentToolbarPopover = ({
             />
           </div>
         ) : (
-          <div className="flex flex-col py-1">
+          <div className="flex flex-col py-2">
             {items.map((entry) => {
               if (entry.kind === "channel") {
                 const ch: Channel | undefined = channelById.get(entry.id);
@@ -173,9 +175,9 @@ export const RecentToolbarPopover = ({
                     href={`/workspace/${workspaceId}/channel/${ch.id}`}
                     onClick={close}
                   >
-                    <div className="flex items-center gap-x-2 px-3 py-1.5 cursor-pointer rounded-md transition-colors text-neutral-200 hover:bg-white/10">
+                    <Button variant="submenu">
                       {ch.isPrivate ? (
-                        <FiLock
+                        <MdOutlineLock
                           size={14}
                           className="shrink-0 text-neutral-400"
                         />
@@ -190,7 +192,7 @@ export const RecentToolbarPopover = ({
                         variant="p"
                         className="text-[14px]! truncate text-inherit"
                       />
-                    </div>
+                    </Button>
                   </Link>
                 );
               }
@@ -204,6 +206,7 @@ export const RecentToolbarPopover = ({
               );
               const isOneToOne = !conv.isGroup && others.length === 1;
               const peer = isOneToOne ? displayMember(others[0]!) : null;
+              const peerIsDeactivated = isDeactivatedUser(peer);
 
               return (
                 <Link
@@ -211,8 +214,20 @@ export const RecentToolbarPopover = ({
                   href={`/workspace/${workspaceId}/dm/${conv.id}`}
                   onClick={close}
                 >
-                  <div className="flex items-center gap-x-2 px-3 py-1.5 cursor-pointer rounded-md transition-colors text-neutral-200 hover:bg-white/10">
-                    {getConversationAvatar(conv.members, conv.isGroup)}
+                  <Button variant="submenu">
+                    <div className="relative shrink-0">
+                      {getConversationAvatar(conv.members, conv.isGroup)}
+                      {isOneToOne && peer && !peerIsDeactivated ? (
+                        <div className="absolute -right-0.5 -bottom-0.5">
+                          <UserPresenceIndicator
+                            workspaceId={workspaceId}
+                            userId={peer.id}
+                            isAway={peer.isAway}
+                            size="sm"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                     {isOneToOne && peer ? (
                       <div className="flex min-w-0 flex-1 items-center gap-1">
                         <Typography
@@ -220,12 +235,14 @@ export const RecentToolbarPopover = ({
                           variant="p"
                           className="text-[14px]! text-inherit"
                         />
-                        <UserStatusEmojiInline
-                          statusEmoji={peer.statusEmoji}
-                          statusText={peer.statusText}
-                          emojiClassName="text-[13px]"
-                          interactive={false}
-                        />
+                        {!peerIsDeactivated ? (
+                          <UserStatusEmojiInline
+                            statusEmoji={peer.statusEmoji}
+                            statusText={peer.statusText}
+                            emojiClassName="text-[13px]"
+                            interactive={false}
+                          />
+                        ) : null}
                       </div>
                     ) : (
                       <Typography
@@ -234,7 +251,7 @@ export const RecentToolbarPopover = ({
                         className="text-[14px]! min-w-0 flex-1 truncate text-inherit"
                       />
                     )}
-                  </div>
+                  </Button>
                 </Link>
               );
             })}

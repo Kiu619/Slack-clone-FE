@@ -3,11 +3,17 @@
 import { LinkInputDialog } from '@/components/dialogs/link-input-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import Code from '@tiptap/extension-code'
-import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import {
+  applyLinkToEditor,
+  createEditorLinkExtension,
+  getLinkDialogValue,
+  removeLinkFromEditor,
+  type LinkDialogValue,
+} from '@/lib/tiptap-link'
 import { type EmojiClickData, Theme } from 'emoji-picker-react'
 import { useTheme } from 'next-themes'
 import dynamic from 'next/dynamic'
@@ -35,6 +41,10 @@ const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 const ShareFileEditor = ({
 }) => {
   const [showLinkInput, setShowLinkInput] = useState(false)
+  const [linkDialogValue, setLinkDialogValue] = useState<LinkDialogValue>({
+    text: '',
+    url: '',
+  })
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [, forceUpdate] = useState({})
   const emojiPickerRef = useRef<HTMLDivElement>(null)
@@ -77,10 +87,7 @@ const ShareFileEditor = ({
       Placeholder.configure({
         placeholder: `Add a message, if you'd like.`,
       }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { class: 'text-blue-500 underline cursor-pointer' },
-      }),
+      createEditorLinkExtension(),
       Underline,
     ],
     editorProps: {
@@ -164,6 +171,11 @@ const ShareFileEditor = ({
   }
 
   const toggleBold = () => { editor?.chain().focus().toggleBold().run(); forceUpdate({}) }
+  const openLinkDialog = () => {
+    if (!editor) return
+    setLinkDialogValue(getLinkDialogValue(editor))
+    setShowLinkInput(true)
+  }
   const toggleItalic = () => { editor?.chain().focus().toggleItalic().run(); forceUpdate({}) }
   const toggleStrike = () => { editor?.chain().focus().toggleStrike().run(); forceUpdate({}) }
   const toggleUnderline = () => { editor?.chain().focus().toggleUnderline().run(); forceUpdate({}) }
@@ -206,7 +218,7 @@ const ShareFileEditor = ({
 
           <Divider />
 
-          <ToolbarButton onClick={() => setShowLinkInput(!showLinkInput)} active={editor.isActive('link')} tooltip="Insert link">
+          <ToolbarButton onClick={openLinkDialog} active={editor.isActive('link')} tooltip="Insert link">
             <LuLink size={16} />
           </ToolbarButton>
           <ToolbarButton onClick={toggleCode} active={isMarkActive('code')} tooltip="Inline code">
@@ -265,6 +277,22 @@ const ShareFileEditor = ({
         <LinkInputDialog
           open={showLinkInput}
           setOpen={setShowLinkInput}
+          initialText={linkDialogValue.text}
+          initialUrl={linkDialogValue.url}
+          onSave={(value) => {
+            if (!editor) return
+            applyLinkToEditor(editor, value)
+            forceUpdate({})
+          }}
+          onRemove={
+            editor?.isActive('link')
+              ? () => {
+                  if (!editor) return
+                  removeLinkFromEditor(editor)
+                  forceUpdate({})
+                }
+              : undefined
+          }
         />
       )}
     </div>

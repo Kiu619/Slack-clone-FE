@@ -81,7 +81,10 @@ export default function DMDetailDialog({
               <SlStar size={18} />
             )}
           </Button>
-          <DMsNotificationPopover />
+          <DMsNotificationPopover
+            workspaceId={currentDmData.workspaceId}
+            conversationId={currentDmData.id}
+          />
           <Button size="custom" className="p-1 border">
             <RiHeadphoneLine size={20} />
           </Button>

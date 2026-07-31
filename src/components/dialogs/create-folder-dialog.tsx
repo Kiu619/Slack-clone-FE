@@ -118,10 +118,9 @@ export function CreateFolderDialog({
 
           <CustomDialogFooter className="px-6 py-4">
             <Button
-              variant="ghost"
+              variant="outline"
               type="button"
               onClick={() => onOpenChange(false)}
-              className="dark:hover:bg-[#2C2E33] mr-2 font-bold"
             >
               Cancel
             </Button>

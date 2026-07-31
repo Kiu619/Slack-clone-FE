@@ -1,23 +1,22 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { LuPlay, LuPause, LuX } from 'react-icons/lu'
+import { useChannelFolderActions } from '@/contexts/channel-folder-actions'
 import { Message, MessageAttachment } from '@/lib/types'
-import WaveSurfer from 'wavesurfer.js'
+import { useFileDetailStore } from '@/stores/useFileDetailStore'
+import { useEffect, useRef, useState } from 'react'
+import { LuPause, LuPlay, LuX } from 'react-icons/lu'
 import { MdMoreVert, MdOutlineKeyboardArrowRight } from 'react-icons/md'
+import WaveSurfer from 'wavesurfer.js'
+import { ShareFileDialog } from '../dialogs/share-file-dialog'
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
+import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import Typography from "../ui/typography"
-import { cn } from "@/lib/utils"
-import { Separator } from '../ui/separator'
-import { useFileDetailStore } from '@/stores/useFileDetailStore'
-import { ShareFileDialog } from '../dialogs/share-file-dialog'
 import { AddToFolderSubmenu } from './add-to-folder-submenu'
-import { useChannelFolderActions } from '@/contexts/channel-folder-actions'
 
 import { useTrackAttachmentView } from '@/hooks/use-attachments'
 import { useSaveForLater } from '@/hooks/use-messages'
-import { MENU_ITEM_STYLE } from '@/constants/styles'
+import { Button } from '../ui/button'
 
 interface AudioPreviewProps {
   message?: Message
@@ -215,10 +214,10 @@ export default function AudioPreview({
                       onMouseEnter={() => setIsAddToFolderOpen(true)}
                       onMouseLeave={() => setIsAddToFolderOpen(false)}
                     >
-                      <div className={cn(MENU_ITEM_STYLE, "relative justify-between")}>
+                      <Button variant="checkedMenu">
                         <Typography variant="p" text="Add to folder" />
                         <MdOutlineKeyboardArrowRight size={13} />
-                      </div>
+                      </Button>
                       {isAddToFolderOpen && message && attachment && (
                         <div className="absolute left-65 bottom-15 z-40 min-w-[220px] border border-[#797c814d] bg-white dark:bg-[#1A1D21] rounded-md shadow-lg">
                           <AddToFolderSubmenu

@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { useEffect, useRef } from 'react'
 import { LuCheck, LuX } from 'react-icons/lu'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+import { Button } from './ui/button'
 
 interface EditorAudioRecorderProps {
   isRecording: boolean
@@ -124,12 +125,13 @@ export default function  EditorAudioRecorder({
           {/* Confirm / Attach */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button
                 onClick={onConfirm}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-[#007a5a] text-white hover:bg-[#148567] transition-colors shadow-sm"
+                className="flex items-center justify-center w-8 h-8 rounded-full"
+                variant="success"
               >
                 <LuCheck size={16} strokeWidth={2.5} />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
               <p className="text-xs">Done</p>

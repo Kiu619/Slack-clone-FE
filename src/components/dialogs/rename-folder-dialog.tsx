@@ -121,9 +121,8 @@ export function RenameFolderDialog({
           <CustomDialogFooter className="px-6 py-4">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => onOpenChange(false)}
-              className="dark:hover:bg-[#2C2E33] mr-2 font-bold"
             >
               Cancel
             </Button>

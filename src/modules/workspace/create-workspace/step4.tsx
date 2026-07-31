@@ -47,7 +47,7 @@ const Step4 = () => {
         <Typography
           text="Your workspace is ready to go!"
           variant="p"
-          className="text-gray-700"
+          className="text-[#616061] dark:text-[#d1d2d3]"
         />
         <IoSparklesSharp fill="#FFD700" size={20} />
       </div>
@@ -55,40 +55,40 @@ const Step4 = () => {
       <Typography
         text="Are you ready to start using Slack?"
         variant="h1"
-        className="text-white font-bold"
+        className="font-bold text-[#1d1c1d] dark:text-white"
       />
 
-      <div className="space-y-2 text-sm text-white/70">
+      <div className="space-y-2 text-sm text-[#454245] dark:text-white/70">
         <p>
-          <span className="text-white font-medium">Name:</span> {name}
+          <span className="font-medium text-[#1d1c1d] dark:text-white">Name:</span> {name}
         </p>
         <p>
-          <span className="text-white font-medium">Slug:</span> {slug}
+          <span className="font-medium text-[#1d1c1d] dark:text-white">Slug:</span> {slug}
         </p>
         {imageUrl && (
           <p>
-            <span className="text-white font-medium">Image:</span> uploaded ✓
+            <span className="font-medium text-[#1d1c1d] dark:text-white">Image:</span> uploaded ✓
           </p>
         )}
         {emails.length > 0 && (
           <p>
-            <span className="text-white font-medium">Inviting:</span>{' '}
+            <span className="font-medium text-[#1d1c1d] dark:text-white">Inviting:</span>{' '}
             {emails.length} member{emails.length > 1 ? 's' : ''}
           </p>
         )}
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="mt-4 flex gap-2">
         <Button
           onClick={() => setCurrStep(3)}
           disabled={isPending}
-          className="text-gray-400 hover:text-gray-300 p-0 h-auto font-normal cursor-pointer bg-transparent border-none"
+          className="h-auto cursor-pointer border-none bg-transparent p-0 font-normal text-[#616061] hover:text-[#1d1c1d] dark:text-[#d1d2d3] dark:hover:text-white"
         >
           Go back
         </Button>
 
         <Button
-          className="bg-workspace-background hover:bg-workspace-background/90 w-30 font-bold text-white disabled:opacity-60"
+          className="w-30 bg-[#3b1141] font-bold text-white hover:bg-[#3b1141]/90 disabled:opacity-60"
           onClick={handleSubmit}
           disabled={isPending}
         >

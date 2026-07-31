@@ -5,3 +5,5 @@ export const MENU_ITEM_STYLE =
 export const SUBMENU_ITEM_STYLE =
   "hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
 export const ICON_TRANSITION = "hover:scale-115 transition-all duration-300";
+export const ACTIVE_ITEM_STYLE =
+  "hover:text-white bg-selection-hover hover:bg-selection-hover/90! text-white!";

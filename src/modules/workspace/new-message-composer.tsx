@@ -5,7 +5,6 @@ import { useShallow } from "zustand/react/shallow";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FiSearch, FiX } from "react-icons/fi";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   fetchDirectMessagesApi,
@@ -16,7 +15,15 @@ import { useChannels } from "@/hooks/use-channel";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebouncedValue } from "@/hooks/use-debounce";
 import MessageTab from "@/components/header-tabs/message-tab";
+import {
+  MESSAGE_TARGET_DROPDOWN_CLASS,
+  MESSAGE_TARGET_INPUT_WRAP_CLASS,
+  MessageTargetChip,
+  MessageTargetConversationRow,
+  MessageTargetSearchRow,
+} from "@/components/message-target-picker";
 import type { Channel, DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
+import { getDmMemberDisplayName, isActiveWorkspaceMember } from "@/lib/dm-members";
 import {
   NEW_MSG_RESTORE_CHANNEL_KEY,
   NEW_MSG_RESTORE_DM_KEY,
@@ -99,6 +106,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
 
     const memberResults = (filterType !== "channel" && !hasSelectedChannel)
       ? allMembers?.filter(member => {
+          if (!isActiveWorkspaceMember(member)) return false;
           if (member.id === currentUser?.id) return false;
           if (selectedTargets.some(t => t.id === member.id && t.type === "member")) return false;
           const d = mergeUserForDisplay(member as User, memberOverlayMap[member.id]);
@@ -250,15 +258,14 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
       return {
         id: m.id,
         type: "member" as const,
-        name: d.displayName || d.name || m.email,
+        name: getDmMemberDisplayName(d),
         data: m as WorkspaceMember,
       };
-    });
+      });
 
-    setSelectedTargets(newTargets);
-    setSearchQuery("");
-    setIsSearchFocused(false);
-  };
+      setSelectedTargets(newTargets);
+      setSearchQuery("");
+    };
 
   const handleSelect = (type: TargetType, data: Channel | WorkspaceMember) => {
     if (type === "channel") {
@@ -300,7 +307,6 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
     }
     
     setSearchQuery("");
-    setIsSearchFocused(false);
   };
 
   const removeTarget = (id: string, type: TargetType) => {
@@ -394,24 +400,40 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
         <div className="flex items-center gap-x-2 relative" ref={searchRef}>
           <span className="text-sm text-gray-400 shrink-0">To:</span>
           
-          <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[36px] p-1 rounded-md border border-[#797c814d] bg-white/5 focus-within:ring-1 focus-within:ring-sky-500">
+          <div className={MESSAGE_TARGET_INPUT_WRAP_CLASS}>
             {selectedTargets.map(target => {
-              const chipLabel =
-                target.type === "member"
-                  ? (() => {
-                      const m = target.data as WorkspaceMember;
-                      const d = displayMember(m);
-                      return d.displayName || d.name || m.email;
-                    })()
-                  : target.name;
+              if (target.type === "member") {
+                const member = target.data as WorkspaceMember;
+                const d = displayMember(member);
+                return (
+                  <MessageTargetChip
+                    key={`${target.type}-${target.id}`}
+                    kind="member"
+                    member={{
+                      id: member.id,
+                      displayName: d.displayName || d.name || member.email,
+                      name: d.name || member.email.split("@")[0] || member.email,
+                      email: member.email,
+                      avatar: d.avatar || member.avatar || null,
+                    }}
+                    onRemove={() => removeTarget(target.id, target.type)}
+                  />
+                );
+              }
+
+              const channel = target.data as Channel;
               return (
-              <div key={`${target.type}-${target.id}`} className="flex items-center gap-x-1 bg-sky-500/20 text-sky-500 px-2 py-0.5 rounded text-sm font-medium">
-                <span>{target.type === "channel" ? "#" : "@"} {chipLabel}</span>
-                <button onClick={() => removeTarget(target.id, target.type)} className="hover:text-sky-400">
-                  <FiX size={14} />
-                </button>
-              </div>
-            );
+                <MessageTargetChip
+                  key={`${target.type}-${target.id}`}
+                  kind="channel"
+                  channel={{
+                    id: channel.id,
+                    name: channel.name,
+                    isPrivate: channel.isPrivate,
+                  }}
+                  onRemove={() => removeTarget(target.id, target.type)}
+                />
+              );
             })}
             
             <input
@@ -426,7 +448,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
 
           {/* Search Dropdown */}
           {isSearchFocused && searchQuery.trim() && (
-            <div className="absolute top-full left-8 right-0 mt-1 bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg max-h-[300px] overflow-y-auto z-50 py-1">
+            <div className={MESSAGE_TARGET_DROPDOWN_CLASS}>
               {filteredResults.channels.length === 0 && 
                filteredResults.members.length === 0 && 
                filteredResults.conversations.length === 0 && (
@@ -434,78 +456,56 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
               )}
 
               {filteredResults.conversations.map((conv) => (
-                <div
+                <MessageTargetConversationRow
                   key={conv.id}
+                  conversation={{
+                    id: conv.id,
+                    memberCount: conv.members.length,
+                    memberNames: conv.members
+                      .filter((m) => m.id !== currentUser?.id)
+                      .map((m) => {
+                        const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
+                        return d.displayName || d.name || m.email || "";
+                      })
+                      .join(", "),
+                    memberAvatars: conv.members.map((m) => ({
+                      id: m.id,
+                      avatar: m.avatar,
+                      displayName: m.displayName,
+                      name: m.name,
+                    })),
+                    isGroup: true,
+                  }}
                   onClick={() => handleSelectConversation(conv)}
-                  className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                >
-                  <div className="size-8 rounded-lg bg-gray-700 flex items-center justify-center text-white font-bold relative">
-                    <Avatar className="size-8 rounded-lg">
-                      <AvatarFallback className="bg-green-600 text-white rounded-lg text-xs">
-                        {conv.members.length}
-                      </AvatarFallback>
-                    </Avatar>
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-white truncate">
-                      {conv.members
-                        .filter(m => m.id !== currentUser?.id)
-                        .map(m => {
-                          const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
-                          return d.displayName || d.name || "";
-                        })
-                        .join(", ")}
-                    </span>
-                    <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                      Group DM
-                    </span>
-                  </div>
-                </div>
+                />
               ))}
 
               {filteredResults.channels.map((ch) => (
-                <div
+                <MessageTargetSearchRow
                   key={ch.id}
+                  workspaceId={workspaceId}
+                  kind="channel"
+                  channel={ch}
                   onClick={() => handleSelect("channel", ch)}
-                  className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                >
-                  <div className="size-8 rounded-lg bg-gray-700 flex items-center justify-center text-white font-bold">
-                    #
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-white truncate">
-                      {ch.name}
-                    </span>
-                    <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                      Channel
-                    </span>
-                  </div>
-                </div>
+                />
               ))}
 
               {filteredResults.members.map((member) => {
-                const d = displayMember(member);
                 return (
-                <div
+                <MessageTargetSearchRow
                   key={member.id}
+                  workspaceId={workspaceId}
+                  kind="member"
+                  member={{
+                    id: member.id,
+                    displayName: displayMember(member).displayName || member.name,
+                    name: displayMember(member).name || member.email.split("@")[0] || member.email,
+                    email: member.email,
+                    avatar: displayMember(member).avatar || member.avatar || null,
+                    isAway: member.isAway,
+                  }}
                   onClick={() => handleSelect("member", member)}
-                  className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                >
-                  <Avatar className="size-8 rounded-lg">
-                    <AvatarImage src={d.avatar || ""} />
-                    <AvatarFallback className="bg-sky-500 text-white rounded-lg text-xs">
-                      {(d.displayName || d.name || "U").substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-white truncate">
-                      {d.displayName || d.name}
-                    </span>
-                    <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                      {member.email}
-                    </span>
-                  </div>
-                </div>
+                />
                 );
               })}
             </div>

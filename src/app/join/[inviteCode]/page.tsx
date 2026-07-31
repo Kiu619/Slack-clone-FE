@@ -8,6 +8,7 @@ import { useJoinWorkspace } from '@/hooks/use-workspace'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import Typography from '@/components/ui/typography'
+import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
 
 export default function JoinWorkspacePage() {
   const params = useParams()
@@ -32,9 +33,19 @@ export default function JoinWorkspacePage() {
       const workspace = await joinWorkspace(inviteCode)
       toast.success(`You joined "${workspace.name}" successfully!`)
       router.replace('/')
-    } catch (err: any) {
+    } catch (err: unknown) {
       const msg =
-        err?.response?.data?.message ?? 'Failed to join workspace'
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as {
+          response?: { data?: { message?: string } }
+        }).response?.data?.message
+          ? String(
+              (err as { response: { data?: { message?: string } } }).response
+                .data?.message,
+            )
+          : 'Failed to join workspace'
 
       if (msg.includes('already a member')) {
         toast.info('You are already a member of this workspace.')
@@ -49,9 +60,13 @@ export default function JoinWorkspacePage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
-      </div>
+      <FullPageCenterSkeleton
+        titleWidth="w-48"
+        subtitleWidth="w-72"
+        bodyLines={2}
+        actionCount={1}
+        className="bg-[#F8F8F8]"
+      />
     )
   }
 

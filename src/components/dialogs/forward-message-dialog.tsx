@@ -215,7 +215,6 @@ function ForwardMessageDialogContent({
           onSelectMember={(m: WorkspaceMember) => handleSelect("member", m)}
           onSelectConversation={handleSelectConversation}
           onRemoveTarget={removeTarget}
-          displayMember={displayMember}
           currentUserId={currentUserId}
         />
 
@@ -242,12 +241,12 @@ function ForwardMessageDialogContent({
         )}
       </CustomDialogBody>
       <CustomDialogFooter className="justify-between">
-        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
           Cancel
         </Button>
         <Button
           type="button"
-          className="bg-[#007a5a] text-white hover:bg-[#148567]"
+          variant="success"
           disabled={
             selectedTargets.length === 0 || forwardMutation.isPending
           }

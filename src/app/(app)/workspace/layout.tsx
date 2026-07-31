@@ -1,6 +1,6 @@
-import { ThemeProvider } from "next-themes"
 import "../../slack-theme.css"
-import { FontInjector } from "@/components/font-injector"
+import "./globals.css"
+import { ThemeProvider } from "@/providers/theme-provider"
 
 export default function MainLayout({
   children
@@ -15,7 +15,7 @@ export default function MainLayout({
       disableTransitionOnChange
     >
 
-      <div className="flex flex-col w-screen h-screen bg-workspace-background">
+      <div className="workspace-theme fixed inset-0 flex min-h-0 w-screen flex-col overflow-hidden bg-workspace-background">
         {children}
       </div>
     </ThemeProvider>

@@ -13,18 +13,21 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
         outline:
-          "border border-[#797c814d] bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-[#797c814d] bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input bg-transparent rounded-md overflow-hidden",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-accent hover:text-accent-foreground ",
         link: "text-primary underline-offset-4 hover:underline",
 
         success: "bg-[#007a5a]! text-white! hover:bg-[#006E51]!",
         warning: "bg-yellow-500! text-white! hover:bg-yellow-600!",
         error: "bg-[#de1f5a]! text-white! hover:bg-[#c4174e]!",
 
-        submenu: "hover:text-white! hover:bg-selection-hover! w-full rounded-none justify-start! py-1! px-5!"
+        submenu: "hover:text-white! hover:bg-selection-hover! w-full rounded-none justify-start! py-1! px-5!",
+        checkedMenu: "hover:text-white! hover:bg-selection-hover! w-full rounded-none justify-between! py-1! px-5!",
+
+        active: "bg-selection-hover text-white hover:bg-selection-hover!",
       },
       size: {
         default: "px-3 py-2 has-[>svg]:px-3",

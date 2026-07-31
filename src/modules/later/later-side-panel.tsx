@@ -1,20 +1,23 @@
 "use client";
 
 import ReminderDialog from "@/components/dialogs/reminder-dialog";
+import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Typography from "@/components/ui/typography";
+import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 import { useLaterNavigation } from "@/hooks/use-later-navigation";
 import { getReminderPresets, useSavedItems } from "@/hooks/use-saved-items";
-import { SavedItem, Workspace } from "@/lib/types";
+import { getContrastTextColor } from "@/lib/color-contrast";
+import { SavedItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { type Theme } from "@/stores/useThemeStore";
 import { useUserStore } from "@/stores/useUserStore";
@@ -22,7 +25,7 @@ import { format } from "date-fns";
 import { useParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import {
-  FiPlus,
+    FiPlus,
 } from "react-icons/fi";
 import { IoFilter } from "react-icons/io5";
 import { LuCheck } from "react-icons/lu";
@@ -33,13 +36,9 @@ import { SavedItemComponent, SavedItemSkeleton } from "./saved-item";
 
 interface Props {
   theme: Theme;
-  currentWorkspaceData: Workspace;
 }
 
-const MENU_ITEM_STYLE =
-  "flex items-center gap-2 hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer text-sm";
-
-const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
+const LaterSidePanel = ({ theme }: Props) => {
   const { user: currentUser } = useUserStore();
   const params = useParams<{ workspaceId: string }>();
   const [filterStatus, setFilterStatus] = useState<
@@ -67,9 +66,6 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   // Reminder dialog state
   const [reminderItem, setReminderItem] = useState<SavedItem | null>(null);
   const [openReminderDialog, setOpenReminderDialog] = useState(false);
-  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-  // Reminder quick preset popover
-  const [openReminderPopoverId, setOpenReminderPopoverId] = useState<string | null>(null);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -81,26 +77,22 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const handleArchive = (item: SavedItem) => {
     const newStatus = item.status === "archived" ? "in_progress" : "archived";
     updateMutation.mutate({ itemId: item.id, payload: { status: newStatus } });
-    setOpenPopoverId(null);
     toast.success(newStatus === "archived" ? "Archived" : "Moved back to In Progress");
   };
 
   const handleRemove = (itemId: string) => {
     removeMutation.mutate(itemId);
-    setOpenPopoverId(null);
   };
 
   const handleSetReminder = useCallback(
     (item: SavedItem, remindAt: string, note?: string) => {
       setReminderOnItem(item, remindAt, note);
-      setOpenReminderPopoverId(null);
     },
     [setReminderOnItem],
   );
 
   const handleClearReminder = (item: SavedItem) => {
     clearReminderOnItem(item);
-    setOpenReminderPopoverId(null);
   };
 
   const { navigateToItem, mainActiveId, threadActiveId } = useLaterNavigation();
@@ -110,6 +102,7 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   }
 
   const reminderPresets = getReminderPresets();
+  const selectedTextColor = getContrastTextColor(theme.selectedItems);
 
   return (
     <div className="flex flex-col h-full">
@@ -122,9 +115,9 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
           {filterStatus === "completed" ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={() => clearCompleted()}>
-                  <MdOutlineDeleteSweep size={22} className="cursor-pointer hover:text-red-500" />
-                </button>
+                <Button size="custom" className="p-1 hover:text-red-500!" onClick={() => clearCompleted()}>
+                  <MdOutlineDeleteSweep size={22} className="cursor-pointer " />
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <p className="text-xs">Clear all completed</p>
@@ -135,9 +128,13 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
 
               <Tooltip>
                 <PopoverTrigger asChild>
-
                   <TooltipTrigger asChild>
-                    <IoFilter size={18} className="cursor-pointer" />
+                    <Button 
+                      size="custom"
+                      className="p-1"
+                    >
+                      <IoFilter size={18}/>
+                    </Button>
                   </TooltipTrigger>
                 </PopoverTrigger>
                 <TooltipContent side="bottom">
@@ -148,55 +145,53 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                 side="bottom"
                 align="end"
                 sideOffset={8}
-                className="w-auto border-[#797c814d] bg-white dark:bg-[#1A1D21]"
+                className="w-auto"
                 withOverlay={true}
                 onOpenAutoFocus={(e) => e.preventDefault()}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="py-2 min-w-[200px]">
+                <div className="py-2 min-w-50">
                   <div className="flex flex-col">
-                    <div
+                    <Button
+                      variant="checkedMenu"
                       className={cn(
-                        MENU_ITEM_STYLE,
-                        "justify-start gap-2 px-3",
-                        showUpcomingReminders && "text-[#1264a3] dark:text-[#1d9bd1]"
+                        showUpcomingReminders && ACTIVE_ITEM_STYLE
                       )}
                       onClick={() => setShowUpcomingReminders(true)}
                     >
-                      <div className="w-4 flex shrink-0">
-                        {showUpcomingReminders && <LuCheck size={16} />}
-                      </div>
                       <Typography
                         variant="p"
                         text="Show upcoming reminders"
                         className="text-[14px] font-medium"
                       />
-                    </div>
-                    <div
+                      <div className="w-4 flex shrink-0">
+                        {showUpcomingReminders && <LuCheck size={16} />}
+                      </div>
+                    </Button>
+                    <Button
+                      variant="checkedMenu"
                       className={cn(
-                        MENU_ITEM_STYLE,
-                        "justify-start gap-2 px-3",
-                        !showUpcomingReminders && "text-[#1264a3] dark:text-[#1d9bd1]"
+                        !showUpcomingReminders && ACTIVE_ITEM_STYLE
                       )}
                       onClick={() => setShowUpcomingReminders(false)}
                     >
-                      <div className="w-4 flex shrink-0">
-                        {!showUpcomingReminders && <LuCheck size={16} />}
-                      </div>
                       <Typography
                         variant="p"
                         text="Hide upcoming reminders"
                         className="text-[14px] font-medium"
                       />
-                    </div>
+                      <div className="w-4 flex shrink-0">
+                        {!showUpcomingReminders && <LuCheck size={16} />}
+                      </div>
+                    </Button>
                   </div>
                 </div>
               </PopoverContent>
             </Popover>
           ) : null}
-          <button onClick={() => setOpenReminderDialog(true)}>
+          <Button size="custom" className="p-1" onClick={() => setOpenReminderDialog(true)}>
             <FiPlus size={20} className="cursor-pointer" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -289,6 +284,7 @@ const LaterSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                   onSetReminder={handleSetReminder}
                   onClearReminder={handleClearReminder}
                   onEditReminder={(item) => setReminderItem(item)}
+                  selectedTextColor={selectedTextColor}
                 />
               )}
               components={{

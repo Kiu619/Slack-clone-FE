@@ -48,6 +48,9 @@ export const MentionList = forwardRef((props: MentionListProps, ref) => {
 
     if (item) {
       if ("type" in item && item.type === "special") {
+        if (item.description === "Disabled in this channel") {
+          return;
+        }
         props.command({ id: item.id, label: item.name || "" });
         return;
       }
@@ -206,7 +209,7 @@ export const MentionList = forwardRef((props: MentionListProps, ref) => {
                   </div>
                   {"description" in item && (
                     <span
-                      className={`text-[11px] truncate ${index === selectedIndex ? "text-white/70" : "text-gray-500"}`}
+                      className={`text-[11px] truncate ${item.description === "Disabled in this channel" ? "text-red-400" : index === selectedIndex ? "text-white/70" : "text-gray-500"}`}
                     >
                       {item.description}
                     </span>

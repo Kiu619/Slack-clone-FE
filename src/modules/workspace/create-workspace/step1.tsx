@@ -61,19 +61,19 @@ const Step1 = () => {
         <Typography
           text="Step 1 of 4"
           variant="p"
-          className="text-gray-500"
+          className="text-[#616061] dark:text-[#d1d2d3]"
         />
 
         <Typography
           text="What do you want to call your Slack workspace?"
           variant="h1"
-          className="text-white font-bold"
+          className="font-bold text-[#1d1c1d] dark:text-white"
         />
 
         <Typography
           text="Choose a name that your team will recognize, like your company name or team name."
           variant="p"
-          className="text-white/80 text-sm leading-relaxed"
+          className="text-sm leading-relaxed text-[#454245] dark:text-white/80"
         />
       </div>
 
@@ -88,7 +88,7 @@ const Step1 = () => {
                   <Input
                     {...field}
                     placeholder="Enter your company or team name"
-                    className="text-white bg-inherit border-white/20 placeholder:text-white/50 focus:border-white/40 focus:ring-white/20"
+                    className="border border-[#cfcbd1] bg-white text-[#1d1c1d] placeholder:text-[#8c8c8f] focus:border-[#1264a3] focus:ring-[#1264a3]/20 dark:border-[#35373B] dark:bg-[#1A1D21] dark:text-white dark:placeholder:text-[#797c81]"
                     onChange={(e) => {
                       field.onChange(e)
                       handleInputChange(e.target.value)
@@ -103,7 +103,7 @@ const Step1 = () => {
           />
 
           <Button
-            className="bg-workspace-background hover:bg-workspace-background/90 w-full sm:w-auto min-w-[120px] font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full min-w-[120px] bg-[#3b1141] text-white transition-colors hover:bg-[#3b1141]/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             type="submit"
             disabled={!isFormValid}
           >

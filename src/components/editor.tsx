@@ -2,7 +2,6 @@
 "use client";
 
 import Code from "@tiptap/extension-code";
-import Link from "@tiptap/extension-link";
 import Mention from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
@@ -19,6 +18,9 @@ import {
 } from "@/lib/quick-schedule-slots";
 import { useQuery } from "@tanstack/react-query";
 import { fetchWorkspaceMembersApi, getNotificationsApi } from "@/apis";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceCustomEmojis } from "@/hooks/use-workspace-custom-emojis";
+import type { WorkspaceCustomEmoji } from "@/lib/types";
 import { createSuggestion } from "./suggestion";
 import {
   LuAtSign,
@@ -47,11 +49,24 @@ import {
   getFileIcon,
   formatFileSize,
 } from "./attachment-previews/file-preview";
+import {
+  normalizeCustomEmojiName,
+  toPickerCustomEmojis,
+} from "@/lib/custom-emojis";
+import {
+  applyLinkToEditor,
+  createEditorLinkExtension,
+  getLinkDialogValue,
+  removeLinkFromEditor,
+  type LinkDialogValue,
+} from "@/lib/tiptap-link";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import EditorAudioRecorder from "./editor-audio-recorder";
 import AudioPreview from "./attachment-previews/audio-preview";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Separator } from "./ui/separator";
+import { CustomEmojiNode } from "./extensions/custom-emoji-node";
+import { Button } from "./ui/button";
 
 const RecordVideoDialog = dynamic(
   () => import("./dialogs/record-video-dialog"),
@@ -99,6 +114,9 @@ interface EditorProps {
   onScheduleQuickPick?: (scheduledAtIso: string) => void | Promise<void>;
   /** Ẩn nút lên lịch (vd. chỉnh sửa tin) */
   scheduleDisabled?: boolean;
+  channelPostingSettings?: {
+    allowMentions: boolean;
+  } | null;
 }
 
 const Editor = ({
@@ -121,8 +139,13 @@ const Editor = ({
   onScheduleClick,
   onScheduleQuickPick,
   scheduleDisabled = false,
+  channelPostingSettings = null,
 }: EditorProps) => {
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkDialogValue, setLinkDialogValue] = useState<LinkDialogValue>({
+    text: "",
+    url: "",
+  });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [, forceUpdate] = useState({});
@@ -142,6 +165,51 @@ const Editor = ({
   })();
 
   const { theme } = useTheme();
+  const { data: workspace } = useWorkspace(workspaceId ?? "");
+  const { data: allCustomEmojis } = useWorkspaceCustomEmojis(workspaceId, {
+    includeAliases: true,
+  });
+  const customEmojis = useMemo(
+    () =>
+      (allCustomEmojis ?? []).filter(
+        (emoji) => !emoji.aliasOfId && !emoji.sourceDefaultEmoji,
+      ),
+    [allCustomEmojis],
+  );
+  const pickerCustomEmojis = useMemo(
+    () => toPickerCustomEmojis(customEmojis),
+    [customEmojis],
+  );
+  const customEmojiLookup = useMemo(() => {
+    const lookup = new Map<string, WorkspaceCustomEmoji>();
+    (allCustomEmojis ?? []).forEach((emoji) => {
+      lookup.set(emoji.name, emoji);
+    });
+    return lookup;
+  }, [allCustomEmojis]);
+  const customEmojiLookupById = useMemo(() => {
+    const lookup = new Map<string, WorkspaceCustomEmoji>();
+    (allCustomEmojis ?? []).forEach((emoji) => {
+      lookup.set(emoji.id, emoji);
+    });
+    return lookup;
+  }, [allCustomEmojis]);
+  const customEmojiLookupRef = useRef(customEmojiLookup);
+  useEffect(() => {
+    customEmojiLookupRef.current = customEmojiLookup;
+  }, [customEmojiLookup]);
+  const resolveCustomEmoji = useCallback((name: string) => {
+    const resolved = customEmojiLookupRef.current.get(
+      normalizeCustomEmojiName(name),
+    );
+    if (!resolved) return null;
+    if (!resolved.aliasOfId) return resolved;
+    return customEmojiLookupById.get(resolved.aliasOfId) ?? resolved;
+  }, [customEmojiLookupById]);
+  const customEmojiExtension = useMemo(
+    () => CustomEmojiNode.configure({ resolveEmoji: resolveCustomEmoji }),
+    [resolveCustomEmoji],
+  );
 
   const { data: allMembers, isLoading: isLoadingAllMembers } = useQuery({
     queryKey: ["workspace-members", workspaceId],
@@ -157,8 +225,15 @@ const Editor = ({
         currentMembers,
         channelName,
         workspaceId,
+        channelPostingSettings?.allowMentions ?? true,
       ),
-    [allMembers, currentMembers, channelName, workspaceId],
+    [
+      allMembers,
+      currentMembers,
+      channelName,
+      workspaceId,
+      channelPostingSettings?.allowMentions,
+    ],
   );
 
   const {
@@ -217,10 +292,7 @@ const Editor = ({
             return "Reply...";
           },
         }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: { class: "text-blue-500 underline cursor-pointer" },
-        }),
+        createEditorLinkExtension(),
         Underline,
         Mention.configure({
           HTMLAttributes: {
@@ -229,6 +301,7 @@ const Editor = ({
           },
           suggestion,
         }),
+        customEmojiExtension,
       ],
       editorProps: {
         attributes: {
@@ -255,6 +328,8 @@ const Editor = ({
       onContentChange,
       variant,
       editorPlaceholder,
+      channelPostingSettings?.allowMentions,
+      customEmojiExtension,
     ],
   );
 
@@ -293,16 +368,22 @@ const Editor = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showEmojiPicker]);
 
+  const hasEditorContent = (value?: string | null) => {
+    if (!value) return false;
+    const textContent = value
+      .replace(/<img\b[^>]*data-custom-emoji[^>]*>/gi, " :emoji: ")
+      .replace(/<[^>]*>/g, "")
+      .replace(/\u00A0/g, " ")
+      .trim();
+    return textContent !== "" || /<img\b/i.test(value);
+  };
+
   const handleSubmit = useCallback(() => {
     if (!editor || disabled) return;
 
     const content = editor.getHTML();
     // Kiểm tra text thực tế bên trong các tag HTML (bao gồm cả &nbsp;)
-    const textContent = editor
-      .getText()
-      .replace(/\u00A0/g, " ")
-      .trim();
-    const hasContent = textContent !== "";
+    const hasContent = hasEditorContent(content);
 
     if (!hasContent && !hasPendingFiles) return;
 
@@ -333,6 +414,29 @@ const Editor = ({
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
       if (!editor) return;
+      if (emojiData.isCustom) {
+        const customEmoji = customEmojiLookupRef.current.get(
+          normalizeCustomEmojiName(emojiData.names[0] ?? emojiData.emoji),
+        );
+        if (customEmoji) {
+          editor
+            .chain()
+            .focus()
+            .insertContent({
+              type: "customEmoji",
+              attrs: {
+                name: customEmoji.name,
+                imageUrl: customEmoji.imageUrl,
+                alt: `:${customEmoji.name}:`,
+                title: `:${customEmoji.name}:`,
+              },
+            })
+            .run();
+          setShowEmojiPicker(false);
+          return;
+        }
+      }
+
       editor.chain().focus().insertContent(emojiData.emoji).run();
       setShowEmojiPicker(false);
     },
@@ -384,6 +488,11 @@ const Editor = ({
     editor?.chain().focus().toggleBold().run();
     forceUpdate({});
   };
+  const openLinkDialog = () => {
+    if (!editor) return;
+    setLinkDialogValue(getLinkDialogValue(editor));
+    setShowLinkInput(true);
+  };
   const toggleItalic = () => {
     editor?.chain().focus().toggleItalic().run();
     forceUpdate({});
@@ -418,8 +527,7 @@ const Editor = ({
     }
   };
 
-  const hasContent = !!editor?.getText().trim();
-  const canSubmit = hasContent || hasPendingFiles;
+  const canSubmit = hasEditorContent(editor?.getHTML()) || hasPendingFiles;
 
   if (!editor) return null;
 
@@ -495,7 +603,7 @@ const Editor = ({
             <Divider />
 
             <ToolbarButton
-              onClick={() => setShowLinkInput(!showLinkInput)}
+              onClick={openLinkDialog}
               active={editor.isActive("link")}
               tooltip="Insert link"
             >
@@ -573,6 +681,7 @@ const Editor = ({
                     height={400}
                     searchPlaceHolder="Search emoji..."
                     previewConfig={{ showPreview: false }}
+                    customEmojis={pickerCustomEmojis}
                   />
                 </div>
               )}
@@ -614,6 +723,7 @@ const Editor = ({
                       height={400}
                       searchPlaceHolder="Search emoji..."
                       previewConfig={{ showPreview: false }}
+                      customEmojis={pickerCustomEmojis}
                     />
                   </div>
                 )}
@@ -642,20 +752,20 @@ const Editor = ({
 
             {variant === "update" ? (
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={onCancel}
-                  className="px-3 py-1.5 rounded dark:bg-transparent dark:text-white dark:border-[#797c814d] border bg-white text-black hover:bg-gray-50 dark:hover:bg-[#222529] text-sm font-semibold transition-colors"
+                  variant="outline"
                   disabled={disabled}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleSubmit}
                   disabled={!canSubmit || disabled}
-                  className="px-3 py-1.5 rounded bg-[#007a5a] text-white hover:bg-[#148567] text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  variant="success"
                 >
                   Save Changes
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="flex items-center gap-1">
@@ -865,7 +975,26 @@ const Editor = ({
       </div>
 
       {showLinkInput && (
-        <LinkInputDialog open={showLinkInput} setOpen={setShowLinkInput} />
+        <LinkInputDialog
+          open={showLinkInput}
+          setOpen={setShowLinkInput}
+          initialText={linkDialogValue.text}
+          initialUrl={linkDialogValue.url}
+          onSave={(value) => {
+            if (!editor) return;
+            applyLinkToEditor(editor, value);
+            forceUpdate({});
+          }}
+          onRemove={
+            editor?.isActive("link")
+              ? () => {
+                  if (!editor) return;
+                  removeLinkFromEditor(editor);
+                  forceUpdate({});
+                }
+              : undefined
+          }
+        />
       )}
 
       <RecordVideoDialog

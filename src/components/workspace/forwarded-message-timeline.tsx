@@ -1,34 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import DOMPurify from "dompurify";
 import AttachmentList from "@/components/attachment-previews/attachment-list";
 import Avatar from "@/components/avatar";
 import type { Message, MessageForwardSnapshot, User } from "@/lib/types";
+import { sanitizeRenderedRichText } from "@/lib/sanitize-rich-text";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
-
-const SANITIZE_OPTS = {
-  ALLOWED_TAGS: [
-    "p",
-    "br",
-    "strong",
-    "em",
-    "s",
-    "u",
-    "code",
-    "pre",
-    "ul",
-    "ol",
-    "li",
-    "a",
-    "blockquote",
-    "span",
-  ],
-  ALLOWED_ATTR: ["href", "target", "rel", "class"],
-};
 
 export function parseForwardSnapshot(
   raw: Message["forwardSnapshot"],
@@ -70,11 +50,9 @@ export const ForwardedMessageTimelineBlock = ({
     return mergeUserForDisplay(snapshot.sourceUser as User, overlay);
   }, [snapshot?.sourceUser, overlay]);
 
-  const sanitizedSource = useMemo(() => {
-    if (!snapshot?.sourceContent) return "";
-    if (typeof window === "undefined") return snapshot.sourceContent;
-    return DOMPurify.sanitize(snapshot.sourceContent, SANITIZE_OPTS);
-  }, [snapshot?.sourceContent]);
+  const sanitizedSource = snapshot?.sourceContent
+    ? sanitizeRenderedRichText(snapshot.sourceContent)
+    : "";
 
   if (!snapshot || !displayUser) return null;
 
@@ -93,11 +71,10 @@ export const ForwardedMessageTimelineBlock = ({
         />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="truncate text-[15px] font-bold text-[#e8e8e8]">{label}</p>
+        <p className="truncate text-[15px] font-bold ">{label}</p>
         <div className="flex flex-wrap items-baseline gap-1.5">
           <div
-            className="message-content min-w-0 text-[15px] leading-relaxed text-[#ababad] [&_a]:text-sky-400 [&_p]:my-0"
-            // eslint-disable-next-line react/no-danger
+            className="message-content min-w-0 text-[15px] leading-relaxed [&_a]:text-sky-400 [&_p]:my-0"
             dangerouslySetInnerHTML={{ __html: sanitizedSource }}
           />
           {snapshot.sourceEditedAt ? (

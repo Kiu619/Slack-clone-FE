@@ -1,25 +1,35 @@
 "use client";
 
-import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import Typography from "@/components/ui/typography";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import type { DirectMessageConversation, User } from "@/lib/types";
-import { RiHeadphoneLine, RiPushpinLine } from "react-icons/ri";
+import { RiPushpinLine } from "react-icons/ri";
 
+import DMsNotificationPopover from "@/components/popovers/dm-notification-popover";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useStarConversation } from "@/hooks/use-conversation";
+import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 import { useAuth } from "@/hooks/use-auth";
+import { useStarConversation } from "@/hooks/use-conversation";
+import { clearLastDmConversationId } from "@/lib/last-dm-storage";
+import { getDmDisplayName, isDeactivatedUser } from "@/lib/dm-members";
 import { cn } from "@/lib/utils";
+import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore";
+import { useMainPanelStore } from "@/stores/useMainPanelStore";
+import { useThemeStore } from "@/stores/useThemeStore";
+import { HuddleHeaderBadge } from "@/modules/huddle/huddle-header-badge";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberStore,
 } from "@/stores/useWorkspaceMemberStore";
-import { useShallow } from "zustand/react/shallow";
-import { useThemeStore } from "@/stores/useThemeStore";
+import { X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { BiMessageRounded } from "react-icons/bi";
 import { FaRegFolderOpen } from "react-icons/fa";
 import { FaRegFolderClosed, FaStar } from "react-icons/fa6";
@@ -27,16 +37,9 @@ import { ImFilesEmpty } from "react-icons/im";
 import { IoMdMore } from "react-icons/io";
 import { IoChevronDownOutline } from "react-icons/io5";
 import { SlStar } from "react-icons/sl";
-import DMsNotificationPopover from "@/components/popovers/dm-notification-popover";
-import { X } from "lucide-react";
-import { clearLastDmConversationId } from "@/lib/last-dm-storage";
-import { useMainPanelStore } from "@/stores/useMainPanelStore";
-import { useMemo, useState } from "react";
-import DMDetailDialog from "./dm-details/dm-detail-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MENU_ITEM_STYLE } from "@/constants/styles";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
+import DMDetailDialog from "./dm-details/dm-detail-dialog";
 
 export type DMViewTab = "messages" | "files" | "folders" | "pins";
 
@@ -56,8 +59,14 @@ const DMHeader = ({
   const { theme: storeTheme } = useThemeStore();
   const { user: currentUser } = useAuth();
   const { reset } = useMainPanelStore();
+  const openGlobalSearch = useGlobalSearchStore((state) => state.openSearch);
+  const armSuppressNextClose = useGlobalSearchStore((state) => state.armSuppressNextClose);
+  const setInChannelIds = useGlobalSearchStore((state) => state.setInChannelIds);
+  const setInConversationIds = useGlobalSearchStore((state) => state.setInConversationIds);
+  const resetGlobalSearch = useGlobalSearchStore((state) => state.resetSearch);
   const [openDMDetailDialog, setOpenDMDetailDialog] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const isArchivedDm = !!conversation.isArchivedBecausePeerDeactivated;
   const starMutation = useStarConversation(
     conversation.workspaceId,
     conversation.id,
@@ -72,17 +81,12 @@ const DMHeader = ({
     starMutation.mutate(!isStarred);
   };
 
-  const otherMembers = conversation.members.filter(m => m.id !== currentUser?.id);
-  const isSelf = otherMembers.length === 0;
-  
   const getDMName = () => {
-    if (isSelf) return "You";
-    return otherMembers
-      .map((m) => {
-        const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
-        return d.displayName || d.name || d.email || "";
-      })
-      .join(", ");
+    return getDmDisplayName(
+      conversation.members,
+      currentUser?.id,
+      (member) => mergeUserForDisplay(member as User, memberOverlayMap[member.id]),
+    );
   };
 
   /** Chỉ 1-1 hoặc DM với chính mình — group không gắn một emoji đại diện. */
@@ -97,7 +101,8 @@ const DMHeader = ({
     }
     if (!conversation.isGroup && others.length === 1) {
       const m = others[0] as User;
-      return mergeUserForDisplay(m, memberOverlayMap[m.id]);
+      const display = mergeUserForDisplay(m, memberOverlayMap[m.id]);
+      return isDeactivatedUser(display) ? null : display;
     }
     return null;
   }, [
@@ -116,7 +121,7 @@ const DMHeader = ({
               <Button
                 size="custom"
                 className="p-1"
-                disabled={starMutation.isPending}
+                disabled={isArchivedDm || starMutation.isPending}
                 onClick={toggleDmStar}
               >
                 {isStarred ? (
@@ -134,11 +139,11 @@ const DMHeader = ({
               />
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="flex max-w-[min(480px,70vw)] min-w-0 items-center gap-2 p-1 hover:bg-[rgba(255,255,255,0.1)]"
                 size="custom"
                 onClick={() => setOpenDMDetailDialog(true)}
@@ -150,14 +155,22 @@ const DMHeader = ({
                     className="min-w-0 flex-1 truncate text-[16px] font-bold"
                   />
                   {headerStatusUser ? (
-                    <UserStatusEmojiInline
-                      statusEmoji={headerStatusUser.statusEmoji}
-                      statusText={headerStatusUser.statusText}
-                      emojiClassName="text-[16px]"
-                      interactive={Boolean(
-                        headerStatusUser.statusText?.trim(),
-                      )}
-                    />
+                    <>
+                      <UserPresenceIndicator
+                        workspaceId={conversation.workspaceId}
+                        userId={headerStatusUser.id}
+                        isAway={headerStatusUser.isAway}
+                        className="ml-1"
+                      />
+                      <UserStatusEmojiInline
+                        statusEmoji={headerStatusUser.statusEmoji}
+                        statusText={headerStatusUser.statusText}
+                        emojiClassName="text-[16px]"
+                        interactive={Boolean(
+                          headerStatusUser.statusText?.trim(),
+                        )}
+                      />
+                    </>
                   ) : null}
                 </div>
                 <IoChevronDownOutline
@@ -177,60 +190,44 @@ const DMHeader = ({
         </div>
 
         <div className="flex items-center gap-1">
-          <div className="flex items-center rounded-md border border-[#797c814d]">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-l-md">
-                  <RiHeadphoneLine size={18} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center">
-                <Typography
-                  text="Start huddle"
-                  variant="p"
-                  className="text-[14px]!"
-                />
-              </TooltipContent>
-            </Tooltip>
+          <HuddleHeaderBadge
+            workspaceId={conversation.workspaceId}
+            entityType="dm"
+            entityId={conversation.id}
+            label={getDMName()}
+            canInteract={!isArchivedDm}
+          />
 
-            <span className="h-4 w-px bg-[#797c814d]"></span>
+          {!isArchivedDm ? (
+            <DMsNotificationPopover
+              workspaceId={conversation.workspaceId}
+              conversationId={conversation.id}
+            />
+          ) : null}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-r-md">
-                  <IoChevronDownOutline size={16} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center">
-                <Typography
-                  text="More options"
-                  variant="p"
-                  className="text-[14px]!"
-                />
-              </TooltipContent>
-            </Tooltip>
-          </div>
 
-          <DMsNotificationPopover />
-
-          
           <Popover open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-            <PopoverTrigger>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-md">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-md",
+                      isArchivedDm && "opacity-50 pointer-events-none",
+                    )}
+                  >
                     <IoMdMore size={20} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="center">
-                  <Typography
-                    text="More actions"
-                    variant="p"
-                    className="text-[14px]!"
-                  />
-                </TooltipContent>
-              </Tooltip>
-            </PopoverTrigger>
+                  </button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="center">
+                <Typography
+                  text="More actions"
+                  variant="p"
+                  className="text-[14px]!"
+                />
+              </TooltipContent>
+            </Tooltip>
             <PopoverContent
               side="bottom"
               align="end"
@@ -239,8 +236,8 @@ const DMHeader = ({
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
               <div className="py-2 flex flex-col space-y-1">
-                <div
-                  className={MENU_ITEM_STYLE}
+                <Button
+                  variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpenDMDetailDialog(true);
@@ -252,13 +249,10 @@ const DMHeader = ({
                     text="Open conversation details"
                     className="text-[15px]"
                   />
-                </div>
+                </Button>
                 <Separator />
-                <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
+                <Button
+                  variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleDmStar();
@@ -271,22 +265,11 @@ const DMHeader = ({
                       text={isStarred ? "Unstar conversation" : "Star conversation"}
                     />
                   </div>
-                </div>
-
-                {/* <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Typography variant="p" text="Edit settings" />
-                  </div>
-                </div> */}
+                </Button>
 
                 <Separator />
 
-                <div className={MENU_ITEM_STYLE}
+                <Button variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(window.location.href)
@@ -294,8 +277,8 @@ const DMHeader = ({
                   }}
                 >
                   <Typography variant="p" text="Copy link" />
-                </div>
-                <div className={MENU_ITEM_STYLE}
+                </Button>
+                <Button variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(getDMName())
@@ -303,20 +286,27 @@ const DMHeader = ({
                   }}
                 >
                   <Typography variant="p" text="Copy name" />
-                </div>
+                </Button>
 
                 <Separator />
 
-                <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
+                <Button variant="submenu"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetGlobalSearch();
+                    setInConversationIds([conversation.id]);
+                    setInChannelIds([]);
+                    setMoreActionsOpen(false);
+                    setTimeout(() => {
+                      armSuppressNextClose();
+                      openGlobalSearch();
+                    }, 0);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <Typography variant="p" text="Search in conversation" />
                   </div>
-                </div>
+                </Button>
               </div>
 
             </PopoverContent>

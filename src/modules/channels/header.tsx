@@ -3,34 +3,34 @@
 import Typography from "@/components/ui/typography";
 import { Channel } from "@/lib/types";
 import { FiHash } from "react-icons/fi";
-import { RiHeadphoneLine, RiPushpinLine } from "react-icons/ri";
+import { RiPushpinLine } from "react-icons/ri";
 
 import ChannelNotificationPopover from "@/components/popovers/channel-notification-popover";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MENU_ITEM_STYLE } from "@/constants/styles";
+import { useStarChannel } from "@/hooks/use-channel";
 import { cn } from "@/lib/utils";
 import ChannelDetailDialog from "@/modules/channels/channel-details/channel-detail-dialog";
-import { useStarChannel } from "@/hooks/use-channel";
+import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore";
 import { useMainPanelStore } from "@/stores/useMainPanelStore";
 import { useThemeStore } from "@/stores/useThemeStore";
+import { HuddleHeaderBadge } from "@/modules/huddle/huddle-header-badge";
 import { X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { BiMessageRounded } from "react-icons/bi";
 import { FaRegFolderOpen } from "react-icons/fa";
-import { FaRegFolderClosed } from "react-icons/fa6";
+import { FaRegFolderClosed, FaStar } from "react-icons/fa6";
 import { ImFilesEmpty } from "react-icons/im";
 import { IoMdMore } from "react-icons/io";
-import { IoChevronDownOutline, IoPersonOutline } from "react-icons/io5";
+import { IoPersonOutline } from "react-icons/io5";
 import { SlStar } from "react-icons/sl";
-import { FaStar } from "react-icons/fa6";
 import { toast } from "sonner";
 
 export type ChannelViewTab = "messages" | "files" | "folders" | "pins";
@@ -54,6 +54,11 @@ const Header = ({
   const isStarred = Boolean(currentChannelData.starredAt);
 
   const { reset } = useMainPanelStore();
+  const openGlobalSearch = useGlobalSearchStore((state) => state.openSearch);
+  const armSuppressNextClose = useGlobalSearchStore((state) => state.armSuppressNextClose);
+  const setInChannelIds = useGlobalSearchStore((state) => state.setInChannelIds);
+  const setInConversationIds = useGlobalSearchStore((state) => state.setInConversationIds);
+  const resetGlobalSearch = useGlobalSearchStore((state) => state.resetSearch);
   const [openChannelDetailDialog, setOpenChannelDetailDialog] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
 
@@ -140,61 +145,37 @@ const Header = ({
             </TooltipContent>
           </Tooltip>
 
-          <div className="flex items-center rounded-md border border-[#797c814d]">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-l-md">
-                  <RiHeadphoneLine size={18} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center">
-                <Typography
-                  text="Start huddle"
-                  variant="p"
-                  className="text-[14px]!"
-                />
-              </TooltipContent>
-            </Tooltip>
+          <HuddleHeaderBadge
+            workspaceId={workspaceId}
+            entityType="channel"
+            entityId={currentChannelData.id}
+            label={currentChannelData.name}
+            canInteract={isMember}
+            blockedJoinMessage="Tham gia channel để mở huddle preview."
+          />
 
-            <span className="h-4 w-px bg-[#797c814d]"></span>
-
-
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-1 rounded-r-md">
-                  <IoChevronDownOutline size={16} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center">
-                <Typography
-                  text="More options"
-                  variant="p"
-                  className="text-[14px]!"
-                />
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          <ChannelNotificationPopover />
+          <ChannelNotificationPopover
+            workspaceId={workspaceId}
+            channelId={currentChannelData.id}
+          />
 
           <Popover open={moreActionsOpen} onOpenChange={setMoreActionsOpen}>
-            <PopoverTrigger>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-md">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <button className="cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] p-1 rounded-md">
                     <IoMdMore size={20} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="center">
-                  <Typography
-                    text="More actions"
-                    variant="p"
-                    className="text-[14px]!"
-                  />
-                </TooltipContent>
-              </Tooltip>
-            </PopoverTrigger>
+                  </button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="center">
+                <Typography
+                  text="More actions"
+                  variant="p"
+                  className="text-[14px]!"
+                />
+              </TooltipContent>
+            </Tooltip>
             <PopoverContent
               side="bottom"
               align="end"
@@ -203,8 +184,8 @@ const Header = ({
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
               <div className="py-2 flex flex-col space-y-1">
-                <div
-                  className={MENU_ITEM_STYLE}
+                <Button
+                  variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpenChannelDetailDialog(true);
@@ -216,13 +197,10 @@ const Header = ({
                     text="Open channel details"
                     className="text-[15px]"
                   />
-                </div>
+                </Button>
                 <Separator />
-                <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
+                <Button
+                  variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleChannelStar();
@@ -235,22 +213,12 @@ const Header = ({
                       text={isStarred ? "Unstar channel" : "Star channel"}
                     />
                   </div>
-                </div>
-
-                {/* <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <Typography variant="p" text="Edit settings" />
-                  </div>
-                </div> */}
+                </Button>
 
                 <Separator />
 
-                <div className={MENU_ITEM_STYLE}
+                <Button
+                  variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(window.location.href)
@@ -258,8 +226,8 @@ const Header = ({
                   }}
                 >
                   <Typography variant="p" text="Copy link" />
-                </div>
-                <div className={MENU_ITEM_STYLE}
+                </Button>
+                <Button variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(currentChannelData.name)
@@ -267,27 +235,35 @@ const Header = ({
                   }}
                 >
                   <Typography variant="p" text="Copy name" />
-                </div>
+                </Button>
 
                 <Separator />
 
-                <div
-                  className={cn(
-                    MENU_ITEM_STYLE,
-                    "relative justify-between",
-                  )}
+                <Button
+                  variant="submenu"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetGlobalSearch();
+                    setInChannelIds([currentChannelData.id]);
+                    setInConversationIds([]);
+                    setMoreActionsOpen(false);
+                    setTimeout(() => {
+                      armSuppressNextClose();
+                      openGlobalSearch();
+                    }, 0);
+                  }}
                 >
                   <div className="flex items-center gap-2">
                     <Typography variant="p" text="Search in channel" />
                   </div>
-                </div>
+                </Button>
 
                 <Separator />
 
-                <div
+                <Button
+                  variant="submenu"
                   className={cn(
-                    MENU_ITEM_STYLE,
-                    "text-red-500 hover:text-white hover:bg-red-700 cursor-pointer ",
+                    "text-red-400! hover:text-white! hover:bg-red-700!",
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -298,7 +274,7 @@ const Header = ({
                     text="Leave channel"
                     className="mt-0.5 "
                   />
-                </div>
+                </Button>
               </div>
 
             </PopoverContent>

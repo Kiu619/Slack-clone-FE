@@ -8,6 +8,8 @@ import axios from 'axios'
 import { useUserStore } from '@/stores/useUserStore'
 import { getUserApi, magicLinkVerifyApi } from '@/apis'
 import { authKeys } from '@/lib/query-keys'
+import { readRedirectParam } from '@/lib/redirect-utils'
+import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
 
 const AuthCallbackContent = () => {
   const searchParams = useSearchParams()
@@ -25,7 +27,7 @@ const AuthCallbackContent = () => {
       const token = searchParams.get('token')
       const type = searchParams.get('type')
       const error = searchParams.get('error')
-      const redirect = searchParams.get('redirect') ?? '/'
+      const queryRedirect = searchParams.get('redirect')
 
       if (error) {
         toast.error('Authentication failed. Please try again.')
@@ -39,7 +41,9 @@ const AuthCallbackContent = () => {
           setUser(user)
           queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
-          router.replace(redirect)
+          const safeRedirect =
+            readRedirectParam(queryRedirect) ?? '/'
+          router.replace(safeRedirect)
         } catch {
           toast.error('Authentication failed. Please try again.')
           router.replace('/auth')
@@ -49,11 +53,15 @@ const AuthCallbackContent = () => {
 
       if (token && type === 'magic') {
         try {
-          const user = await magicLinkVerifyApi(token)
+          const { user, redirect } = await magicLinkVerifyApi(token)
           setUser(user)
           queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
-          router.replace(redirect)
+          const safeRedirect =
+            readRedirectParam(
+              redirect ?? queryRedirect ?? undefined,
+            ) ?? '/'
+          router.replace(safeRedirect)
         } catch (err) {
           const message =
             axios.isAxiosError(err) && err.response?.status === 401
@@ -72,10 +80,14 @@ const AuthCallbackContent = () => {
   }, [searchParams, router, setUser, queryClient])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-      <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
-      <p className="text-gray-500 text-sm">Verifying your login&hellip;</p>
-    </div>
+    <FullPageCenterSkeleton
+      titleWidth="w-44"
+      subtitleWidth="w-56"
+      bodyLines={1}
+      actionCount={0}
+      showIcon={false}
+      className="bg-white"
+    />
   )
 }
 
@@ -83,10 +95,14 @@ const AuthCallbackPage = () => {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex flex-col items-center justify-center bg-white gap-4">
-          <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm">Loading...</p>
-        </div>
+        <FullPageCenterSkeleton
+          titleWidth="w-44"
+          subtitleWidth="w-56"
+          bodyLines={1}
+          actionCount={0}
+          showIcon={false}
+          className="bg-white"
+        />
       }
     >
       <AuthCallbackContent />

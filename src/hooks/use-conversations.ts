@@ -1,6 +1,6 @@
 'use client'
 
-import { fetchDirectMessagesApi } from '@/apis'
+import { fetchDirectMessagesApi, getDmUnreadSummaryApi } from '@/apis'
 import { useSocket, useUserSocket } from '@/hooks/use-socket'
 import { applyIncomingDmMessageToConversationsCaches } from '@/lib/conversations-cache'
 import { messageKeys } from '@/lib/query-keys'
@@ -43,4 +43,18 @@ export function useConversations(workspaceId: string, q?: string) {
   useUserSocket(currentUser?.id ?? null, isConnected, { onNewSidebarMessage: onMessage })
 
   return query
+}
+
+export function useDmUnreadSummary(workspaceId: string) {
+  const query = useQuery({
+    queryKey: messageKeys.conversationsUnreadSummary(workspaceId),
+    queryFn: () => getDmUnreadSummaryApi(workspaceId),
+    enabled: !!workspaceId,
+    staleTime: 30 * 1000,
+  })
+
+  return {
+    ...query,
+    count: query.data?.count ?? 0,
+  }
 }

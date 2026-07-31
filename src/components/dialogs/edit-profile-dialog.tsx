@@ -358,10 +358,9 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
 
           <CustomDialogFooter className="px-6 py-4">
             <Button
-              variant="ghost"
+              variant="outline"
               type="button"
               onClick={() => setOpen(false)}
-              className=" dark:hover:bg-[#2C2E33] mr-2"
             >
               Cancel
             </Button>
@@ -377,7 +376,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                 )
               }
               type="submit"
-              className="bg-[#007a5a] hover:bg-[#006248]  font-bold px-4 py-2"
+              variant="success"
             >
               {isUploading ? "Saving..." : "Save Changes"}
             </Button>

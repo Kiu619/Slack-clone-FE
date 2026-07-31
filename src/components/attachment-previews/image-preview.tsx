@@ -2,7 +2,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, type CSSProperties } from 'react'
 import { LuDownload, LuX, LuChevronLeft, LuChevronRight } from 'react-icons/lu'
 import type { Message, MessageAttachment } from '@/lib/types'
 import {
@@ -10,6 +10,7 @@ import {
   getCloudinaryLightboxUrl,
   getCloudinarySrcSet,
 } from '@/lib/cloudinary-url'
+import { openSafeUrl } from '@/lib/open-safe-url'
 import FileToolbar from './file-toolbar'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +49,35 @@ export default function ImagePreview({
   const currentImage = images[currentIndex]
   const thumbSrcSet = getCloudinarySrcSet(attachment.url, [400, 800, 1200])
   const lightboxSrcSet = getCloudinarySrcSet(currentImage.url, [960, 1440, 1920])
+  const hasImageDimensions =
+    typeof attachment.width === 'number' &&
+    typeof attachment.height === 'number' &&
+    attachment.width > 0 &&
+    attachment.height > 0
+  const thumbnailStyle = useMemo<CSSProperties | undefined>(() => {
+    if (compact) return undefined
+
+    const maxWidth = 400
+    const maxHeight = 300
+
+    if (!hasImageDimensions) {
+      return {
+        width: maxWidth,
+        height: 240,
+        maxWidth: '100%',
+      }
+    }
+
+    const ratio = attachment.width! / attachment.height!
+    const width = Math.min(attachment.width!, maxWidth, maxHeight * ratio)
+    const height = width / ratio
+
+    return {
+      width,
+      height,
+      maxWidth: '100%',
+    }
+  }, [attachment.height, attachment.width, compact, hasImageDimensions])
 
   const handlePrev = () => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
@@ -76,7 +106,7 @@ export default function ImagePreview({
       if (onDownload) {
         onDownload(currentImage.url, currentImage.name)
       } else {
-        window.open(currentImage.url, '_blank')
+        openSafeUrl(currentImage.url)
       }
     } finally {
       setIsDownloading(false)
@@ -84,7 +114,7 @@ export default function ImagePreview({
   }
 
   const handleOpenInNewTab = () => {
-    window.open(currentImage.url, "_blank");
+    openSafeUrl(currentImage.url)
   };
 
   const openLightbox = () => {
@@ -123,6 +153,7 @@ export default function ImagePreview({
             ? 'block h-full w-full min-h-0 min-w-0 border-[#dddddd] dark:border-[#35373B]'
             : 'block w-fit max-w-full',
         )}
+        style={thumbnailStyle}
       >
         <img
           src={getCloudinaryThumbnailUrl(attachment.url)}
@@ -141,7 +172,7 @@ export default function ImagePreview({
             'block',
             compact
               ? 'h-full w-full min-h-0 min-w-0 max-w-full object-cover'
-              : 'max-w-full h-auto max-h-[300px] object-contain',
+              : 'h-full w-full object-contain',
           )}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />

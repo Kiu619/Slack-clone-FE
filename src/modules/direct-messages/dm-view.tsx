@@ -9,25 +9,30 @@ import Main from "@/modules/direct-messages/main";
 interface DMViewProps {
   conversationId: string;
   workspaceId: string;
+  showXIcon?: boolean;
 }
 
 /**
  * Standalone DM view — giống DMPage nhưng không gắn với routing.
  * Dùng để render DM conversation trong main area mà không cần navigate URL.
  */
-export default function DMView({ conversationId, workspaceId }: DMViewProps) {
+export default function DMView({
+  conversationId,
+  workspaceId,
+  showXIcon = true,
+}: DMViewProps) {
   const {
     data: conversation,
     isLoading,
     isError,
   } = useConversation(workspaceId, conversationId);
 
-  const recordRecent = useRecordRecentVisit(workspaceId);
+  const { recordVisit } = useRecordRecentVisit(workspaceId);
 
   useEffect(() => {
     if (!conversation?.id) return;
-    recordRecent.mutate({ kind: "dm", id: conversation.id });
-  }, [conversation?.id, recordRecent]);
+    recordVisit({ kind: "dm", id: conversation.id });
+  }, [conversation?.id, recordVisit]);
 
   if (isLoading) {
     return (
@@ -56,5 +61,5 @@ export default function DMView({ conversationId, workspaceId }: DMViewProps) {
     );
   }
 
-  return <Main key={conversationId} conversation={conversation} showXIcon={true} />;
+  return <Main key={conversationId} conversation={conversation} showXIcon={showXIcon} />;
 }

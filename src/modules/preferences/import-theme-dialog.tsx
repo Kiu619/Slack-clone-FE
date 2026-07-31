@@ -93,14 +93,14 @@ export default function ImportThemeDialog({ open, onOpenChange, onImport }: Impo
         </Form>
       </CustomDialogBody>
       <CustomDialogFooter>
-        <Button variant="ghost" onClick={() => onOpenChange(false)} type="button">
+        <Button variant="outline" onClick={() => onOpenChange(false)} type="button">
           Cancel
         </Button>
         <Button
-          className="bg-[#007a5a] hover:bg-[#007a5a]/90 text-white"
           form="import-theme-form"
           type="submit"
           disabled={!form.formState.isDirty}
+          variant="success"
         >
           Import
         </Button>

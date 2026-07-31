@@ -2,6 +2,7 @@
 
 import {
   checkLaterMessagesApi,
+  getLaterSummaryApi,
   getSavedItemsApi,
   removeSavedItemApi,
   saveItemApi,
@@ -19,7 +20,7 @@ import {
   setMinutes,
 } from "date-fns";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 /** Preset reminders giống Slack */
@@ -70,6 +71,7 @@ export function useSavedItems({
   });
 
   const savedItems = data?.pages.flatMap((page) => page.items) ?? [];
+  const totalCount = data?.pages[0]?.totalCount ?? 0;
 
   // ─── Create (Reminder / Message / Attachment) ─────────────────────────────
   const saveMutation = useMutation({
@@ -77,6 +79,7 @@ export function useSavedItems({
       saveItemApi(workspaceId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
       toast.success("Reminder created");
     },
@@ -163,6 +166,7 @@ export function useSavedItems({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
     },
   });
@@ -196,6 +200,7 @@ export function useSavedItems({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
       toast.success("Removed from Later");
     },
@@ -230,6 +235,7 @@ export function useSavedItems({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
       toast.success("Cleared completed items");
     },
@@ -280,6 +286,7 @@ export function useSavedItems({
   return {
     // Data
     savedItems,
+    totalCount,
     isLoading,
     // Mutations
     saveMutation,
@@ -303,6 +310,44 @@ export function useSavedItems({
   };
 }
 
+export function useLaterOverdueSummary() {
+  const params = useParams<{ workspaceId: string }>();
+  const workspaceId = params?.workspaceId;
+
+  const query = useQuery({
+    queryKey: ["saved-items-summary", workspaceId],
+    queryFn: () => getLaterSummaryApi(workspaceId!),
+    enabled: !!workspaceId,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const nextOverdueAt = query.data?.nextOverdueAt;
+    if (!workspaceId || !nextOverdueAt) return;
+
+    const targetTime = new Date(nextOverdueAt).getTime();
+    if (Number.isNaN(targetTime)) return;
+
+    const delay = targetTime - Date.now();
+    if (delay <= 0) {
+      void query.refetch();
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void query.refetch();
+    }, Math.min(delay, 2_147_483_647));
+
+    return () => window.clearTimeout(timer);
+  }, [workspaceId, query.data?.nextOverdueAt, query.refetch]);
+
+  return {
+    overdueCount: query.data?.overdueCount ?? 0,
+    nextOverdueAt: query.data?.nextOverdueAt ?? null,
+    isLoading: query.isLoading,
+  };
+}
+
 /**
  * Batch lookup: which message IDs are in Later with status in_progress
  * (for bookmark toolbar / DM row). Uses POST check-messages.
@@ -312,10 +357,11 @@ export function useLaterSavedMessageIds(
   messageIds: string[],
 ) {
   const sortedIds = useMemo(() => {
+    if (!messageIds?.length) return [];
     const uniq = [...new Set(messageIds)].filter(Boolean);
     uniq.sort();
     return uniq;
-  }, [messageIds.join("\0")]);
+  }, [messageIds?.join("\0")]);
 
   const sortedKey = sortedIds.join(",");
 
@@ -351,6 +397,7 @@ export function useRemindMe() {
       saveItemApi(workspaceId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
       if (variables.remindAt) {
         toast.success(

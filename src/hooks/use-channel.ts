@@ -143,7 +143,7 @@ export function useStarChannel(workspaceId: string, channelId: string) {
 
 export function useChannelMembers(workspaceId: string, channelId: string) {
   return useQuery({
-    queryKey: ['channels', workspaceId, channelId, 'members'],
+    queryKey: channelKeys.members(workspaceId, channelId, ''),
     queryFn: () => apiClient.get(`/workspaces/${workspaceId}/channels/${channelId}/members`).then(res => res.data),
     enabled: !!workspaceId && !!channelId,
   })

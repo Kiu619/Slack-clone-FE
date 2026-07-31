@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CustomDialog, CustomDialogBody, CustomDialogHeader, CustomDialogTitle } from '../custom-dialog'
 import { Calendar } from '../ui/calendar'
-import { Button } from '../ui/button'
 import { startOfDay } from 'date-fns'
+import type { Matcher } from 'react-day-picker'
 
 
 export default function JumpToSpecificDateDialog({
@@ -16,15 +16,25 @@ export default function JumpToSpecificDateDialog({
   onJump: (date: Date) => void,
   targetCreatedAt?: string
 }) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
-  const handleDateSelect = (date: Date | undefined) => {
+  const disabledDays = useMemo<Matcher[]>(
+    () => [
+      { after: new Date() },
+      ...(targetCreatedAt
+        ? [{ before: startOfDay(new Date(targetCreatedAt)) } satisfies Matcher]
+        : []),
+    ],
+    [targetCreatedAt],
+  )
+
+  const handleDateSelect = async (date: Date | undefined) => {
     if (date) {
-      setSelectedDate(date);
-      onJump(date);
-      onOpenChange(false);
+      setSelectedDate(date)
+      await Promise.resolve(onJump(date))
+      onOpenChange(false)
     }
-  };
+  }
 
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange}>
@@ -36,10 +46,7 @@ export default function JumpToSpecificDateDialog({
           mode="single"
           selected={selectedDate}
           onSelect={handleDateSelect}
-          disabled={[
-            { after: new Date() },
-            targetCreatedAt ? { before: startOfDay(new Date(targetCreatedAt)) } : undefined
-          ].filter(Boolean) as any}
+          disabled={disabledDays}
           autoFocus
           className="rounded-md border-none"
         />

@@ -21,6 +21,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { useDebouncedValue } from "@/hooks/use-debounce";
 import { messageKeys, workspaceKeys } from "@/lib/query-keys";
 import type { DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
+import { isActiveWorkspaceMember } from "@/lib/dm-members";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberStore,
@@ -150,7 +151,10 @@ export default function AddDmPeopleDialog({
   };
 
   const notInDmPool = useMemo(
-    () => wsMembers.filter((m) => !inDmSet.has(m.id)),
+    () =>
+      wsMembers.filter(
+        (m) => isActiveWorkspaceMember(m) && !inDmSet.has(m.id),
+      ),
     [wsMembers, inDmSet],
   );
 
@@ -170,7 +174,7 @@ export default function AddDmPeopleDialog({
   const inDmMatches = useMemo(
     () =>
       wsMembers
-        .filter((m) => inDmSet.has(m.id))
+        .filter((m) => isActiveWorkspaceMember(m) && inDmSet.has(m.id))
         .filter((m) => matchesMemberSearch(m, searchKey, memberOverlayMap[m.id])),
     [wsMembers, inDmSet, searchKey, memberOverlayMap],
   );

@@ -3,37 +3,78 @@
 
 import Editor from '@/components/editor'
 import MessageItem from '@/components/message-item'
-import { Checkbox } from '@/components/ui/checkbox'
 import { useMessageComposer } from '@/hooks/use-message-composer'
+import { useChannel } from '@/hooks/use-channel'
 import { useLaterSavedMessageIds } from '@/hooks/use-saved-items'
-import { useAddReaction, useDeleteMessage, useThreadMessages, useToggleLaterMessage, useTogglePin, useUpdateMessage, updateMessageReactions } from '@/hooks/use-messages'
-import { useMessageSync } from '@/hooks/use-message-sync'
+import { getMessageByIdApi } from '@/apis'
+import { useAddReaction, useDeleteMessage, useThreadMessages, useToggleLaterMessage, useTogglePin, useUpdateMessage } from '@/hooks/use-messages'
 import { useChannelChatSocket, useConversationChatSocket, useSocket, useThreadSocket } from '@/hooks/use-socket'
 import { apiClient } from '@/lib/axios'
+import { channelKeys } from '@/lib/query-keys'
 import type { Message } from '@/lib/types'
 import { useMessageStore } from '@/stores/useMessageStore'
 import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { useQuery } from '@tanstack/react-query'
-import React, { useCallback, useMemo, useState } from 'react'
-import { IoCloseOutline } from 'react-icons/io5'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
+import { PanelHeader } from '@/components/panel-header'
 import ScheduleSendDialog from '@/components/dialogs/schedule-send-dialog';
 import { ScheduledSendAckBanner } from '@/components/scheduled-send-ack-banner'
+import { canUserPostInChannel, getRestrictedPostingLabel } from '@/lib/channel-posting-permissions'
 
-export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
+export type ThreadPanelProps = {
+  workspaceId: string
+  parentMessageId?: string | null
+  onClose?: () => void
+  highlightedMessageId?: string | null
+}
+
+export default function ThreadPanel({
+  workspaceId,
+  parentMessageId: parentMessageIdProp,
+  onClose: onCloseProp,
+  highlightedMessageId: highlightedMessageIdProp,
+}: ThreadPanelProps) {
+  const isEmbedded = parentMessageIdProp != null
   const {
-    messageId,
-    close,
-    highlightedMessageId,
-    setHighlightedMessageId
+    messageId: storeMessageId,
+    close: storeClose,
+    highlightedMessageId: storeHighlightedMessageId,
+    setHighlightedMessageId: setStoreHighlightedMessageId,
   } = useThreadPanelStore()
-  
-  const parentMessage = useMessageStore(s => messageId ? s.entities[messageId] : null)
-  const updateMessage = useMessageStore(s => s.updateEntity)
+
+  const resolvedMessageId = parentMessageIdProp ?? storeMessageId
+  const handleClose = onCloseProp ?? storeClose
+  const [embeddedHighlightedMessageId, setEmbeddedHighlightedMessageId] = useState<string | null>(null)
+  const highlightedMessageId =
+    highlightedMessageIdProp ??
+    (isEmbedded ? embeddedHighlightedMessageId : storeHighlightedMessageId)
+  const setHighlightedMessageId = isEmbedded
+    ? setEmbeddedHighlightedMessageId
+    : setStoreHighlightedMessageId
+
+  const parentMessageFromStore = useMessageStore((s) =>
+    resolvedMessageId ? s.entities[resolvedMessageId] : null,
+  )
+  const upsertEntities = useMessageStore((s) => s.upsertEntities)
   const virtuosoRef = React.useRef<any>(null)
   const currentUser = useUserStore((s) => s.user)
   const { isConnected } = useSocket()
+
+  const { data: fetchedParentMessage, isLoading: isFetchingParent } = useQuery({
+    queryKey: ['message', resolvedMessageId],
+    queryFn: () => getMessageByIdApi(resolvedMessageId!),
+    enabled: !!resolvedMessageId && !parentMessageFromStore,
+    staleTime: 30_000,
+  })
+
+  useEffect(() => {
+    if (!fetchedParentMessage) return
+    upsertEntities([fetchedParentMessage])
+  }, [fetchedParentMessage, upsertEntities])
+
+  const parentMessage = parentMessageFromStore ?? fetchedParentMessage ?? null
 
   const [alsoSendToChannel, setAlsoSendToChannel] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -48,11 +89,11 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage
-  } = useThreadMessages(messageId || '', currentUser?.id || '', isConnected)
+  } = useThreadMessages(resolvedMessageId || '', currentUser?.id || '', isConnected)
 
   const threadMessageIdsForLater = useMemo(() => {
     const ids: string[] = []
-    const anchor = parentMessage?.id ?? messageId ?? ''
+    const anchor = parentMessage?.id ?? resolvedMessageId ?? ''
     if (anchor) ids.push(anchor)
     if (data?.pages) {
       for (const p of data.pages) {
@@ -62,23 +103,39 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
       }
     }
     return ids
-  }, [parentMessage?.id, messageId, data])
+  }, [parentMessage?.id, resolvedMessageId, data])
 
   const { savedMessageIdSet, remindAtByMessageId } = useLaterSavedMessageIds(
     workspaceId,
     threadMessageIdsForLater,
   )
 
-  if (!parentMessage) return null
-
-  // Xử lý đồng bộ: đã được useGlobalSync đảm nhận tập trung
-
   useThreadSocket(parentMessage?.id || '', isConnected, {})
 
-  // Bổ sung lắng nghe từ Channel Socket để giữ kết nối Room cho Message Cha
   const isConversation = !parentMessage?.channelId && !!parentMessage?.conversationId
   const channelId = parentMessage?.channelId || ''
   const conversationId = parentMessage?.conversationId || ''
+  const { data: threadChannelData } = useChannel(workspaceId, channelId)
+  const postingPermission = useMemo(
+    () =>
+      threadChannelData
+        ? canUserPostInChannel(
+            threadChannelData,
+            currentUser?.id ?? null,
+            currentUser?.role ?? null,
+          )
+        : null,
+    [threadChannelData, currentUser?.id, currentUser?.role],
+  )
+  const restrictedPostingLabel = useMemo(
+    () =>
+      getRestrictedPostingLabel(
+        threadChannelData,
+        currentUser?.id ?? null,
+        currentUser?.role ?? null,
+      ),
+    [threadChannelData, currentUser?.id, currentUser?.role],
+  )
 
   useChannelChatSocket(channelId, isConnected && !isConversation, {})
 
@@ -103,7 +160,7 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
   }, [data])
 
   const { data: channelMembersData } = useQuery({
-    queryKey: ['channels', workspaceId, parentMessage?.channelId, 'members'],
+    queryKey: channelKeys.members(workspaceId, parentMessage?.channelId || '', ''),
     queryFn: () => apiClient.get(`/workspaces/${workspaceId}/channels/${parentMessage?.channelId || ''}/members`).then(res => res.data),
     enabled: !!workspaceId && !!parentMessage?.channelId,
   })
@@ -194,6 +251,7 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
           parentMessage={true}
           hideReplyButton={true}
           isInsideThreadPanel={true}
+          canReplyInThread={postingPermission?.canReply ?? true}
         />
 
         {/* Replies Separator */}
@@ -222,22 +280,25 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
         <div className="h-4" />
       </>
     )
-  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, togglePin, fetchNextPage, savedMessageIdSet, remindAtByMessageId, handleSaveForLater])
+  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, togglePin, fetchNextPage, savedMessageIdSet, remindAtByMessageId, handleSaveForLater, postingPermission?.canReply])
+
+  if (!resolvedMessageId) return null
+
+  if (!parentMessage) {
+    return (
+      <div className="flex h-full flex-col bg-white dark:bg-[#1A1D21]">
+        <PanelHeader title="Thread" onClose={handleClose} />
+        <div className="flex flex-1 items-center justify-center px-4 text-sm text-[#797c81]">
+          {isFetchingParent ? 'Loading thread...' : 'Thread unavailable'}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21]">
       {/* Header (Toolbar) */}
-      <div className="flex items-center justify-between px-4 pt-3 mb-3">
-        <div className="flex flex-col">
-          <h2 className="text-lg font-bold">Thread</h2>
-        </div>
-        <button
-          onClick={close}
-          className="p-1.5 rounded-md hover:bg-[#797c811a] transition-colors"
-        >
-          <IoCloseOutline size={24} />
-        </button>
-      </div>
+      <PanelHeader title="Thread" onClose={handleClose} />
 
       {/* Scrollable Content with Virtuoso */}
       <div className="flex-1 min-h-0">
@@ -280,6 +341,7 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
                 savedLaterRemindAtIso={remindAtByMessageId.get(reply.id)}
                 hideReplyButton={true}
                 isInsideThreadPanel={true}
+                canReplyInThread={postingPermission?.canReply ?? true}
                 isFocused={highlightedMessageId === reply.id}
                 onFocus={(id) => !id && setHighlightedMessageId(null)} // Reset highlight khi hover vào
               />
@@ -300,45 +362,60 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
             workspaceTimeZone={workspaceTimeZone}
           />
         )}
-        <Editor
-          key={composerEditorKey}
-          variant="create"
-          workspaceId={workspaceId}
-          currentMembers={currentMembers}
-          onSubmit={handleSubmitWithChannel}
-          disabled={isSending || isScheduling}
-          onFileAttach={addPendingFiles}
-          pendingFiles={pendingFiles}
-          onRemoveFile={removePendingFile}
-          hasPendingFiles={pendingFiles.length > 0}
-          initialContent={composerInitialHtml}
-          onContentChange={onComposerHtmlChange}
-          onScheduleClick={() => setScheduleOpen(true)}
-          onScheduleQuickPick={async (iso) => {
-            try {
-              await scheduleMessage({
-                scheduledAtIso: iso,
-                alsoSendToChannel,
-              })
-            } catch {
-              /* toast trong hook */
-            }
-          }}
-        />
+        {postingPermission && !postingPermission.canReply ? (
+          <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
+            <p className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]">
+              {restrictedPostingLabel ?? 'Only certain people can post in this channel'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Editor
+              key={composerEditorKey}
+              variant="create"
+              workspaceId={workspaceId}
+              currentMembers={currentMembers}
+              onSubmit={handleSubmitWithChannel}
+              disabled={isSending || isScheduling}
+              onFileAttach={addPendingFiles}
+              pendingFiles={pendingFiles}
+              onRemoveFile={removePendingFile}
+              hasPendingFiles={pendingFiles.length > 0}
+              initialContent={composerInitialHtml}
+              onContentChange={onComposerHtmlChange}
+              onScheduleClick={() => setScheduleOpen(true)}
+              onScheduleQuickPick={async (iso) => {
+                try {
+                  await scheduleMessage({
+                    scheduledAtIso: iso,
+                    alsoSendToChannel,
+                  })
+                } catch {
+                  /* toast trong hook */
+                }
+              }}
+              channelPostingSettings={threadChannelData?.postingSettings ?? null}
+            />
 
-        <div className="flex items-center gap-2 mt-2 ml-1">
-          <Checkbox
-            id="also-send"
-            checked={alsoSendToChannel}
-            onCheckedChange={(checked) => setAlsoSendToChannel(!!checked)}
-          />
-          <label
-            htmlFor="also-send"
-            className="text-xs text-[#797c81] cursor-pointer select-none"
-          >
-            Also send to channel
-          </label>
-        </div>
+            {postingPermission?.canSendToChannel ? (
+              <div className="flex items-center gap-2 mt-2 ml-1">
+                <input
+                  id="also-send"
+                  type="checkbox"
+                  checked={alsoSendToChannel}
+                  onChange={(e) => setAlsoSendToChannel(e.target.checked)}
+                  className="size-3 cursor-pointer accent-selection-hover"
+                />
+                <label
+                  htmlFor="also-send"
+                  className="text-xs text-[#797c81] cursor-pointer select-none"
+                >
+                  Also send to channel
+                </label>
+              </div>
+            ) : null}
+          </>
+        )}
 
         <ScheduleSendDialog
           open={scheduleOpen}
@@ -360,4 +437,3 @@ export default function ThreadPanel({ workspaceId }: { workspaceId: string }) {
     </div>
   )
 }
-

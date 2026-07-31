@@ -182,7 +182,6 @@ function ShareFileDialogContent({
             onSelectMember={(m: WorkspaceMember) => handleSelect("member", m)}
             onSelectConversation={handleSelectConversation}
             onRemoveTarget={removeTarget}
-            displayMember={displayMember}
             currentUserId={currentUserId}
           />
 
@@ -207,15 +206,14 @@ function ShareFileDialogContent({
       <CustomDialogFooter className="px-6 py-4 justify-end gap-2">
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           onClick={() => onOpenChange(false)}
-          className="text-white hover:bg-[#2C2E33] hover:text-white"
         >
           Cancel
         </Button>
         <Button
           type="button"
-          className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold"
+          variant="success"
           disabled={selectedTargets.length === 0 || shareMutation.isPending}
           onClick={handleForwardClick}
         >

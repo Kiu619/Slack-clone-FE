@@ -9,13 +9,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import Typography from "@/components/ui/typography";
-import { cn } from "@/lib/utils";
 import { useState, useMemo } from "react";
 // import ProgressBar from './progress-bar'
 
 import { FiHash, FiPlus } from "react-icons/fi";
-import { GiNightSleep } from "react-icons/gi";
-import { GoDot, GoDotFill } from "react-icons/go";
 import { IoMdHeadset } from "react-icons/io";
 
 import { clearMemberStatusApi, signOutApi, updateProfileApi } from "@/apis";
@@ -40,11 +37,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { SetAStatusDialog } from "./dialogs/set-a-status-dialog";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { useNewMessageStore } from "@/stores/useNewMessageStore";
+import { forceLightTheme } from "@/lib/theme-utils";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
+import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 
 const UserSidebar = ({
   userData,
@@ -106,9 +105,9 @@ const UserSidebar = ({
 
   const handleSignOut = async () => {
     await signOutApi();
+    forceLightTheme();
     clearUser();
-    router.refresh();
-    // router.push('/auth')
+    router.replace('/auth');
   };
 
   return (
@@ -278,7 +277,7 @@ const UserSidebar = ({
       <Tooltip>
         <div>
           <Popover open={openAvatarPopover} onOpenChange={setOpenAvatarPopover} >
-            <PopoverTrigger>
+            <PopoverTrigger asChild>
               <TooltipTrigger asChild>
                 <div className="h-9 w-9 relative cursor-pointer">
                   <div className="h-full w-full rounded-lg overflow-hidden">
@@ -290,17 +289,13 @@ const UserSidebar = ({
                       }
                       alt={displayUser.displayName || "user"}
                     />
-                    <div
-                      className={cn(
-                        "absolute z-10 rounded-full -right-[5%] -bottom-0.5",
-                        displayUser.isAway ? "bg-red-500" : "bg-green-500",
-                      )}
-                    >
-                      {displayUser.isAway ? (
-                        <GoDot className="text-white text-[12px]" />
-                      ) : (
-                        <GoDotFill className="text-green-600" size={12} />
-                      )}
+                    <div className="absolute z-10 -right-[10%] -bottom-2">
+                      <UserPresenceIndicator
+                        workspaceId={currentWorkspaceData.id}
+                        userId={displayUser.id}
+                        isAway={displayUser.isAway}
+                        size="md"
+                      />
                     </div>
                   </div>
                 </div>
@@ -330,16 +325,12 @@ const UserSidebar = ({
                         interactive={Boolean(displayUser.statusText?.trim())}
                       />
                     </div>
-                    <div className="flex items-center space-x-1">
-                      {displayUser.isAway ? (
-                        <GiNightSleep size="12" />
-                      ) : (
-                        <GoDotFill className="text-green-600" size="12" />
-                      )}
-                      <span className="text-xs">
-                        {displayUser.isAway ? "Away" : "Active"}
-                      </span>
-                    </div>
+                    <UserPresenceIndicator
+                      workspaceId={currentWorkspaceData.id}
+                      userId={displayUser.id}
+                      isAway={displayUser.isAway}
+                      showLabel
+                    />
                   </div>
                 </div>
 

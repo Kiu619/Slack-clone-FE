@@ -1,9 +1,11 @@
 "use client"
 
-import { useFileCache } from "@/hooks/use-file-cache"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useTrackAttachmentView } from "@/hooks/use-attachments"
+import { usePdfSource } from "@/hooks/use-pdf-source"
+import { openSafeUrl } from "@/lib/open-safe-url"
 import type { Message, MessageAttachment } from "@/lib/types"
-import { Loader2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
 import { LuDownload } from "react-icons/lu"
 import { Document, Page, pdfjs } from "react-pdf"
 import "react-pdf/dist/Page/AnnotationLayer.css"
@@ -11,22 +13,15 @@ import "react-pdf/dist/Page/TextLayer.css"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
 
-import { useTrackAttachmentView } from "@/hooks/use-attachments"
-
-// Worker cho PDF.js — dùng unpkg chính thức theo version của pdfjs-dist
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 interface PdfPreviewProps {
-  message: Message;
+  message: Message
   attachment: MessageAttachment
   onDownload?: (url: string, name: string) => void
-  formDetailPanel?: boolean;
+  formDetailPanel?: boolean
 }
 
-/**
- * PdfPreview — Xem PDF inline giống Slack (PDF.js)
- * Hiển thị trang đầu, click để mở modal xem full
- */
 export default function PdfPreview({
   message,
   attachment,
@@ -37,62 +32,53 @@ export default function PdfPreview({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [numPages, setNumPages] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
 
-  const { data: pdfData, isPending, isError } = useFileCache(attachment.url)
+  const {
+    pdfSourceUrl,
+    isPending,
+    isError: isSourceError,
+  } = usePdfSource(attachment.url)
 
-  /**
-   * PDF.js / worker có thể transfer ArrayBuffer → detach. Dùng chung một ArrayBuffer
-   * cho preview thẻ + modal sẽ gây "Cannot perform Construct on a detached ArrayBuffer".
-   * Blob + object URL: Blob copy dữ liệu, Document đọc qua URL — an toàn cho nhiều instance.
-   */
-  const pdfBlobUrl = useMemo(() => {
-    if (!pdfData) return null
-    const blob = new Blob([pdfData], { type: "application/pdf" })
-    return URL.createObjectURL(blob)
-  }, [pdfData])
+  const onPreviewLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setNumPages(numPages)
+    setPreviewError(null)
+  }, [])
 
-  useEffect(() => {
-    return () => {
-      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
-    }
-  }, [pdfBlobUrl])
+  const onPreviewLoadError = useCallback((err: Error) => {
+    setPreviewError(err.message)
+  }, [])
 
-  const onDocumentLoadSuccess = useCallback(
-    ({ numPages }: { numPages: number }) => {
-      setNumPages(numPages)
-      setError(null)
-    },
-    [],
-  )
+  const onModalLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setNumPages(numPages)
+    setModalError(null)
+  }, [])
 
-  const onDocumentLoadError = useCallback((err: Error) => {
-    setError(err.message)
+  const onModalLoadError = useCallback((err: Error) => {
+    setModalError(err.message)
   }, [])
 
   const handleDownload = () => {
     if (onDownload) {
       onDownload(attachment.url, attachment.name)
     } else {
-      window.open(attachment.url, "_blank")
+      openSafeUrl(attachment.url)
     }
   }
 
   const handleOpenInNewTab = () => {
-    window.open(attachment.url, "_blank")
+    openSafeUrl(attachment.url)
   }
 
-  if (error || isError) {
-    // Fallback: card đơn giản khi không load được PDF (CORS, v.v.)
+  if (isSourceError) {
     return (
-      <div
-        className="rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] p-4 w-full max-w-[400px]"
-      >
+      <div className="rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] p-4 w-full max-w-[400px]">
         <p className="text-[#797c81] text-sm mb-2">Can&rsquo;t preview PDF</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => window.open(attachment.url, "_blank")}
+            onClick={() => openSafeUrl(attachment.url)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] dark:bg-[#222529] dark:text-[#d1d2d3] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#2a2d31]"
           >
             Open in new tab
@@ -112,7 +98,6 @@ export default function PdfPreview({
 
   return (
     <>
-      {/* Preview card — trang đầu PDF */}
       <div
         className="group relative rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] hover:border-[#797c81] transition-colors w-full max-w-[400px]"
         onMouseEnter={() => setIsHovered(true)}
@@ -121,12 +106,10 @@ export default function PdfPreview({
         <button
           type="button"
           onClick={() => {
-            console.log('trackView', attachment.id, attachment.workspaceId)
             trackView({ id: attachment.id, workspaceId: attachment.workspaceId })
             setIsExpanded(true)
           }}
           className="block w-full text-left"
-
         >
           <div className="px-4 py-3 border-t border-[#797c814d] flex items-center justify-between">
             <div className="min-w-0 flex-1">
@@ -134,24 +117,27 @@ export default function PdfPreview({
                 {attachment.name}
               </p>
               <p className="text-[13px] text-[#797c81]">
-                PDF {numPages != null ? `· ${numPages} trang` : ""}
+                PDF {numPages != null ? `· ${numPages} page${numPages !== 1 ? "s" : ""}` : ""}
               </p>
             </div>
           </div>
-          <div
-            className="bg-[#2a2d31] flex justify-center overflow-hidden shrink-0 w-full h-[260px]"
-          >
+          <div className="bg-[#2a2d31] flex justify-center overflow-hidden shrink-0 w-full h-[260px]">
             {isPending ? (
-              <div
-                className="w-full h-full flex items-center justify-center bg-[#25282d] rounded animate-pulse shrink-0"
-              >
-                <div className="text-[#797c81] text-sm flex items-center gap-2">Loading PDF...<Loader2 className="w-4 h-4 animate-spin" /></div>
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#25282d] px-6">
+                <Skeleton className="h-24 w-20 rounded-xl bg-[#2f3339]" />
+                <Skeleton className="h-4 w-32 bg-[#3a4048]" />
+                <Skeleton className="h-3 w-24 bg-[#3a4048]" />
               </div>
-            ) : pdfBlobUrl ? (
+            ) : previewError ? (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#25282d] px-6 text-center">
+                <p className="text-sm text-[#d1d2d3]">Can&rsquo;t preview PDF</p>
+                <p className="text-xs text-[#797c81]">Open the file to view the full document.</p>
+              </div>
+            ) : pdfSourceUrl ? (
               <Document
-                file={pdfBlobUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
-                onLoadError={onDocumentLoadError}
+                file={pdfSourceUrl}
+                onLoadSuccess={onPreviewLoadSuccess}
+                onLoadError={onPreviewLoadError}
               >
                 <Page
                   pageNumber={1}
@@ -163,7 +149,6 @@ export default function PdfPreview({
               </Document>
             ) : null}
           </div>
-
         </button>
 
         {!formDetailPanel ? (
@@ -184,11 +169,27 @@ export default function PdfPreview({
         onDownload={handleDownload}
       >
         <div className="h-full overflow-auto p-4 flex flex-col items-center">
-          {pdfBlobUrl ? (
+          {isPending ? (
+            <div className="flex w-full flex-col items-center gap-3 py-20">
+              <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
+              <Skeleton className="h-4 w-40 bg-white/10" />
+            </div>
+          ) : modalError ? (
+            <div className="flex w-full max-w-[780px] flex-col items-center gap-3 py-20 text-center text-white">
+              <p className="text-base font-medium">Can&rsquo;t open PDF preview</p>
+              <p className="text-sm text-white/70">Try downloading the file or reopening the preview.</p>
+            </div>
+          ) : isExpanded && pdfSourceUrl ? (
             <Document
-              file={pdfBlobUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              loading={<div className="text-white">Loading document...</div>}
+              file={pdfSourceUrl}
+              onLoadSuccess={onModalLoadSuccess}
+              onLoadError={onModalLoadError}
+              loading={
+                <div className="flex w-full flex-col items-center gap-3 py-10">
+                  <Skeleton className="h-64 w-full max-w-[780px] rounded-xl bg-white/10" />
+                  <Skeleton className="h-4 w-40 bg-white/10" />
+                </div>
+              }
             >
               {numPages != null &&
                 Array.from({ length: numPages }, (_, i) => (
@@ -197,9 +198,7 @@ export default function PdfPreview({
                     pageNumber={i + 1}
                     width={Math.min(
                       800,
-                      typeof window !== "undefined"
-                        ? window.innerWidth - 48
-                        : 800,
+                      typeof window !== "undefined" ? window.innerWidth - 48 : 800,
                     )}
                     renderTextLayer
                     renderAnnotationLayer
@@ -208,7 +207,10 @@ export default function PdfPreview({
                 ))}
             </Document>
           ) : (
-            <div className="text-white py-20">Loading...</div>
+            <div className="flex w-full flex-col items-center gap-3 py-20">
+              <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
+              <Skeleton className="h-4 w-40 bg-white/10" />
+            </div>
           )}
         </div>
       </PreviewModal>

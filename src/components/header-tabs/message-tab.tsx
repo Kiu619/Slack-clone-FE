@@ -21,6 +21,7 @@ import {
   useUpdateMessage,
 } from "@/hooks/use-messages";
 import { useSocket } from "@/hooks/use-socket";
+import { useWorkspaceUnreadCounts } from "@/hooks/use-workspace-unread-counts";
 import type { Channel, DirectMessageConversation, Message } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/stores/useUserStore";
@@ -35,6 +36,7 @@ import {
 } from "react";
 import ScheduleSendDialog from "../dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
+import { canUserPostInChannel, getRestrictedPostingLabel } from "@/lib/channel-posting-permissions";
 
 interface MainProps {
   currentChannelData?: Channel;
@@ -50,15 +52,41 @@ const MessageTab = ({
   isMember,
 }: MainProps) => {
   const currentUser = useUserStore((state) => state.user);
+  const postingPermission = useMemo(
+    () =>
+      currentChannelData
+        ? canUserPostInChannel(
+            currentChannelData,
+            currentUser?.id ?? null,
+            currentUser?.role ?? null,
+          )
+        : null,
+    [currentChannelData, currentUser?.id, currentUser?.role],
+  );
+  const restrictedPostingLabel = useMemo(
+    () =>
+      getRestrictedPostingLabel(
+        currentChannelData,
+        currentUser?.id ?? null,
+        currentUser?.role ?? null,
+      ),
+    [currentChannelData, currentUser?.id, currentUser?.role],
+  );
 
   const targetId = (currentChannelData?.id ||
     currentConversationData?.id) as string;
   const workspaceId = (currentChannelData?.workspaceId ||
     currentConversationData?.workspaceId) as string;
   const targetName = currentChannelData?.name || "";
+  const isArchivedDm =
+    !!currentConversationData?.isArchivedBecausePeerDeactivated;
 
 
   const { isConnected } = useSocket();
+  const { channelUnreadById, dmUnreadById } = useWorkspaceUnreadCounts();
+  const conversationUnreadCount = currentConversationData?.id
+    ? (dmUnreadById[currentConversationData.id] ?? currentConversationData.unreadCount ?? 0)
+    : 0;
 
   const { mutate: joinChannel, isPending: isJoining } = useJoinChannel(workspaceId, currentChannelData?.id ?? "");
 
@@ -236,10 +264,25 @@ const MessageTab = ({
         onDeleteMessage={handleDeleteMessage}
         fromPublicChannel={currentChannelData?.isPrivate === false}
         isMember={isMember}
+        channelPostingSettings={currentChannelData?.postingSettings ?? null}
+        unreadBoundaryAt={currentConversationData?.lastReadAt ?? null}
+        unreadCount={
+          currentChannelData?.id
+            ? (channelUnreadById[currentChannelData.id] ?? 0)
+            : conversationUnreadCount
+        }
       />
 
       <div className="px-4 pb-4 shrink-0">
-        {isMember === false && currentChannelData ? (
+        {isArchivedDm && currentConversationData ? (
+          <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
+            <Typography
+              variant="p"
+              text="You are viewing the archives of a deactivated account."
+              className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
+            />
+          </div>
+        ) : isMember === false && currentChannelData ? (
           <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
             <Typography
               variant="p"
@@ -269,6 +312,15 @@ const MessageTab = ({
           </div>
         ) : (
           <>
+            {currentChannelData && postingPermission && !postingPermission.canPost ? (
+              <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
+                <Typography
+                  variant="p"
+                  text={restrictedPostingLabel ?? "Only certain people can post in this channel"}
+                  className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
+                />
+              </div>
+            ) : null}
             {scheduledSendAck && (
               <ScheduledSendAckBanner
                 workspaceId={workspaceId}
@@ -279,44 +331,49 @@ const MessageTab = ({
                 workspaceTimeZone={workspaceTimeZone}
               />
             )}
-            <Editor
-              key={composerEditorKey}
-              channelName={targetName}
-              workspaceId={workspaceId}
-              currentMembers={currentMembers}
-              onSubmit={onSubmit}
-              onFileAttach={handleFileAttach}
-              disabled={isSending || isScheduling}
-              hasPendingFiles={pendingFiles.length > 0}
-              pendingFiles={pendingFiles}
-              onRemoveFile={removePendingFile}
-              initialContent={composerInitialHtml}
-              onContentChange={onComposerHtmlChange}
-              onScheduleClick={() => setScheduleOpen(true)}
-              onScheduleQuickPick={async (iso) => {
-                try {
-                  await scheduleMessage({
-                    scheduledAtIso: iso,
-                    alsoSendToChannel: false,
-                  })
-                } catch {
-                  /* toast trong hook */
-                }
-              }}
-            />
+            {isArchivedDm ? null : currentChannelData && postingPermission && !postingPermission.canPost ? null : (
+              <>
+                <Editor
+                  key={composerEditorKey}
+                  channelName={targetName}
+                  workspaceId={workspaceId}
+                  currentMembers={currentMembers}
+                  onSubmit={onSubmit}
+                  onFileAttach={handleFileAttach}
+                  disabled={isSending || isScheduling}
+                  hasPendingFiles={pendingFiles.length > 0}
+                  pendingFiles={pendingFiles}
+                  onRemoveFile={removePendingFile}
+                  initialContent={composerInitialHtml}
+                  onContentChange={onComposerHtmlChange}
+                  onScheduleClick={() => setScheduleOpen(true)}
+                  onScheduleQuickPick={async (iso) => {
+                    try {
+                      await scheduleMessage({
+                        scheduledAtIso: iso,
+                        alsoSendToChannel: false,
+                      })
+                    } catch {
+                      /* toast trong hook */
+                    }
+                  }}
+                  channelPostingSettings={currentChannelData?.postingSettings ?? null}
+                />
 
-            {uploadingFiles.length > 0 && (
-              <div className="mt-2 space-y-2">
-                {uploadingFiles.map((file) => (
-                  <UploadingFileItem
-                    key={file.id}
-                    file={file}
-                    onCancel={(id) => {
-                      console.log("Cancel upload:", id);
-                    }}
-                  />
-                ))}
-              </div>
+                {uploadingFiles.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {uploadingFiles.map((file) => (
+                      <UploadingFileItem
+                        key={file.id}
+                        file={file}
+                        onCancel={(id) => {
+                          console.log("Cancel upload:", id);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

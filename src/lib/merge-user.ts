@@ -13,6 +13,8 @@ export function mergeAccountWithWorkspaceProfile(
       name: account.name ?? null,
       displayName: account.name ?? null,
       avatar: account.avatar ?? null,
+      role: null,
+      membershipStatus: null,
       isAway: false,
       status: null,
       namePronunciation: null,
@@ -30,5 +32,6 @@ export function mergeAccountWithWorkspaceProfile(
     email: account.email,
     name: profile.name ?? account.name ?? null,
     avatar: profile.avatar ?? account.avatar ?? null,
+    membershipStatus: profile.membershipStatus ?? null,
   }
 }

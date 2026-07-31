@@ -2,7 +2,6 @@
 "use client";
 
 import { CustomSelect } from "@/components/custom-select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import Typography from "@/components/ui/typography";
 import { FUN_NEW_THEMES, SINGLE_COLOR_THEMES, VISION_ASSISTIVE_THEMES } from "@/constants/themes";
@@ -400,13 +399,14 @@ export default function PreferencesAppearance() {
 
             <div className="mt-8">
               <div className="flex items-start gap-x-3">
-                <Checkbox
+                <input
                   id="window-gradient"
-                  className="mt-[2px]"
+                  type="checkbox"
                   checked={customColors.isGradient}
-                  onCheckedChange={(checked) => {
-                    setCustomColors({ ...customColors, isGradient: !!checked });
+                  onChange={(e) => {
+                    setCustomColors({ ...customColors, isGradient: e.target.checked });
                   }}
+                  className="size-3 cursor-pointer accent-selection-hover"
                 />
                 <div className="flex flex-col gap-y-1">
                   <label htmlFor="window-gradient" className="flex items-center gap-x-2 cursor-pointer select-none">

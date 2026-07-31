@@ -17,11 +17,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
 import { mergeAccountWithWorkspaceProfile } from "@/lib/merge-user";
 import DOMPurify from "dompurify";
-import { X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
-import { GoDot, GoDotFill } from "react-icons/go";
-import { LuClock3 } from "react-icons/lu";
+import { LuClock3 } from "react-icons/lu"
+import { PanelHeader } from "@/components/panel-header";
 import {
   MdAdd,
   MdMoreVert,
@@ -50,6 +49,7 @@ import {
 } from "@/stores/useWorkspaceMemberStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
+import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 
 /** Gộp GET member status vào `User` (dùng khi mở profile từ cookie chỉ có `{ id }`). */
 function memberStatusToUserPatch(s: WorkspaceMemberStatus): Partial<User> {
@@ -59,6 +59,7 @@ function memberStatusToUserPatch(s: WorkspaceMemberStatus): Partial<User> {
     name: s.name ?? undefined,
     displayName: s.displayName,
     avatar: s.avatar ?? undefined,
+    membershipStatus: s.membershipStatus ?? undefined,
     isAway: s.isAway,
     status: s.status ?? undefined,
     namePronunciation: s.namePronunciation ?? undefined,
@@ -162,6 +163,9 @@ export default function ProfilePanel() {
     () => mergeMemberStatusWithOverlay(memberStatus, memberOverlay),
     [memberStatus, memberOverlay],
   );
+  const isDeactivatedMember =
+    mergedMemberStatus?.membershipStatus === "deactivated" ||
+    displayUser?.membershipStatus === "deactivated";
 
   const router = useRouter();
   const pathname = usePathname();
@@ -265,16 +269,7 @@ export default function ProfilePanel() {
   if (awaitingOtherMemberProfile) {
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-          <span className="font-semibold text-[15px]">Profile</span>
-          <button
-            type="button"
-            onClick={close}
-            className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <PanelHeader title="Profile" onClose={close} />
         <div className="flex flex-col gap-4 p-6 flex-1">
           <Skeleton className="mx-auto mt-4 h-60 w-60 rounded-lg" />
           <Skeleton className="h-6 w-48 mx-auto" />
@@ -288,16 +283,7 @@ export default function ProfilePanel() {
   if (failedOtherMemberProfile) {
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3]">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-          <span className="font-semibold text-[15px]">Profile</span>
-          <button
-            type="button"
-            onClick={close}
-            className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <PanelHeader title="Profile" onClose={close} />
         <div className="p-6 text-[15px] text-[#616061] dark:text-[#ababad]">
           Could not load this member profile. Try closing and opening the profile again.
         </div>
@@ -312,15 +298,7 @@ export default function ProfilePanel() {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-y-auto overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-        <span className="font-semibold text-[15px]">Profile</span>
-        <button
-          onClick={close}
-          className="p-1 rounded dark:hover:bg-[#222529] hover:bg-[#e8e8e8] text-[#797c81] dark:hover:text-white transition-colors"
-        >
-          <X size={18} />
-        </button>
-      </div>
+      <PanelHeader title="Profile" onClose={close} />
 
       {/* Banner for View as coworker */}
       {isViewAsCoworker && (
@@ -362,6 +340,12 @@ export default function ProfilePanel() {
             )}
           </div>
 
+          {isDeactivatedMember && (
+            <div className="inline-flex w-fit items-center rounded-md border border-[#797c814d] bg-[#2a2d31] px-2 py-1 text-[12px] font-semibold text-[#d1d2d3]">
+              Deactivated account
+            </div>
+          )}
+
           {displayUser?.namePronunciation &&
             displayUser?.namePronunciation !== null && (
               <Typography
@@ -385,25 +369,12 @@ export default function ProfilePanel() {
             </button>
           )}
 
-          {mergedMemberStatus?.isAway ? (
-            <div className="flex items-center gap-2 ">
-              <GoDot className="text-red-500 text-[12px]" />
-              <Typography
-                text="Away"
-                variant="p"
-                className="dark:text-[#d1d2d3] font-normal"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <GoDotFill className="text-green-600" size={12} />
-              <Typography
-                text="Online"
-                variant="p"
-                className="dark:text-[#d1d2d3] font-normal"
-              />
-            </div>
-          )}
+          <UserPresenceIndicator
+            workspaceId={workspaceId ?? ""}
+            userId={displayUser?.id}
+            isAway={mergedMemberStatus?.isAway}
+            showLabel
+          />
 
           {/* Workspace status (statusEmoji + statusText) */}
           {(mergedMemberStatus?.statusEmoji?.trim() ||
@@ -540,19 +511,26 @@ export default function ProfilePanel() {
               <button
                 type="button"
                 className="flex-1 px-3 py-1 border border-[#797c81] rounded-md disabled:opacity-50 disabled:pointer-events-none"
-                disabled={isOpeningDm}
+                disabled={isOpeningDm || isDeactivatedMember}
                 onClick={() => {
                   void handleMessagePeer();
                 }}
               >
                 <Typography
-                  text={isOpeningDm ? "Opening…" : "Message"}
+                  text={
+                    isDeactivatedMember
+                      ? "Deactivated"
+                      : isOpeningDm
+                        ? "Opening…"
+                        : "Message"
+                  }
                   variant="p"
                   className="dark:text-[#d1d2d3] font-semibold"
                 />
               </button>
               <button
-                className="flex-1 px-3 py-1 border border-[#797c81] rounded-md"
+                className="flex-1 px-3 py-1 border border-[#797c81] rounded-md disabled:opacity-50 disabled:pointer-events-none"
+                disabled={isDeactivatedMember}
                 onClick={() => {
                   console.log("huddle");
                   if (isViewAsCoworker) {

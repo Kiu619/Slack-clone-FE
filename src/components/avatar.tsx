@@ -1,4 +1,4 @@
-import { Avatar as AvatarComponent, AvatarImage } from "@/components/ui/avatar"
+import { Avatar as AvatarComponent, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 const Avatar = ({ src, className, alt }: { src: string | null, className?: string, alt?: string }) => {
@@ -8,6 +8,9 @@ const Avatar = ({ src, className, alt }: { src: string | null, className?: strin
         className='object-cover w-full h-full rounded-md'
       >
         <AvatarImage src={src || ""} alt={alt || "avatar"} />
+        <AvatarFallback className=" text-[10px] text-white">
+          {alt?.substring(0, 1).toUpperCase()}
+        </AvatarFallback>
       </AvatarComponent>
     </div>
   )

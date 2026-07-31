@@ -664,10 +664,9 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
 
             <div className="flex space-x-2">
               <Button
-                variant="ghost"
+                variant="outline"
                 type="button"
                 onClick={() => setOpen(false)}
-                className="dark:hover:bg-[#2C2E33] mr-2"
               >
                 Cancel
               </Button>
@@ -682,7 +681,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                   return submitting || !hasChanges;
                 })()}
                 type="submit"
-                className="bg-[#007a5a] hover:bg-[#006248] font-bold px-4 py-2"
+                variant="success"
               >
                 Save
               </Button>

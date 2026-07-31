@@ -1,14 +1,22 @@
 import { ReactRenderer } from '@tiptap/react'
+import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion'
 import tippy, { Instance as TippyInstance, Props as TippyProps } from 'tippy.js'
 import { MentionList } from './mention-list'
+import type { MentionListProps } from './mention-list'
 import type { User, WorkspaceMember } from '@/lib/types'
 import { mergeUserForDisplay, useWorkspaceMemberStore } from '@/stores/useWorkspaceMemberStore'
+import { isActiveWorkspaceMember } from '@/lib/dm-members'
+
+interface MentionListHandle {
+  onKeyDown: (props: SuggestionKeyDownProps) => boolean
+}
 
 export const createSuggestion = (
   workspaceMembers: WorkspaceMember[] = [],
-  currentMembers: any[] = [],
+  currentMembers: Array<{ id: string }> = [],
   channelName?: string,
   workspaceId?: string,
+  allowChannelMentions = true,
 ) => {
   const overlayMap = () =>
     workspaceId
@@ -26,13 +34,17 @@ export const createSuggestion = (
             id: 'channel',
             name: 'channel',
             type: 'special',
-            description: 'Notify everyone in this channel.',
+            description: allowChannelMentions
+              ? 'Notify everyone in this channel.'
+              : 'Disabled in this channel',
           },
           {
             id: 'here',
             name: 'here',
             type: 'special',
-            description: 'Notify every online member in this channel.',
+            description: allowChannelMentions
+              ? "Notify every online member who isn't away."
+              : 'Disabled in this channel',
           }
         )
       }
@@ -43,6 +55,7 @@ export const createSuggestion = (
       const q = query.trim().toLowerCase()
 
       const members = workspaceMembers
+        .filter(isActiveWorkspaceMember)
         .filter((item) => {
           const d = mergeUserForDisplay(item as User, map[item.id])
           const lowName = (d.name ?? "").toLowerCase()
@@ -86,15 +99,18 @@ export const createSuggestion = (
     },
 
     render: () => {
-      let component: ReactRenderer<any>
+      let component: ReactRenderer<MentionListHandle, MentionListProps>
       let popup: TippyInstance[]
 
       return {
-        onStart: (props: any) => {
-          component = new ReactRenderer(MentionList, {
+        onStart: (props: SuggestionProps) => {
+          component = new ReactRenderer<MentionListHandle, MentionListProps>(
+            MentionList,
+            {
             props: { ...props, workspaceId },
             editor: props.editor,
-          })
+            },
+          )
 
           if (!props.clientRect) {
             return
@@ -111,7 +127,7 @@ export const createSuggestion = (
           } as Partial<TippyProps>)
         },
 
-        onUpdate(props: any) {
+        onUpdate(props: SuggestionProps) {
           component.updateProps({ ...props, workspaceId })
 
           if (!props.clientRect) {
@@ -119,17 +135,19 @@ export const createSuggestion = (
           }
 
           popup[0].setProps({
-            getReferenceClientRect: props.clientRect,
+            getReferenceClientRect: () => props.clientRect?.() ?? new DOMRect(),
           })
         },
 
-        onKeyDown(props: any) {
+        onKeyDown(props: SuggestionKeyDownProps) {
           if (props.event.key === 'Escape') {
             popup[0].hide()
             return true
           }
 
-          const handled = component.ref?.onKeyDown(props)
+          const handled = component.ref
+            ? component.ref.onKeyDown(props)
+            : false
           if (handled) {
             props.event.stopPropagation()
           }

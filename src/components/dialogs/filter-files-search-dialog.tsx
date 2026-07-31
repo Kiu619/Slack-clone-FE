@@ -4,18 +4,24 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { CustomDialog, CustomDialogBody, CustomDialogHeader, CustomDialogFooter, CustomDialogTitle } from "../custom-dialog"
 import { CustomSelect } from "../custom-select"
 import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Label } from "../ui/label"
 import { useQuery } from "@tanstack/react-query";
 import { fetchDirectMessagesApi, fetchWorkspaceMembersApi } from "@/apis";
 import { useChannels } from "@/hooks/use-channel";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebouncedValue } from "@/hooks/use-debounce";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { FiX } from "react-icons/fi";
 import { useShallow } from "zustand/react/shallow";
 import type { Channel, DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
 import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
+import {
+  MESSAGE_TARGET_DROPDOWN_CLASS,
+  MessageTargetChip,
+  MessageTargetConversationChip,
+  MessageTargetConversationRow,
+  MessageTargetSearchRow,
+} from "@/components/message-target-picker";
+import { TargetPickerField } from "@/components/target-picker-field";
+import { Label } from "../ui/label";
+import { Spinner } from "../ui/spinner";
 
 const dateOptions = [
   { label: 'Any time', value: 'all-time' },
@@ -68,13 +74,13 @@ export default function FilterFilesSearchDialog({
   const inRef = useRef<HTMLDivElement>(null);
 
   // Data fetching
-  const { data: channels } = useChannels(workspaceId);
-  const { data: conversations } = useQuery({
+  const { data: channels = [], isLoading: isChannelsLoading } = useChannels(workspaceId);
+  const { data: conversations = [], isLoading: isConversationsLoading } = useQuery({
     queryKey: ["dm-conversations", workspaceId],
     queryFn: () => fetchDirectMessagesApi(workspaceId),
     enabled: !!workspaceId,
   });
-  const { data: allMembers } = useQuery({
+  const { data: allMembers = [], isLoading: isMembersLoading } = useQuery({
     queryKey: ["workspace-members", workspaceId],
     queryFn: () => fetchWorkspaceMembersApi(workspaceId),
     enabled: !!workspaceId,
@@ -87,18 +93,11 @@ export default function FilterFilesSearchDialog({
   const displayMember = (m: WorkspaceMember) =>
     mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
 
-  // Sync initial filters
   useEffect(() => {
     if (open) {
-      if (allMembers) {
-        setSelectedMembers(allMembers.filter(m => initialFilters.userIds.includes(m.id)));
-      }
-      if (channels) {
-        setSelectedChannels(channels.filter(c => initialFilters.channelIds.includes(c.id)));
-      }
-      if (conversations) {
-        setSelectedConversations(conversations.filter(c => initialFilters.conversationIds.includes(c.id)));
-      }
+      setSelectedMembers(allMembers.filter((m) => initialFilters.userIds.includes(m.id)));
+      setSelectedChannels(channels.filter((c) => initialFilters.channelIds.includes(c.id)));
+      setSelectedConversations(conversations.filter((c) => initialFilters.conversationIds.includes(c.id)));
       setDateRange(initialFilters.dateRange);
     }
   }, [open, initialFilters, allMembers, channels, conversations]);
@@ -127,10 +126,9 @@ export default function FilterFilesSearchDialog({
     const convs = conversations?.filter(c => {
       if (selectedConversations.some(sc => sc.id === c.id)) return false;
       
-      // Nếu là DM 1-1, kiểm tra tên của người kia
-      if (!c.isGroup) {
-        const otherMember = c.members.find(m => m.id !== currentUser?.id);
-        const d = otherMember
+        if (!c.isGroup) {
+          const otherMember = c.members.find(m => m.id !== currentUser?.id);
+          const d = otherMember
           ? mergeUserForDisplay(otherMember as User, memberOverlayMap[otherMember.id])
           : null;
         return (
@@ -139,7 +137,6 @@ export default function FilterFilesSearchDialog({
         );
       }
 
-      // Nếu là Group DM, kiểm tra tên các thành viên trong group
       return c.members.some(m => {
         if (m.id === currentUser?.id) return false;
         const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
@@ -152,7 +149,6 @@ export default function FilterFilesSearchDialog({
 
     return { channels: chs, conversations: convs };
   }, [debouncedIn, channels, conversations, selectedChannels, selectedConversations, currentUser?.id, memberOverlayMap]);
-
   const handleApply = () => {
     onApply({
       userIds: selectedMembers.map(m => m.id),
@@ -172,6 +168,15 @@ export default function FilterFilesSearchDialog({
     setInSearch("");
   };
 
+  const isFromSettled = debouncedFrom.trim() === fromSearch.trim();
+  const isInSettled = debouncedIn.trim() === inSearch.trim();
+  const isFromQueryActive = fromSearch.trim().length > 0;
+  const isInQueryActive = inSearch.trim().length > 0;
+  const showFromDropdown = showFromResults && isFromQueryActive;
+  const showInDropdown = showInResults && isInQueryActive;
+  const showFromLoading = isFromQueryActive && !isFromSettled;
+  const showInLoading = isInQueryActive && !isInSettled;
+
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange}>
       <CustomDialogHeader onOpenChange={onOpenChange}>
@@ -180,20 +185,33 @@ export default function FilterFilesSearchDialog({
       <CustomDialogBody>
         <div className="flex flex-col gap-4 py-2">
           {/* FROM FILTER */}
-          <div className="flex flex-col gap-1.5 relative" ref={fromRef}>
-            <Label className="text-[13px] font-bold">From</Label>
-            <div className="flex flex-wrap gap-1 p-1.5 rounded-md border border-[#797c814d] bg-white dark:bg-[#1A1D21] focus-within:ring-1 focus-within:ring-sky-500">
-              {selectedMembers.map(member => {
+          <TargetPickerField
+            label="From"
+            fieldRef={fromRef}
+            chips={
+              <>
+                {selectedMembers.map(member => {
                 const d = displayMember(member);
                 return (
-                <div key={member.id} className="flex items-center gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded text-sm font-medium">
-                  <span>{d.displayName || d.name}</span>
-                  <button onClick={() => setSelectedMembers(prev => prev.filter(m => m.id !== member.id))} className="hover:opacity-70">
-                    <FiX size={14} />
-                  </button>
-                </div>
+                  <MessageTargetChip
+                    key={member.id}
+                    kind="member"
+                    member={{
+                      id: member.id,
+                      displayName: d.displayName || d.name || member.email,
+                      name: d.name || member.email.split("@")[0] || member.email,
+                      email: member.email,
+                      avatar: d.avatar || member.avatar || null,
+                    }}
+                    onRemove={() =>
+                      setSelectedMembers((prev) => prev.filter((m) => m.id !== member.id))
+                    }
+                    />
                 );
               })}
+              </>
+            }
+            input={
               <input 
                 className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm px-1 py-0.5"
                 placeholder="ex. Zoe Maxwell"
@@ -203,55 +221,64 @@ export default function FilterFilesSearchDialog({
                   setShowFromResults(true);
                 }}
                 onFocus={() => setShowFromResults(true)}
+                onBlur={() => setShowFromResults(false)}
               />
-            </div>
-            
-            {showFromResults && memberResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg z-50 py-1 overflow-y-auto max-h-[250px]">
-                {memberResults.map(member => {
-                  const d = displayMember(member);
-                  return (
-                  <div 
-                    key={member.id}
-                    className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                    onClick={() => {
-                      setSelectedMembers(prev => [...prev, member]);
-                      setFromSearch("");
-                      setShowFromResults(false);
-                    }}
-                  >
-                    <Avatar className="size-8 rounded-lg">
-                      <AvatarImage src={d.avatar || ""} />
-                      <AvatarFallback className="bg-sky-500 text-white rounded-lg text-xs">
-                        {(d.displayName || d.name || "U").substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold text-white truncate">
-                        {d.displayName || d.name}
-                      </span>
-                      <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                        {member.email}
-                      </span>
-                    </div>
-                  </div>
-                );
-                })}
-              </div>
-            )}
-          </div>
+            }
+            rightAdornment={showFromLoading ? <Spinner className="size-4 text-selection-hover" /> : null}
+            dropdown={
+              showFromDropdown && isFromSettled ? (
+                <>
+                  {memberResults.length === 0 ? (
+                    <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                  ) : (
+                    memberResults.map(member => {
+                      const d = displayMember(member);
+                      return (
+                        <MessageTargetSearchRow
+                          key={member.id}
+                          workspaceId={workspaceId}
+                          kind="member"
+                          member={{
+                            id: member.id,
+                            displayName: d.displayName || d.name || member.email,
+                            name: d.name || member.email.split("@")[0] || member.email,
+                            email: member.email,
+                            avatar: d.avatar || member.avatar || null,
+                            isAway: member.isAway,
+                          }}
+                          onClick={() => {
+                            setSelectedMembers((prev) => [...prev, member]);
+                            setFromSearch("");
+                            setShowFromResults(false);
+                          }}
+                        />
+                      );
+                    })
+                  )}
+                </>
+              ) : null
+            }
+          />
 
           {/* IN FILTER */}
-          <div className="flex flex-col gap-1.5 relative" ref={inRef}>
-            <Label className="text-[13px] font-bold">In</Label>
-            <div className="flex flex-wrap gap-1 p-1.5 rounded-md border border-[#797c814d] bg-white dark:bg-[#1A1D21] focus-within:ring-1 focus-within:ring-sky-500">
-              {selectedChannels.map(ch => (
-                <div key={ch.id} className="flex items-center gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded text-sm font-medium">
-                  <span># {ch.name}</span>
-                  <button onClick={() => setSelectedChannels(prev => prev.filter(c => c.id !== ch.id))} className="hover:opacity-70">
-                    <FiX size={14} />
-                  </button>
-                </div>
+          <TargetPickerField
+            label="In"
+            fieldRef={inRef}
+            chips={
+              <>
+                {selectedChannels.map(ch => (
+                <MessageTargetChip
+                  key={ch.id}
+                  kind="channel"
+                  channel={{
+                    id: ch.id,
+                    name: ch.name,
+                    isPrivate: ch.isPrivate,
+                  }}
+                  onRemove={() =>
+                    setSelectedChannels((prev) => prev.filter((c) => c.id !== ch.id))
+                  }
+                />
               ))}
               {selectedConversations.map(conv => {
                 const otherMember = !conv.isGroup 
@@ -262,27 +289,39 @@ export default function FilterFilesSearchDialog({
                   : null;
 
                 return (
-                  <div key={conv.id} className="flex items-center gap-1 bg-sky-500/10 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded text-sm font-medium">
-                    {!conv.isGroup && (
-                      <Avatar className="size-4 rounded-sm shrink-0">
-                        <AvatarImage src={otherDisplay?.avatar || ""} />
-                        <AvatarFallback className="text-[8px]">
-                          {(otherDisplay?.displayName || otherDisplay?.name || "U").substring(0, 1).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <span>
-                      {conv.isGroup 
-                        ? "Group DM" 
-                        : (otherDisplay?.displayName || otherDisplay?.name || "Direct Message")
-                      }
-                    </span>
-                    <button onClick={() => setSelectedConversations(prev => prev.filter(c => c.id !== conv.id))} className="hover:opacity-70">
-                      <FiX size={14} />
-                    </button>
-                  </div>
+                  <MessageTargetConversationChip
+                    key={conv.id}
+                    conversation={{
+                      id: conv.id,
+                      memberCount: conv.members.length,
+                      memberNames: conv.isGroup
+                        ? conv.members
+                            .filter((m) => m.id !== currentUser?.id)
+                            .map((m) => {
+                              const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
+                              return d.displayName || d.name || m.email || "";
+                            })
+                            .join(", ")
+                        : (otherDisplay?.displayName || otherDisplay?.name || "Direct Message"),
+                      memberAvatars: conv.members
+                        .filter((m) => m.id !== currentUser?.id)
+                        .map((m) => ({
+                          id: m.id,
+                          avatar: m.avatar,
+                          displayName: m.displayName,
+                          name: m.name,
+                        })),
+                      isGroup: conv.isGroup,
+                    }}
+                  onRemove={() =>
+                    setSelectedConversations((prev) => prev.filter((c) => c.id !== conv.id))
+                    }
+                  />
                 );
               })}
+              </>
+            }
+            input={
               <input 
                 className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm px-1 py-0.5"
                 placeholder="ex. #project-unicorn"
@@ -292,87 +331,77 @@ export default function FilterFilesSearchDialog({
                   setShowInResults(true);
                 }}
                 onFocus={() => setShowInResults(true)}
+                onBlur={() => setShowInResults(false)}
               />
-            </div>
-
-            {showInResults && (inResults.channels.length > 0 || inResults.conversations.length > 0) && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg z-50 py-1 overflow-y-auto max-h-[250px]">
-                {inResults.channels.map(ch => (
-                  <div 
-                    key={ch.id}
-                    className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                    onClick={() => {
-                      setSelectedChannels(prev => [...prev, ch]);
-                      setInSearch("");
-                      setShowInResults(false);
-                    }}
-                  >
-                    <div className="size-8 rounded-lg bg-gray-700 flex items-center justify-center text-white font-bold">
-                      #
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold text-white truncate">
-                        {ch.name}
-                      </span>
-                      <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                        Channel
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {inResults.conversations.map(conv => {
-                  const otherMember = !conv.isGroup 
-                    ? conv.members.find(m => m.id !== currentUser?.id)
-                    : null;
-                  const otherDisplay = otherMember
-                    ? mergeUserForDisplay(otherMember as User, memberOverlayMap[otherMember.id])
-                    : null;
-                  
-                  return (
-                    <div 
-                      key={conv.id}
-                      className="flex items-center gap-x-2 px-3 py-2 hover:bg-sky-600 cursor-pointer group"
-                      onClick={() => {
-                        setSelectedConversations(prev => [...prev, conv]);
-                        setInSearch("");
-                        setShowInResults(false);
-                      }}
-                    >
-                      {conv.isGroup ? (
-                        <div className="size-8 rounded-lg bg-gray-700 flex items-center justify-center text-white font-bold relative shrink-0">
-                          <Avatar className="size-8 rounded-lg">
-                            <AvatarFallback className="bg-green-600 text-white rounded-lg text-xs">
-                              {conv.members.length}
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                      ) : (
-                        <Avatar className="size-8 rounded-lg shrink-0">
-                          <AvatarImage src={otherDisplay?.avatar || ""} />
-                          <AvatarFallback className="bg-sky-500 text-white rounded-lg text-xs">
-                            {(otherDisplay?.displayName || otherDisplay?.name || "U").substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-sm font-bold text-white truncate">
-                          {conv.isGroup 
-                            ? conv.members.filter(m => m.id !== currentUser?.id).map(m => {
-                                const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
-                                return d.displayName || d.name || "";
-                              }).join(", ")
-                            : (otherDisplay?.displayName || otherDisplay?.name)}
-                        </span>
-                        <span className="text-xs text-gray-400 group-hover:text-sky-100 truncate">
-                          {conv.isGroup ? "Group DM" : "Direct Message"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+            }
+            rightAdornment={showInLoading ? <Spinner className="size-4 text-selection-hover" /> : null}
+            dropdown={
+              showInDropdown && isInSettled ? (
+                <>
+                  {inResults.channels.length === 0 && inResults.conversations.length === 0 ? (
+                    <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                  ) : (
+                    <>
+                      {inResults.channels.map(ch => (
+                        <MessageTargetSearchRow
+                          key={ch.id}
+                          workspaceId={workspaceId}
+                          kind="channel"
+                          channel={ch}
+                          onClick={() => {
+                            setSelectedChannels((prev) => [...prev, ch]);
+                            setInSearch("");
+                            setShowInResults(false);
+                          }}
+                        />
+                      ))}
+                      {inResults.conversations.map(conv => {
+                        const otherMember = !conv.isGroup 
+                          ? conv.members.find(m => m.id !== currentUser?.id)
+                          : null;
+                        const otherDisplay = otherMember
+                          ? mergeUserForDisplay(otherMember as User, memberOverlayMap[otherMember.id])
+                          : null;
+                        
+                        return (
+                          <MessageTargetConversationRow
+                            key={conv.id}
+                            conversation={{
+                              id: conv.id,
+                              memberCount: conv.members.length,
+                              memberNames: conv.isGroup
+                                ? conv.members
+                                    .filter((m) => m.id !== currentUser?.id)
+                                    .map((m) => {
+                                      const d = mergeUserForDisplay(m as User, memberOverlayMap[m.id]);
+                                      return d.displayName || d.name || m.email || "";
+                                    })
+                                    .join(", ")
+                                : (otherDisplay?.displayName || otherDisplay?.name || "Direct Message"),
+                              memberAvatars: conv.members
+                                .filter((m) => m.id !== currentUser?.id)
+                                .map((m) => ({
+                                  id: m.id,
+                                  avatar: m.avatar,
+                                  displayName: m.displayName,
+                                  name: m.name,
+                                })),
+                              isGroup: conv.isGroup,
+                            }}
+                            onClick={() => {
+                              setSelectedConversations((prev) => [...prev, conv]);
+                              setInSearch("");
+                              setShowInResults(false);
+                            }}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              ) : null
+            }
+          />
 
           {/* DATE FILTER */}
           <div className="flex flex-col gap-1.5">
@@ -387,7 +416,7 @@ export default function FilterFilesSearchDialog({
       </CustomDialogBody>
 
       <CustomDialogFooter className="gap-2">
-        <Button variant="ghost" onClick={handleClear}>Clear filters</Button>
+        <Button variant="outline" onClick={handleClear}>Clear filters</Button>
         <Button variant="success" onClick={handleApply}>Done</Button>
       </CustomDialogFooter>
     </CustomDialog>

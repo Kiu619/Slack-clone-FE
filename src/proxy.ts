@@ -1,28 +1,42 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/auth', '/auth/callback', '/join']
+const ALWAYS_PUBLIC = ['/auth', '/join']
+const AUTH_INTERNAL = ['/auth/callback']
+
+function classify(pathname: string): 'public' | 'auth-internal' | 'protected' {
+  if (AUTH_INTERNAL.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+    return 'auth-internal'
+  }
+  if (ALWAYS_PUBLIC.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+    return 'public'
+  }
+  return 'protected'
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const access = classify(pathname)
 
-  const isPublicPath = PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + '/'),
-  )
+  const isAuthenticated =
+    request.cookies.has('access_token') ||
+    request.cookies.has('refresh_token')
 
-  const hasAccessToken = request.cookies.has('access_token')
-  const hasRefreshToken = request.cookies.has('refresh_token')
-  const isAuthenticated = hasAccessToken || hasRefreshToken
+  // auth-internal: must render regardless of auth state (e.g. OAuth callback)
+  if (access === 'auth-internal') return NextResponse.next()
 
-  // Authenticated user tries to access /auth → redirect to home
-  if (isPublicPath && isAuthenticated) {
+  // public + authenticated: bounce home
+  if (access === 'public' && isAuthenticated) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Unauthenticated user tries to access protected route → redirect to /auth
-  if (!isPublicPath && !isAuthenticated) {
+  // protected + unauthenticated: bounce to /auth with redirect param
+  if (access === 'protected' && !isAuthenticated) {
     const redirectUrl = new URL('/auth', request.url)
-    redirectUrl.searchParams.set('redirect', pathname)
+    redirectUrl.searchParams.set(
+      'redirect',
+      request.nextUrl.pathname + request.nextUrl.search + request.nextUrl.hash,
+    )
     return NextResponse.redirect(redirectUrl)
   }
 

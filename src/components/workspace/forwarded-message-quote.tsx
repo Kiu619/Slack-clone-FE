@@ -1,34 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import DOMPurify from "dompurify";
 import AttachmentList from "@/components/attachment-previews/attachment-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { sanitizeRenderedRichText } from "@/lib/sanitize-rich-text";
 import type { Message, User } from "@/lib/types";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
-
-const SANITIZE_OPTS = {
-  ALLOWED_TAGS: [
-    "p",
-    "br",
-    "strong",
-    "em",
-    "s",
-    "u",
-    "code",
-    "pre",
-    "ul",
-    "ol",
-    "li",
-    "a",
-    "blockquote",
-    "span",
-  ],
-  ALLOWED_ATTR: ["href", "target", "rel", "class"],
-};
 
 interface ForwardedMessageQuoteProps {
   message: Message;
@@ -47,8 +27,7 @@ export const ForwardedMessageQuote = ({
 
   const sanitized = useMemo(() => {
     const content = message.content ?? "";
-    if (typeof window === "undefined") return content;
-    return DOMPurify.sanitize(content, SANITIZE_OPTS);
+    return sanitizeRenderedRichText(content);
   }, [message.content]);
 
   const isFileOnlyPlaceholder =

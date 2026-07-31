@@ -1,7 +1,19 @@
 "use client";
 
 import { use } from "react";
-import { WorkspaceMessagesSearch } from "@/modules/workspace/search/workspace-messages-search";
+import dynamic from "next/dynamic";
+import { SearchResultsSkeleton } from "@/components/loading-skeletons";
+
+const WorkspaceGlobalSearch = dynamic(
+  () =>
+    import("@/modules/workspace/search/workspace-global-search").then(
+      (mod) => mod.WorkspaceGlobalSearch,
+    ),
+  {
+    ssr: false,
+    loading: () => <SearchResultsSkeleton titleWidth="w-40" resultCount={6} />,
+  },
+);
 
 interface SearchPageProps {
   params: Promise<{ workspaceId: string }>;
@@ -9,5 +21,5 @@ interface SearchPageProps {
 
 export default function WorkspaceSearchPage({ params }: SearchPageProps) {
   const { workspaceId } = use(params);
-  return <WorkspaceMessagesSearch workspaceId={workspaceId} />;
+  return <WorkspaceGlobalSearch workspaceId={workspaceId} />;
 }

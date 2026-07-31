@@ -18,14 +18,35 @@ import type {
   NotificationsPage,
   Notification,
   ChannelFileHit,
-  ChannelMember,
   DmInviteCandidate,
   SavedItem,
   SavedItemsPage,
   SaveItemPayload,
   UpdateSavedItemPayload,
   UpdateConversationPayload,
+  NotificationOverrideSetting,
+  NotificationPreference,
+  LaterSummary,
+  WorkspaceMembersPage,
+  WorkspaceMessageSearchResponse,
+  WorkspaceCustomEmoji,
+  WorkspaceCustomEmojisPage,
+  WorkspaceEmojiOneClickSlots,
+  WorkspaceMemberRole,
 } from "@/lib/types"
+import type {
+  HuddleJoinResponse,
+  HuddleStateSnapshot,
+  HuddleTarget,
+  WorkspaceHuddlesFilters,
+  WorkspaceHuddlesResponse,
+  RecentHuddlesResponse,
+} from "@/lib/huddle"
+import type {
+  WorkspacePermissionKey,
+  WorkspacePermissionMatrix,
+  WorkspacePermissionRow,
+} from "@/lib/workspace-permissions"
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -35,11 +56,25 @@ export const getUserApi = async () => {
 }
 
 export const magicLinkVerifyApi = async (token: string) => {
-  const res = await apiClient.post<{ user: AccountUser }>(
+  const res = await apiClient.post<{ user: AccountUser; redirect?: string | null }>(
     '/auth/magic-link/verify',
     { token },
   )
-  return res.data.user
+  return res.data
+}
+
+export const initGoogleOAuthApi = async (redirect?: string) => {
+  const res = await apiClient.post<{ ok: boolean }>('/auth/google/init', {
+    redirect,
+  })
+  return res.data
+}
+
+export const initGithubOAuthApi = async (redirect?: string) => {
+  const res = await apiClient.post<{ ok: boolean }>('/auth/github/init', {
+    redirect,
+  })
+  return res.data
 }
 
 export const signOutApi = async () => {
@@ -53,6 +88,136 @@ export const getWorkspaceProfileApi = async (workspaceId: string) => {
   const res = await apiClient.get<User>('/user-profile/me', {
     params: { workspaceId },
   })
+  return res.data
+}
+
+const buildHuddlePath = (target: HuddleTarget) => {
+  return target.entityType === "channel"
+    ? `/workspaces/${target.workspaceId}/channels/${target.entityId}/huddle`
+    : `/workspaces/${target.workspaceId}/direct-messages/${target.entityId}/huddle`
+}
+
+export const getHuddleStateApi = async (target: HuddleTarget) => {
+  const res = await apiClient.get<HuddleStateSnapshot>(buildHuddlePath(target))
+  return res.data
+}
+
+export const startHuddleApi = async (
+  target: HuddleTarget,
+  socketId?: string,
+) => {
+  const res = await apiClient.post<HuddleStateSnapshot>(
+    `${buildHuddlePath(target)}/start`,
+    {},
+    socketId ? { headers: { "x-socket-id": socketId } } : undefined,
+  )
+  return res.data
+}
+
+export const joinHuddleApi = async (
+  target: HuddleTarget,
+  socketId?: string,
+) => {
+  const res = await apiClient.post<HuddleJoinResponse>(
+    `${buildHuddlePath(target)}/join`,
+    {},
+    socketId ? { headers: { "x-socket-id": socketId } } : undefined,
+  )
+  return res.data
+}
+
+export const leaveHuddleApi = async (
+  target: HuddleTarget,
+  socketId?: string,
+) => {
+  const res = await apiClient.post<HuddleStateSnapshot>(
+    `${buildHuddlePath(target)}/leave`,
+    {},
+    socketId ? { headers: { "x-socket-id": socketId } } : undefined,
+  )
+  return res.data
+}
+
+export const leaveHuddleKeepaliveApi = async (target: HuddleTarget) => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  const url = new URL(
+    target.entityType === "channel"
+      ? `/workspaces/${target.workspaceId}/channels/${target.entityId}/huddle/leave`
+      : `/workspaces/${target.workspaceId}/direct-messages/${target.entityId}/huddle/leave`,
+    baseUrl,
+  )
+
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+    keepalive: true,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Could not leave huddle (${response.status})`)
+  }
+
+  return (await response.json()) as HuddleStateSnapshot
+}
+
+export const muteParticipantApi = async (
+  workspaceId: string,
+  huddleId: string,
+  participantIdentity: string,
+) => {
+  const res = await apiClient.post(`/workspaces/${workspaceId}/huddles/${huddleId}/participants/${participantIdentity}/mute`)
+  return res.data
+}
+
+export const updateHuddleTopicApi = async (
+  workspaceId: string,
+  huddleId: string,
+  topic: string | null,
+) => {
+  const res = await apiClient.patch<HuddleStateSnapshot>(
+    `/workspaces/${workspaceId}/huddles/${huddleId}/topic`,
+    { topic },
+  )
+  return res.data
+}
+
+export const getWorkspaceHuddlesApi = async (
+  workspaceId: string,
+  filters?: WorkspaceHuddlesFilters,
+): Promise<WorkspaceHuddlesResponse> => {
+  const res = await apiClient.get<WorkspaceHuddlesResponse>(
+    `/workspaces/${workspaceId}/huddles`,
+    { params: filters },
+  )
+  return res.data
+}
+
+import { serializeHuddleFilters } from '@/lib/huddle'
+import type { RecentHuddlesFilters, WeeklyHuddlesResponse } from '@/lib/huddle'
+
+export const getRecentHuddlesApi = async (
+  workspaceId: string,
+  filters?: RecentHuddlesFilters,
+): Promise<RecentHuddlesResponse> => {
+  const res = await apiClient.get<RecentHuddlesResponse>(
+    `/workspaces/${workspaceId}/huddles/recent`,
+    { params: filters ? serializeHuddleFilters(filters) : undefined },
+  )
+  return res.data
+}
+
+export const getWeeklyHuddlesApi = async (
+  workspaceId: string,
+  pageSize: number = 6,
+): Promise<WeeklyHuddlesResponse> => {
+  const res = await apiClient.get<WeeklyHuddlesResponse>(
+    `/workspaces/${workspaceId}/huddles/weekly`,
+    { params: { pageSize } },
+  )
   return res.data
 }
 
@@ -678,9 +843,16 @@ export const markAsReadApi = async (notificationId: string) => {
 }
 
 export const markAllAsReadApi = async (workspaceId: string) => {
-  const res = await apiClient.patch<{ success: boolean }>(`/notifications/read-all`, {}, {
+  const res = await apiClient.post<{ success: boolean }>(`/notifications/read-all`, {}, {
     params: { workspaceId }
   })
+  return res.data
+}
+
+export const clearNotificationApi = async (notificationId: string) => {
+  const res = await apiClient.delete<{ success: boolean }>(
+    `/notifications/${notificationId}`,
+  )
   return res.data
 }
 
@@ -776,6 +948,325 @@ export const removeSavedItemApi = async (
 export const clearCompletedSavedItemsApi = async (workspaceId: string) => {
   const res = await apiClient.delete<{ success: boolean }>(
     `/workspaces/${workspaceId}/later/completed`,
+  )
+  return res.data
+}
+
+export const getLaterSummaryApi = async (workspaceId: string) => {
+  const res = await apiClient.get<LaterSummary>(
+    `/workspaces/${workspaceId}/later/summary`,
+  )
+  return res.data
+}
+
+export const fetchWorkspaceChannelsApi = async (
+  workspaceId: string,
+  params?: { withUserIds?: string[] },
+) => {
+  const withUserIds = params?.withUserIds?.filter(Boolean) ?? []
+  const res = await apiClient.get<Channel[]>(`/workspaces/${workspaceId}/channels`, {
+    params:
+      withUserIds.length > 0
+        ? { withUserIds: withUserIds.join(',') }
+        : undefined,
+  })
+  return res.data
+}
+
+export type WorkspaceMembersQueryParams = {
+  page?: number
+  pageSize?: number
+  sortBy?: 'fullName' | 'displayName' | 'email' | 'accountType' | 'joined' | 'status'
+  sortDirection?: 'asc' | 'desc'
+  q?: string
+}
+
+export const fetchWorkspaceMembersPageApi = async (
+  workspaceId: string,
+  params: WorkspaceMembersQueryParams,
+) => {
+  const res = await apiClient.get<WorkspaceMembersPage>(
+    `/workspaces/${workspaceId}/members/page`,
+    { params },
+  )
+  return res.data
+}
+
+export const updateWorkspaceMemberRoleApi = async (
+  workspaceId: string,
+  userId: string,
+  role: WorkspaceMemberRole,
+) => {
+  const res = await apiClient.patch<WorkspaceMember>(
+    `/workspaces/${workspaceId}/members/${userId}/role`,
+    { role },
+  )
+  return res.data
+}
+
+export const deactivateWorkspaceMemberApi = async (
+  workspaceId: string,
+  userId: string,
+) => {
+  const res = await apiClient.patch<WorkspaceMember>(
+    `/workspaces/${workspaceId}/members/${userId}/deactivate`,
+  )
+  return res.data
+}
+
+export const activateWorkspaceMemberApi = async (
+  workspaceId: string,
+  userId: string,
+) => {
+  const res = await apiClient.patch<WorkspaceMember>(
+    `/workspaces/${workspaceId}/members/${userId}/activate`,
+  )
+  return res.data
+}
+
+export const removeDeactivatedWorkspaceMemberApi = async (
+  workspaceId: string,
+  userId: string,
+) => {
+  const res = await apiClient.delete<{ id: string; removed: true }>(
+    `/workspaces/${workspaceId}/members/${userId}`,
+  )
+  return res.data
+}
+
+export const fetchWorkspacePermissionsApi = async (workspaceId: string) => {
+  const res = await apiClient.get<WorkspacePermissionRow[]>(
+    `/workspaces/${workspaceId}/permissions`,
+  )
+  return res.data
+}
+
+export const updateWorkspacePermissionApi = async (
+  workspaceId: string,
+  permissionKey: WorkspacePermissionKey,
+  roles: WorkspacePermissionMatrix,
+) => {
+  const res = await apiClient.patch<WorkspacePermissionRow>(
+    `/workspaces/${workspaceId}/permissions/${permissionKey}`,
+    { roles },
+  )
+  return res.data
+}
+
+export type CreateWorkspaceCustomEmojiPayload = {
+  name: string
+  imageUrl: string
+}
+
+export type CreateWorkspaceCustomEmojiAliasPayload = {
+  sourceEmojiId?: string
+  sourceDefaultEmoji?: string
+  alias: string
+}
+
+export type WorkspaceCustomEmojisQueryParams = {
+  page?: number
+  pageSize?: number
+  sortBy?: 'name' | 'createdAt' | 'createdBy'
+  sortDirection?: 'asc' | 'desc'
+  q?: string
+}
+
+export const createWorkspaceCustomEmojiApi = async (
+  workspaceId: string,
+  payload: CreateWorkspaceCustomEmojiPayload,
+) => {
+  const res = await apiClient.post<WorkspaceCustomEmoji>(
+    `/workspaces/${workspaceId}/custom-emojis`,
+    payload,
+  )
+  return res.data
+}
+
+export const fetchWorkspaceCustomEmojisPageApi = async (
+  workspaceId: string,
+  params: WorkspaceCustomEmojisQueryParams,
+) => {
+  const res = await apiClient.get<WorkspaceCustomEmojisPage>(
+    `/workspaces/${workspaceId}/custom-emojis`,
+    { params },
+  )
+  return res.data
+}
+
+export const createWorkspaceCustomEmojiAliasApi = async (
+  workspaceId: string,
+  payload: CreateWorkspaceCustomEmojiAliasPayload,
+) => {
+  const res = await apiClient.post<WorkspaceCustomEmoji>(
+    `/workspaces/${workspaceId}/custom-emojis/aliases`,
+    payload,
+  )
+  return res.data
+}
+
+export const deleteWorkspaceCustomEmojiApi = async (
+  workspaceId: string,
+  emojiId: string,
+) => {
+  const res = await apiClient.delete<{ ok: boolean }>(
+    `/workspaces/${workspaceId}/custom-emojis/${emojiId}`,
+  )
+  return res.data
+}
+
+export const updateWorkspaceEmojiOneClickApi = async (
+  workspaceId: string,
+  payload: { slots: WorkspaceEmojiOneClickSlots },
+) => {
+  const res = await apiClient.patch(
+    `/workspaces/${workspaceId}/custom-emojis/one-click`,
+    payload,
+  )
+  return res.data
+}
+
+export const getUnreadNotificationsCountApi = async (workspaceId: string) => {
+  const res = await apiClient.get<{ count: number }>(`/notifications/unread-count`, {
+    params: { workspaceId },
+  })
+  return res.data
+}
+
+export const getWorkspaceUnreadCountsApi = async (workspaceId: string) => {
+  const res = await apiClient.get<{
+    channels: Array<{ id: string; unreadCount: number }>
+    conversations: Array<{ id: string; unreadCount: number }>
+  }>(`/notifications/workspace-unread-counts`, { params: { workspaceId } })
+  return res.data
+}
+
+export const markChannelAsReadApi = async (channelId: string) => {
+  const res = await apiClient.post<{ success: boolean }>(
+    `/notifications/channels/${channelId}/mark-as-read`,
+  )
+  return res.data
+}
+
+export const markDmConversationAsReadApi = async (conversationId: string) => {
+  const res = await apiClient.post<{ success: boolean }>(
+    `/notifications/conversations/${conversationId}/mark-as-read`,
+  )
+  return res.data
+}
+
+export const getDmUnreadSummaryApi = async (workspaceId: string) => {
+  const res = await apiClient.get<{ count: number }>(
+    `/workspaces/${workspaceId}/direct-messages/unread-summary`,
+  )
+  return res.data
+}
+
+type NotificationSettingTarget =
+  | { workspaceId: string; channelId: string; conversationId?: never }
+  | { workspaceId: string; conversationId: string; channelId?: never }
+
+export const getNotificationSettingApi = async (
+  target: NotificationSettingTarget,
+) => {
+  const res = await apiClient.get<NotificationOverrideSetting>(
+    `/notifications/settings/override`,
+    {
+      params:
+        'channelId' in target
+          ? { workspaceId: target.workspaceId, channelId: target.channelId }
+          : {
+              workspaceId: target.workspaceId,
+              conversationId: target.conversationId,
+            },
+    },
+  )
+  return res.data
+}
+
+export const updateNotificationSettingApi = async (
+  target: NotificationSettingTarget,
+  payload: { notifyFor?: NotificationPreference; muteChannel: boolean },
+) => {
+  const body =
+    'channelId' in target
+      ? {
+          channelId: target.channelId,
+          notifyFor: payload.notifyFor,
+          muteChannel: payload.muteChannel,
+        }
+      : {
+          conversationId: target.conversationId,
+          notifyFor: payload.notifyFor,
+          muteChannel: payload.muteChannel,
+        }
+
+  const res = await apiClient.patch<NotificationOverrideSetting>(
+    `/notifications/settings/override`,
+    body,
+    { params: { workspaceId: target.workspaceId } },
+  )
+  return res.data
+}
+
+export type SearchWorkspaceMessagesParams = {
+  workspaceId: string
+  q?: string
+  fromUserIds?: string[]
+  withUserIds?: string[]
+  channelIds?: string[]
+  conversationIds?: string[]
+  has?: string[]
+  is?: string[]
+  types?: string[]
+  afterDate?: string | null
+  beforeDate?: string | null
+  sort?: 'relevance' | 'newest' | 'oldest'
+  limit?: number
+  offset?: number
+}
+
+export const searchWorkspaceMessagesApi = async (
+  params: SearchWorkspaceMessagesParams,
+) => {
+  const {
+    workspaceId,
+    q,
+    fromUserIds,
+    withUserIds,
+    channelIds,
+    conversationIds,
+    has,
+    is,
+    types,
+    afterDate,
+    beforeDate,
+    sort,
+    limit,
+    offset,
+  } = params
+
+  const res = await apiClient.get<WorkspaceMessageSearchResponse>(
+    `/workspaces/${workspaceId}/search/messages`,
+    {
+      params: {
+        q,
+        fromUserIds: fromUserIds?.length ? fromUserIds.join(',') : undefined,
+        withUserIds: withUserIds?.length ? withUserIds.join(',') : undefined,
+        channelIds: channelIds?.length ? channelIds.join(',') : undefined,
+        conversationIds: conversationIds?.length
+          ? conversationIds.join(',')
+          : undefined,
+        has: has?.length ? has.join(',') : undefined,
+        is: is?.length ? is.join(',') : undefined,
+        types: types?.length ? types.join(',') : undefined,
+        afterDate,
+        beforeDate,
+        sort,
+        limit,
+        offset,
+      },
+    },
   )
   return res.data
 }

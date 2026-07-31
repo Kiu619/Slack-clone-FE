@@ -19,7 +19,17 @@ export const useUserStore = create<UserStore>()(devtools(persist((set) => ({
   isAuthenticated: false,
   isProfilePanelOpen: false,
   setUser: (user) =>
-    set({ user, isAuthenticated: !!user, isLoading: false }),
+    set((state) => ({
+      user: user
+        ? {
+            ...state.user,
+            ...user,
+            role: user.role ?? state.user?.role ?? null,
+          }
+        : null,
+      isAuthenticated: !!user,
+      isLoading: false,
+    })),
   setLoading: (isLoading) => set({ isLoading }),
   clearUser: () =>
     set({ user: null, isAuthenticated: false, isLoading: false }),

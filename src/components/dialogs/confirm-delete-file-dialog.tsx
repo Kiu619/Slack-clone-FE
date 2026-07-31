@@ -26,7 +26,7 @@ export default function ConfirmDeleteFileDialog({ open, onOpenChange, onConfirm}
         <p>Are you sure you want to delete this file?</p>
       </CustomDialogBody>
         <CustomDialogFooter>
-          <Button onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button variant="error" onClick={onConfirm}>

@@ -1,6 +1,5 @@
 "use client";
 
-import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,20 +16,26 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import Typography from "@/components/ui/typography";
+import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { useAuth } from "@/hooks/use-auth";
 import { useConversations } from "@/hooks/use-conversations";
-import { useToggleLaterMessage } from "@/hooks/use-messages";
 import { useDebouncedValue } from "@/hooks/use-debounce";
+import { usePrefetchSidebarMutedItems } from "@/hooks/use-prefetch-sidebar-muted-items";
+import { useToggleLaterMessage } from "@/hooks/use-messages";
 import { useLaterSavedMessageIds, useRemindMe } from "@/hooks/use-saved-items";
+import {
+  getDmDisplayName,
+  isDeactivatedUser,
+  isOneToOneWithDeactivatedPeer,
+} from "@/lib/dm-members";
+import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
 import { User, Workspace } from "@/lib/types";
-import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
-import { useShallow } from "zustand/react/shallow";
 import { cn } from "@/lib/utils";
+import { useMainPanelStore } from "@/stores/useMainPanelStore";
 import { type Theme } from "@/stores/useThemeStore";
+import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 import { format, isToday, isYesterday } from "date-fns";
 import DOMPurify from "dompurify";
-import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
-import { useMainPanelStore } from "@/stores/useMainPanelStore";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FiBellOff, FiSearch } from "react-icons/fi";
@@ -41,17 +46,19 @@ import {
   MdMoreVert,
   MdOutlineKeyboardArrowRight,
 } from "react-icons/md";
+import { useShallow } from "zustand/react/shallow";
 import NewMessage from "../workspace/workspace-side-panel/new-message";
 
 // Dynamic import EmojiPicker để tránh SSR
-import { RxText } from "react-icons/rx";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { UserPresenceIndicator } from "@/components/user-presence-indicator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ICON_TRANSITION,
-  MENU_ITEM_STYLE,
-  TOOLBAR_ITEM_STYLE,
-  SUBMENU_ITEM_STYLE,
+  TOOLBAR_ITEM_STYLE
 } from "@/constants/styles";
+import { RxText } from "react-icons/rx";
+import { toast } from "sonner";
 interface Props {
   theme: Theme;
   currentWorkspaceData: Workspace;
@@ -65,6 +72,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const { user: currentUser } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [showUnreadsOnly, setShowUnreadsOnly] = useState(false);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -109,14 +117,41 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
     !!conv.lastMessageId;
 
   const conversationsWithMessages = useMemo(
-    () => (conversations ?? []).filter(hasAtLeastOneMessage),
-    [conversations],
+    () => {
+      const base = (conversations ?? [])
+        .filter(hasAtLeastOneMessage)
+        .filter(
+          (conv) =>
+            !isOneToOneWithDeactivatedPeer(
+              conv,
+              currentUser?.id,
+              (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
+            ),
+        );
+      if (!showUnreadsOnly) return base;
+      return base.filter((conv) => (conv.unreadCount ?? 0) > 0);
+    },
+    [conversations, currentUser?.id, memberOverlayMap, showUnreadsOnly],
   );
+
+  usePrefetchSidebarMutedItems({
+    workspaceId: params.workspaceId,
+    conversations: conversationsWithMessages,
+  });
 
   const filteredResults = useMemo(() => {
     if (!debouncedSearch.trim()) return [];
-    return (searchResults ?? []).filter(hasAtLeastOneMessage);
-  }, [debouncedSearch, searchResults]);
+    return (searchResults ?? [])
+      .filter(hasAtLeastOneMessage)
+      .filter(
+        (conv) =>
+          !isOneToOneWithDeactivatedPeer(
+            conv,
+            currentUser?.id,
+            (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
+          ),
+      );
+  }, [currentUser?.id, debouncedSearch, memberOverlayMap, searchResults]);
 
   const dmLastMessageIds = useMemo(
     () =>
@@ -145,14 +180,11 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   }, []);
 
   const getConversationName = (members: User[]) => {
-    const otherMembers = members.filter((m) => m.id !== currentUser?.id);
-    if (otherMembers.length === 0) return "You";
-    return otherMembers
-      .map((m) => {
-        const d = mergeUserForDisplay(m, memberOverlayMap[m.id]);
-        return d.displayName || d.name || d.email || "";
-      })
-      .join(", ");
+    return getDmDisplayName(
+      members,
+      currentUser?.id,
+      (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
+    );
   };
 
   const getConversationAvatar = (member: User) => {
@@ -214,7 +246,12 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
             >
               Unreads
             </Label>
-            <Switch id="unread-mode" className="scale-75" />
+            <Switch
+              id="unread-mode"
+              className="scale-75"
+              checked={showUnreadsOnly}
+              onCheckedChange={setShowUnreadsOnly}
+            />
           </div>
 
           <NewMessage />
@@ -240,8 +277,16 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
         {isSearchFocused && searchQuery.trim() && (
           <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg max-h-[300px] overflow-y-auto z-50 py-1">
             {isSearching ? (
-              <div className="px-4 py-2 text-sm text-gray-400 animate-pulse">
-                Searching...
+              <div className="space-y-2 px-3 py-2">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <div key={i} className="flex items-center gap-x-2">
+                    <Skeleton className="size-8 rounded-md" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-5/6" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredResults.length === 0 ? (
               <div className="px-4 py-2 text-sm text-gray-400">
@@ -285,6 +330,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             others[0] as User,
                             memberOverlayMap[others[0].id],
                           );
+                          if (isDeactivatedUser(peer)) return null;
                           return (
                             <UserStatusEmojiInline
                               statusEmoji={peer.statusEmoji}
@@ -318,8 +364,16 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
 
       <div className="flex flex-col gap-y-1 mt-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
         {isLoading ? (
-          <div className="text-workspace-side-panel-text/50 text-xs px-2">
-            Loading...
+          <div className="space-y-2 px-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex items-center gap-x-2">
+                <Skeleton className="size-10 rounded-lg" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-4/5" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : conversationsWithMessages.length === 0 ? (
           <div className="text-workspace-side-panel-text/50 text-xs px-2">
@@ -329,6 +383,9 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
           conversationsWithMessages.map((conv) => {
             const otherMember =
               conv.members.find((m) => m.id !== currentUser?.id) || currentUser;
+            const displayedOtherMember = otherMember
+              ? mergeUserForDisplay(otherMember as User, memberOverlayMap[otherMember.id])
+              : null;
             const isActive =
               mainPanelView.type === "dm" &&
               mainPanelView.conversationId === conv.id;
@@ -348,7 +405,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                   }
                   className={cn(
                     "flex w-full items-center gap-x-3 p-2 rounded-lg cursor-pointer transition-colors text-left",
-                    isActive ? "text-white" : "hover:bg-white/10",
+                    isActive ? "text-workspace-text-active" : "hover:bg-white/10",
                   )}
                   style={
                     isActive ? { backgroundColor: theme.selectedItems } : {}
@@ -356,24 +413,22 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                 >
                   <div className="relative shrink-0">
                     {getConversationAvatar(otherMember!)}
-                    <div
-                      className={cn(
-                        "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-transparent",
-                        otherMember &&
-                          mergeUserForDisplay(
-                            otherMember as User,
-                            memberOverlayMap[otherMember.id],
-                          ).isAway
-                          ? "bg-gray-400"
-                          : "bg-green-500",
-                      )}
-                    />
+                    {displayedOtherMember && !isDeactivatedUser(displayedOtherMember) ? (
+                      <div className="absolute -bottom-2 -right-0.5">
+                        <UserPresenceIndicator
+                          workspaceId={currentWorkspaceData.id}
+                          userId={displayedOtherMember.id}
+                          isAway={displayedOtherMember.isAway}
+                          size="md"
+                        />
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-col flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-1">
-                        <span className="text-[14px] font-bold text-workspace-side-panel-text truncate min-w-0">
+                        <span className={cn("text-[14px] font-bold truncate min-w-0", isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text")}>
                           {getConversationName(conv.members)}
                         </span>
                         {(() => {
@@ -387,6 +442,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             others[0] as User,
                             memberOverlayMap[others[0].id],
                           );
+                          if (isDeactivatedUser(peer)) return null;
                           return (
                             <UserStatusEmojiInline
                               statusEmoji={peer.statusEmoji}
@@ -405,12 +461,12 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                           );
                         })()}
                       </div>
-                      <span className="text-[11px] text-workspace-side-panel-text/50 shrink-0">
+                      <span className={cn("text-[11px] shrink-0", isActive ? "text-workspace-text-active/70" : "text-workspace-side-panel-text/50")}>
                         {lastMsgTime}
                       </span>
                     </div>
 
-                    <div className="text-[13px] text-workspace-side-panel-text/70 truncate font-semibold">
+                    <div className={cn("text-[13px] truncate font-semibold", isActive ? "text-workspace-text-active/85" : "text-workspace-side-panel-text/70")}>
                       {conv.lastMessageContent ? (
                         <div className="flex items-center gap-x-1 ">
                           {isLastMsgFromMe && (
@@ -429,6 +485,14 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                       )}
                     </div>
                   </div>
+                  {(conv.unreadCount ?? 0) > 0 && (
+                    <span
+                      aria-label={`${conv.unreadCount} unread messages`}
+                      className="ml-1 shrink-0 min-w-5 h-5 px-1 rounded-full bg-[#e01e5a] text-white text-[11px] font-bold leading-5 text-center"
+                    >
+                      {(conv.unreadCount ?? 0) > 99 ? "99+" : conv.unreadCount}
+                    </span>
+                  )}
                 </button>
 
                 <div
@@ -514,11 +578,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             onMouseEnter={() => setIsRemindMeOpen(true)}
                             onMouseLeave={() => setIsRemindMeOpen(false)}
                           >
-                            <div
-                              className={cn(
-                                MENU_ITEM_STYLE,
-                                "relative justify-between",
-                              )}
+                            <Button variant="checkedMenu" className={cn("relative justify-between")} 
                             >
                               <div className="flex items-center gap-2">
                                 <svg
@@ -539,11 +599,10 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                 <Typography variant="p" text="Remind me" />
                               </div>
                               <MdOutlineKeyboardArrowRight size={13} />
-                            </div>
+                            </Button>
                             {isRemindMeOpen && (
                               <div className="absolute top-2 left-65 w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md z-50">
-                                <div
-                                  className={SUBMENU_ITEM_STYLE}
+                                <Button variant="submenu"
                                   onClick={() =>
                                     remindInMinutes(30, {
                                       type: "message",
@@ -555,9 +614,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     variant="p"
                                     text="In 30 minutes"
                                   />
-                                </div>
-                                <div
-                                  className={SUBMENU_ITEM_STYLE}
+                                </Button>
+                                <Button variant="submenu"
                                   onClick={() =>
                                     remindInHours(1, {
                                       type: "message",
@@ -566,9 +624,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                   }
                                 >
                                   <Typography variant="p" text="In 1 hour" />
-                                </div>
-                                <div
-                                  className={SUBMENU_ITEM_STYLE}
+                                </Button>
+                                <Button variant="submenu"
                                   onClick={() =>
                                     remindInHours(3, {
                                       type: "message",
@@ -577,9 +634,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                   }
                                 >
                                   <Typography variant="p" text="In 3 hours" />
-                                </div>
-                                <div
-                                  className={SUBMENU_ITEM_STYLE}
+                                </Button>
+                                <Button variant="submenu"
                                   onClick={() =>
                                     remindTomorrow({
                                       type: "message",
@@ -591,9 +647,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     variant="p"
                                     text="Tomorrow at 9:00 AM"
                                   />
-                                </div>
-                                <div
-                                  className={SUBMENU_ITEM_STYLE}
+                                </Button>
+                                <Button variant="submenu"
                                   onClick={() =>
                                     remindNextMonday({
                                       type: "message",
@@ -605,23 +660,22 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     variant="p"
                                     text="Monday at 9:00 AM"
                                   />
-                                </div>
+                                </Button>
                               </div>
                             )}
                           </div>
 
-                          <div className={MENU_ITEM_STYLE}>
+                          <Button variant="submenu">
                             <FiBellOff size={16} />
                             <Typography
                               variant="p"
                               text="Turn off notifications for replies"
                             />
-                          </div>
+                          </Button>
 
                           <Separator />
 
-                          <div
-                            className={MENU_ITEM_STYLE}
+                          <Button variant="submenu"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 `${window.location.origin}/workspace/${currentWorkspaceData.id}/dms`,
@@ -631,9 +685,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                           >
                             <LuLink size={16} />
                             <Typography variant="p" text="Copy link" />
-                          </div>
-                          <div
-                            className={MENU_ITEM_STYLE}
+                          </Button>
+                          <Button variant="submenu"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 getConversationName(conv.members) || "",
@@ -643,7 +696,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                           >
                             <RxText size={16} />
                             <Typography variant="p" text="Copy name" />
-                          </div>
+                          </Button>
                         </div>
                       </div>
                     </PopoverContent>

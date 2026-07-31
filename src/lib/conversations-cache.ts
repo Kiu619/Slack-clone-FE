@@ -11,6 +11,10 @@ export function applyIncomingDmMessageToConversationsCaches(
   queryClient: QueryClient,
   workspaceId: string,
   message: Message,
+  options?: {
+    currentUserId?: string
+    activeConversationId?: string | null
+  },
 ): void {
   if (!message.conversationId || !message.user?.id) return
 
@@ -27,6 +31,7 @@ export function applyIncomingDmMessageToConversationsCaches(
   }
 
   let didInvalidate = false
+  let shouldIncrementSummary = false
 
   queryClient.setQueriesData<DirectMessageConversation[] | undefined>(
     { predicate },
@@ -37,6 +42,18 @@ export function applyIncomingDmMessageToConversationsCaches(
       const next = [...old]
 
       if (index !== -1) {
+        if (old[index].lastMessageId === message.id) {
+          return old
+        }
+        const hasReliableViewerId = Boolean(options?.currentUserId)
+        const shouldIncreaseUnread =
+          hasReliableViewerId &&
+          message.user.id !== options?.currentUserId &&
+          message.conversationId !== (options?.activeConversationId ?? null)
+        const prevUnreadCount = old[index].unreadCount ?? 0
+        if (shouldIncreaseUnread && prevUnreadCount === 0) {
+          shouldIncrementSummary = true
+        }
         const updated: DirectMessageConversation = {
           ...old[index],
           lastMessageAt: message.createdAt,
@@ -49,6 +66,10 @@ export function applyIncomingDmMessageToConversationsCaches(
             name: message.user.name ?? null,
             displayName: message.user.displayName ?? null,
           },
+          unreadCount: Math.max(
+            0,
+            (old[index].unreadCount ?? 0) + (shouldIncreaseUnread ? 1 : 0),
+          ),
         }
         next.splice(index, 1)
         return [updated, ...next]
@@ -63,6 +84,13 @@ export function applyIncomingDmMessageToConversationsCaches(
       return old
     },
   )
+
+  if (shouldIncrementSummary) {
+    queryClient.setQueryData<{ count: number } | undefined>(
+      messageKeys.conversationsUnreadSummary(workspaceId),
+      (old) => ({ count: Math.max(0, (old?.count ?? 0) + 1) }),
+    )
+  }
 }
 
 /**

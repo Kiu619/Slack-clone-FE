@@ -1,15 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useMessageStore, DEFAULT_CHANNEL_STATE } from '@/stores/useMessageStore'
-import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
 import { apiClient } from '@/lib/axios'
 import { Message, MessagesPage } from '@/lib/types'
 import { useChannelChatSocket, useConversationChatSocket } from '@/hooks/use-socket'
-import { updateMessageReactions } from '@/hooks/use-messages'
-import { endOfDay, isSameDay } from 'date-fns'
+import { endOfDay, isSameDay, startOfDay } from 'date-fns'
 import { toast } from 'sonner'
-import { useMessageSync } from './use-message-sync'
 
 export function useChannelMessages(
   target: { channelId?: string; conversationId?: string },
@@ -19,6 +16,8 @@ export function useChannelMessages(
   const channelId = (target.channelId || target.conversationId)!
   const store = useMessageStore()
   const channelState = store.channels[channelId] || DEFAULT_CHANNEL_STATE
+  const olderRequestKeyRef = useRef<string | null>(null)
+  const newerRequestKeyRef = useRef<string | null>(null)
   
   // Transform messageIds to Message objects for the UI
   const messages = useMemo(() => 
@@ -58,31 +57,58 @@ export function useChannelMessages(
     init()
   }, [channelId, channelState.isInitialized, fetchMessages, store])
 
-  const fetchOlder = useCallback(async () => {
-    if (!channelState.hasOlder || channelState.isLoadingOlder) return
+  const fetchOlderPage = useCallback(async () => {
+    const latestState =
+      useMessageStore.getState().channels[channelId] || DEFAULT_CHANNEL_STATE
+    if (!latestState.hasOlder || latestState.isLoadingOlder) return null
+
+    const requestKey = `${channelId}:older:${latestState.olderCursor ?? 'latest'}`
+    if (olderRequestKeyRef.current === requestKey) return null
+    olderRequestKeyRef.current = requestKey
     
     store.setLoadingOlder(channelId, true)
     try {
-      const data = await fetchMessages(channelState.olderCursor || undefined, 'backward')
-      store.prependMessages(channelId, data.messages.reverse(), data.nextCursor, !!data.nextCursor)
+      const data = await fetchMessages(latestState.olderCursor || undefined, 'backward')
+      return {
+        messages: data.messages.reverse(),
+        nextCursor: data.nextCursor,
+        hasOlder: !!data.nextCursor,
+      }
     } catch (error) {
       console.error('Failed to fetch older messages', error)
       store.setLoadingOlder(channelId, false)
+      return null
+    } finally {
+      olderRequestKeyRef.current = null
     }
-  }, [channelId, channelState.hasOlder, channelState.isLoadingOlder, channelState.olderCursor, fetchMessages, store])
+  }, [channelId, fetchMessages, store])
+
+  const fetchOlder = useCallback(async () => {
+    const page = await fetchOlderPage()
+    if (!page) return
+    store.prependMessages(channelId, page.messages, page.nextCursor, page.hasOlder)
+  }, [channelId, fetchOlderPage, store])
 
   const fetchNewer = useCallback(async () => {
-    if (!channelState.hasNewer || channelState.isLoadingNewer) return
+    const latestState =
+      useMessageStore.getState().channels[channelId] || DEFAULT_CHANNEL_STATE
+    if (!latestState.hasNewer || latestState.isLoadingNewer) return
+
+    const requestKey = `${channelId}:newer:${latestState.newerCursor ?? 'latest'}`
+    if (newerRequestKeyRef.current === requestKey) return
+    newerRequestKeyRef.current = requestKey
 
     store.setLoadingNewer(channelId, true)
     try {
-      const data = await fetchMessages(channelState.newerCursor || undefined, 'forward')
+      const data = await fetchMessages(latestState.newerCursor || undefined, 'forward')
       store.appendMessages(channelId, data.messages.reverse(), data.prevCursor || null, !!data.prevCursor)
     } catch (error) {
       console.error('Failed to fetch newer messages', error)
       store.setLoadingNewer(channelId, false)
+    } finally {
+      newerRequestKeyRef.current = null
     }
-  }, [channelId, channelState.hasNewer, channelState.isLoadingNewer, channelState.newerCursor, fetchMessages, store])
+  }, [channelId, fetchMessages, store])
 
   const jumpToDate = useCallback(async (date: Date) => {
     const cursor = endOfDay(date).toISOString()
@@ -91,11 +117,10 @@ export function useChannelMessages(
       const hasMessageOnDate = data.messages.some(msg => isSameDay(new Date(msg.createdAt), date))
       
       if (!hasMessageOnDate) {
-        toast.error('Không có tin nhắn nào trong ngày này')
+        toast.error('There are no messages on the selected date')
         return
       }
 
-      store.resetChannel(channelId)
       store.initialize(
         channelId,
         data.messages.reverse(),
@@ -107,7 +132,55 @@ export function useChannelMessages(
       return true // success
     } catch (error) {
       console.error('Jump to date failed:', error)
-      toast.error('Có lỗi xảy ra khi tải tin nhắn')
+      toast.error('There was an error loading messages')
+      return false
+    }
+  }, [channelId, fetchMessages, store])
+
+  const jumpToBeginning = useCallback(async (createdAt: string) => {
+    const beginningOfTargetDay = startOfDay(new Date(createdAt))
+    const cursor = new Date(beginningOfTargetDay.getTime() - 1).toISOString()
+
+    try {
+      const data = await fetchMessages(cursor, 'forward')
+
+      if (data.messages.length === 0) {
+        toast.error('There are no messages to display')
+        return false
+      }
+
+      store.initialize(
+        channelId,
+        data.messages.reverse(),
+        null,
+        data.prevCursor || null,
+        false,
+        data.hasMore,
+      )
+      return true
+    } catch (error) {
+      console.error('Jump to beginning failed:', error)
+      toast.error('There was an error loading the first messages')
+      return false
+    }
+  }, [channelId, fetchMessages, store])
+
+  const jumpToMostRecent = useCallback(async () => {
+    try {
+      const data = await fetchMessages()
+
+      store.initialize(
+        channelId,
+        data.messages.reverse(),
+        data.nextCursor,
+        data.prevCursor || null,
+        !!data.nextCursor,
+        !!data.prevCursor,
+      )
+      return true
+    } catch (error) {
+      console.error('Jump to most recent failed:', error)
+      toast.error('There was an error loading the most recent messages')
       return false
     }
   }, [channelId, fetchMessages, store])
@@ -128,7 +201,10 @@ export function useChannelMessages(
     isLoadingNewer: channelState.isLoadingNewer,
     isInitialized: channelState.isInitialized,
     fetchOlder,
+    fetchOlderPage,
     fetchNewer,
     jumpToDate,
+    jumpToBeginning,
+    jumpToMostRecent,
   }
 }

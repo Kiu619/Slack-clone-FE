@@ -6,10 +6,19 @@ import { useMessageSync } from '@/hooks/use-message-sync'
 import { applyIncomingDmMessageToConversationsCaches, patchDmSidebarIfLastMessageEdited } from '@/lib/conversations-cache'
 import { applyDraftSyncToCache } from '@/lib/message-drafts-api'
 import { patchChannelNameInQueryCaches } from '@/lib/patch-channel-name-in-query-caches'
-import { channelKeys, folderKeys, messageKeys, scheduledMessageKeys, workspaceKeys } from '@/lib/query-keys'
-import type { Channel, DirectMessageConversation, Message } from '@/lib/types'
+import {
+  channelKeys,
+  folderKeys,
+  isSpecificChannelMembersQueryKey,
+  messageKeys,
+  notificationKeys,
+  scheduledMessageKeys,
+  workspaceKeys,
+} from '@/lib/query-keys'
+import type { Channel, DirectMessageConversation, Message, NotificationOverrideSetting } from '@/lib/types'
 import { useMessageStore } from '@/stores/useMessageStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { useMainPanelStore } from '@/stores/useMainPanelStore'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -39,6 +48,10 @@ type SidebarStarPayload = {
 type SidebarRecentPayload = {
   workspaceId?: string
   items?: unknown
+}
+
+type NotificationRealtimePayload = {
+  workspaceId: string
 }
 
 const isRecentItem = (x: unknown): x is { kind: 'channel' | 'dm'; id: string; visitedAt: string } => {
@@ -184,13 +197,10 @@ export function useGlobalSync(workspaceId: string) {
             const currentUserId = useUserStore.getState().user?.id
             void qc.invalidateQueries({
               predicate: (q) => {
-                const k = q.queryKey
-                return (
-                  Array.isArray(k) &&
-                  k[0] === 'channels' &&
-                  k[1] === activeWs &&
-                  k[2] === channelId &&
-                  k[3] === 'members'
+                return isSpecificChannelMembersQueryKey(
+                  q.queryKey,
+                  activeWs,
+                  channelId,
                 )
               },
             })
@@ -264,6 +274,35 @@ export function useGlobalSync(workspaceId: string) {
             }
           }
         }
+        return
+      }
+
+      if (domain === 'NOTIFICATION') {
+        if (data.workspaceId && data.workspaceId !== activeWs) return
+        if (action !== 'UPDATE' || !data.data || typeof data.data !== 'object') {
+          return
+        }
+
+        const setting = data.data as NotificationOverrideSetting
+        const scope = setting.scope
+        const targetId =
+          setting.targetId ||
+          (scope === 'channel' ? data.channelId : data.conversationId)
+
+        if (!targetId) return
+
+        qc.setQueryData(
+          notificationKeys.setting(activeWs, scope, targetId),
+          setting,
+        )
+        return
+      }
+
+      if (domain === 'EMOJI') {
+        if (data.workspaceId && data.workspaceId !== activeWs) return
+        void qc.invalidateQueries({
+          queryKey: ["workspaces", activeWs, "custom-emojis-page"],
+        })
         return
       }
 
@@ -453,6 +492,16 @@ export function useGlobalSync(workspaceId: string) {
 
         if (
           action === 'CREATE' &&
+          (!data.workspaceId || data.workspaceId === activeWs) &&
+          (data.channelId || data.conversationId)
+        ) {
+          void qc.invalidateQueries({
+            queryKey: ['workspace-unread-counts', activeWs],
+          })
+        }
+
+        if (
+          action === 'CREATE' &&
           data.data &&
           data.conversationId &&
           (!data.workspaceId || data.workspaceId === activeWs)
@@ -461,6 +510,13 @@ export function useGlobalSync(workspaceId: string) {
             qc,
             activeWs,
             data.data as Message,
+            {
+              currentUserId: useUserStore.getState().user?.id,
+              activeConversationId: (() => {
+                const view = useMainPanelStore.getState().view
+                return view.type === 'dm' ? view.conversationId : null
+              })(),
+            },
           )
         }
 
@@ -580,6 +636,46 @@ export function useGlobalSync(workspaceId: string) {
       qc.setQueryData(workspaceKeys.recents(activeWs), { items })
     }
 
+    const handleNotificationNew = (raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return
+      const payload = raw as NotificationRealtimePayload
+      const activeWs = workspaceIdRef.current
+      if (String(payload.workspaceId ?? '') !== String(activeWs)) return
+
+      const qc = queryClientRef.current
+      void qc.invalidateQueries({ queryKey: ['notifications', activeWs] })
+      void qc.invalidateQueries({ queryKey: ['notifications'] })
+      void qc.invalidateQueries({ queryKey: ['notifications-unread-count', activeWs] })
+      void qc.invalidateQueries({ queryKey: ['workspace-unread-counts', activeWs] })
+      void qc.invalidateQueries({
+        queryKey: messageKeys.conversationsUnreadSummary(activeWs),
+      })
+      void qc.invalidateQueries({
+        queryKey: messageKeys.conversations(activeWs),
+        exact: false,
+      })
+    }
+
+    const handleNotificationChanged = (raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return
+      const payload = raw as NotificationRealtimePayload
+      const activeWs = workspaceIdRef.current
+      if (String(payload.workspaceId ?? '') !== String(activeWs)) return
+
+      const qc = queryClientRef.current
+      void qc.invalidateQueries({ queryKey: ['notifications', activeWs] })
+      void qc.invalidateQueries({ queryKey: ['notifications'] })
+      void qc.invalidateQueries({ queryKey: ['notifications-unread-count', activeWs] })
+      void qc.invalidateQueries({ queryKey: ['workspace-unread-counts', activeWs] })
+      void qc.invalidateQueries({
+        queryKey: messageKeys.conversationsUnreadSummary(activeWs),
+      })
+      void qc.invalidateQueries({
+        queryKey: messageKeys.conversations(activeWs),
+        exact: false,
+      })
+    }
+
     const invalidateLaterCachesForWorkspace = (eventWs: string | undefined) => {
       const activeWs = workspaceIdRef.current
       if (!activeWs) return
@@ -595,17 +691,27 @@ export function useGlobalSync(workspaceId: string) {
           )
         },
       })
-      void qc.invalidateQueries({
-        predicate: (q) => {
-          const k = q.queryKey
-          return (
-            Array.isArray(k) &&
-            k[0] === 'saved-items' &&
-            k[1] === activeWs
-          )
-        },
-      })
-    }
+        void qc.invalidateQueries({
+          predicate: (q) => {
+            const k = q.queryKey
+            return (
+              Array.isArray(k) &&
+              k[0] === 'saved-items' &&
+              k[1] === activeWs
+            )
+          },
+        })
+        void qc.invalidateQueries({
+          predicate: (q) => {
+            const k = q.queryKey
+            return (
+              Array.isArray(k) &&
+              k[0] === 'saved-items-summary' &&
+              k[1] === activeWs
+            )
+          },
+        })
+      }
 
     const handleLaterUpdated = (raw: unknown) => {
       const ws =
@@ -638,6 +744,8 @@ export function useGlobalSync(workspaceId: string) {
       )
     }
     socket.on('entity:sync', handleEntitySync)
+    socket.on('notification:new', handleNotificationNew)
+    socket.on('notification:changed', handleNotificationChanged)
     socket.on('draft:sync', handleDraftSync)
     socket.on('scheduled:sync', handleScheduledSync)
     socket.on('sidebar:star', handleSidebarStar)
@@ -651,6 +759,8 @@ export function useGlobalSync(workspaceId: string) {
         console.log('[GlobalSync] Cleanup: socket listeners + leave-workspace')
       }
       socket.off('entity:sync', handleEntitySync)
+      socket.off('notification:new', handleNotificationNew)
+      socket.off('notification:changed', handleNotificationChanged)
       socket.off('draft:sync', handleDraftSync)
       socket.off('scheduled:sync', handleScheduledSync)
       socket.off('sidebar:star', handleSidebarStar)

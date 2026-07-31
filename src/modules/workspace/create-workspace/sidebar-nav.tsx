@@ -8,8 +8,8 @@ import { BsThreeDots } from 'react-icons/bs'
 import Avatar from '@/components/avatar'
 
 const SidebarNav = () => {
-
   const { name, imageUrl } = useCreateWorkspaceValues()
+
   return (
     <nav>
       <ul className='flex flex-col space-y-4 items-center mt-3'>

@@ -13,6 +13,7 @@ import {
 import type { Message, MessageAttachment } from "@/lib/types";
 import { attachmentContentKeys } from "@/lib/query-keys";
 import { apiClient } from "@/lib/axios";
+import { openSafeUrl } from "@/lib/open-safe-url";
 
 // Setup global Prism TRƯỚC — prismjs components cần Prism trên global
 import "@/lib/prism-setup";
@@ -34,6 +35,7 @@ import FileToolbar from "./file-toolbar";
 import { useTheme } from "next-themes";
 
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface CodePreviewProps {
   message: Message;
@@ -130,12 +132,12 @@ export default function CodePreview({
     } else if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
-      window.open(attachment.url, "_blank");
+      openSafeUrl(attachment.url);
     }
   }, [content, attachment.url, attachment.name, onDownload]);
 
   const handleOpenInNewTab = useCallback(() => {
-    window.open(attachment.url, "_blank");
+    openSafeUrl(attachment.url);
   }, [attachment.url]);
 
   if (loading) {
@@ -144,13 +146,13 @@ export default function CodePreview({
         <div className="flex items-center justify-between px-3 py-2 border-b border-[#797c814d] bg-[#161b22]">
           <div className="flex items-center gap-2">
             <LuFileCode className="w-4 h-4 text-[#8b949e]" />
-            <span className="text-sm text-[#c9d1d9] truncate max-w-[200px]">
-              {attachment.name}
-            </span>
+            <Skeleton className="h-4 w-40 bg-white/10" />
           </div>
         </div>
-        <div className="p-4 text-[#8b949e] text-sm animate-pulse">
-          Loading...
+        <div className="space-y-3 p-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-4 w-full bg-white/10" />
+          ))}
         </div>
       </div>
     );

@@ -271,17 +271,16 @@ export default function ReminderDialog({
           <CustomDialogFooter>
             <div className="flex justify-end gap-3 px-6 pb-6">
               <Button
-                variant="ghost"
+                variant="outline"
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="h-9 rounded-md px-4 text-[14px] font-bold text-[#616061] hover:bg-[#f8f8f8] dark:text-[#ababad] dark:hover:bg-[#222529]"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid}
-                className="h-9 rounded-md bg-[#007a5a] px-4 text-[14px] font-bold text-white hover:bg-[#005a44] disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="success"
               >
                 Save
               </Button>

@@ -49,11 +49,11 @@ const Step2 = () => {
 
   return (
     <>
-      <Typography text="Step 2 of 4" variant="p" className="text-gray-700" />
-      <Typography text="Add workspace avatar" variant="h1" className="text-white font-bold" />
+      <Typography text="Step 2 of 4" variant="p" className="text-[#616061] dark:text-[#d1d2d3]" />
+      <Typography text="Add workspace avatar" variant="h1" className="font-bold text-[#1d1c1d] dark:text-white" />
       <Typography
         text='This image can be changed later in your workspace settings.'
-        className='text-white text-sm'
+        className='text-[#454245] text-sm dark:text-white/80'
         variant='p'
       />
 
@@ -69,7 +69,7 @@ const Step2 = () => {
             type='button'
             onClick={handleContinue}
             disabled={isSubmitting}
-            className="bg-workspace-background text-white hover:bg-workspace-background/80 w-30"
+            className="w-30 bg-[#3b1141] text-white hover:bg-[#3b1141]/90"
           >
             <Typography
               text={isSubmitting ? 'Uploading...' : 'Next'}
@@ -85,7 +85,7 @@ const Step2 = () => {
               updateImageUrl('')
               handleNext()
             }}
-            className="bg-transparent border-none text-gray-400 hover:text-gray-300 p-0 h-auto font-normal cursor-pointer"
+            className="bg-transparent border-none p-0 h-auto cursor-pointer font-normal text-[#616061] hover:text-[#1d1c1d] dark:text-[#d1d2d3] dark:hover:text-white"
           >
             Skip for now
           </Button>
@@ -97,7 +97,7 @@ const Step2 = () => {
               updateImageFile(null)
               updateImageUrl('')
             }}
-            className="bg-transparent border-none text-gray-400 hover:text-gray-300 p-0 h-auto font-normal cursor-pointer"
+            className="bg-transparent border-none p-0 h-auto cursor-pointer font-normal text-[#616061] hover:text-[#1d1c1d] dark:text-[#d1d2d3] dark:hover:text-white"
           >
             Go back
           </Button>

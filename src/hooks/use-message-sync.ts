@@ -4,6 +4,7 @@ import { Message, MessagesPage, SavedItemsPage, ThreadsPage } from "@/lib/types"
 import { messageKeys, workspaceKeys } from "@/lib/query-keys";
 import { useMessageStore } from "@/stores/useMessageStore";
 import { useThreadPanelStore } from "@/stores/useThreadPanelStore";
+import { useUserStore } from "@/stores/useUserStore";
 
 /**
  * useMessageSync - Bộ não điều khiển việc đồng bộ dữ liệu tin nhắn toàn cục.
@@ -12,6 +13,7 @@ import { useThreadPanelStore } from "@/stores/useThreadPanelStore";
 export function useMessageSync() {
   const queryClient = useQueryClient();
   const store = useMessageStore();
+  const currentUserId = useUserStore((s) => s.user?.id ?? null);
 
   /**
    * Cập nhật tin nhắn ở tất cả mọi nơi
@@ -20,7 +22,26 @@ export function useMessageSync() {
     // 1. Update Zustand Entity (Cực nhanh, O(1))
     store.updateEntity(updatedMessage.id, updatedMessage);
 
-    // 1b. Nếu là cập nhật nội dung, cũng cập nhật trường `parent` trong các reply
+    // 1b. Nếu là thread update (replyCount tăng), set isUnread nếu:
+    // - Message có replyCount > 0
+    // - Current user KHÔNG phải là author
+    // - Current user KHÔNG nằm trong replyParticipantIds
+    if (updatedMessage.replyCount !== undefined && updatedMessage.replyCount > 0) {
+      const entity = store.entities[updatedMessage.id] as Record<string, unknown> | undefined;
+      const authorId = (entity?.user as { id?: string } | null)?.id;
+      const participantIds = entity?.replyParticipantIds as string[] | undefined;
+      
+      const isOwnMessage = currentUserId && (
+        authorId === currentUserId || 
+        participantIds?.includes(currentUserId)
+      );
+      
+      if (!isOwnMessage && entity && !(entity.isUnread as boolean)) {
+        store.updateEntity(updatedMessage.id, { isUnread: true } as Partial<Message>);
+      }
+    }
+
+    // 2. Nếu là cập nhật nội dung, cũng cập nhật trường `parent` trong các reply
     // có alsoSendToChannel = true đang dùng nội dung này làm "replied to a thread: ..."
     if (updatedMessage.content !== undefined || updatedMessage.attachments !== undefined) {
       const allEntities = useMessageStore.getState().entities;
@@ -131,7 +152,7 @@ export function useMessageSync() {
         old?.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m)),
       );
     }
-  }, [queryClient, store]);
+  }, [queryClient, store, currentUserId]);
 
   /**
    * Xử lý khi tin nhắn bị xóa

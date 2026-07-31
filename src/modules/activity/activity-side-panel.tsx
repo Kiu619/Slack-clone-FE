@@ -7,7 +7,6 @@ import Setting from "../workspace/workspace-side-panel/setting";
 import { Notification, Workspace } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import Typography from "@/components/ui/typography";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -21,17 +20,17 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { RiNotificationBadgeLine } from "react-icons/ri";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getNotificationsApi, markAsReadApi, markAllAsReadApi } from "@/apis";
+import { clearNotificationApi, getNotificationsApi, markAsReadApi, markAllAsReadApi } from "@/apis";
 import NotificationItem from "@/components/notification-item";
+import { useNotificationNavigation } from "@/hooks/use-notification-navigation";
 import { Virtuoso } from "react-virtuoso";
 import { useMemo, useCallback } from "react";
 import { MdDoneAll, MdClearAll } from "react-icons/md";
-import { useMainPanelStore } from "@/stores/useMainPanelStore";
-import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export type ActivityViewTab = "all" | "dms" | "mentions" | "threads";
+export type ActivityViewTab = "all" | "mentions" | "threads";
 
 const SUBMENU_ITEM_STYLE =
   "group flex items-center gap-2 hover:bg-selection-hover hover:text-white cursor-pointer px-2 py-1";
@@ -76,10 +75,7 @@ export default function ActivitySidePanel({
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [showUnreadsOnly, setShowUnreadsOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const setFocusedMessageId = useMessageFocusStore(
-      (s) => s.setFocusedMessageId,
-    );
-
+  const { navigateToNotification } = useNotificationNavigation();
   const queryClient = useQueryClient();
 
   const {
@@ -101,6 +97,7 @@ export default function ActivitySidePanel({
     mutationFn: (id: string) => markAsReadApi(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
 
@@ -108,6 +105,15 @@ export default function ActivitySidePanel({
     mutationFn: () => markAllAsReadApi(currentWorkspaceData.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+
+  const clearNotificationMutation = useMutation({
+    mutationFn: (id: string) => clearNotificationApi(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     },
   });
 
@@ -122,8 +128,7 @@ export default function ActivitySidePanel({
 
       // 1. Filter by Tab
       let matchesTab = true;
-      if (activeTab === "dms") matchesTab = notif.type === "dm";
-      else if (activeTab === "mentions") matchesTab = notif.type === "mention";
+      if (activeTab === "mentions") matchesTab = notif.type === "mention";
       else if (activeTab === "threads") matchesTab = notif.type === "reply";
 
       if (!matchesTab) return false;
@@ -132,7 +137,6 @@ export default function ActivitySidePanel({
       if (selectedFilters.length > 0) {
         // Map filter IDs to notification types
         const typeMap: Record<string, string> = {
-          dms: "dm",
           mentions: "mention",
           threads: "reply",
           reactions: "reaction",
@@ -177,6 +181,7 @@ export default function ActivitySidePanel({
       // Tối ưu: Backend nên có API mark bulk
       await Promise.all(selectedIds.map(id => markAsReadApi(id)));
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
     }
     setSelectedIds([]);
   };
@@ -193,27 +198,40 @@ export default function ActivitySidePanel({
     setSelectedIds(toSelect);
   };
 
-  const { setView } = useMainPanelStore();
-
-  const handleNotificationClick = (notif: Notification) => {
-    // 1. Mark as read
+  const handleNotificationClick = async (notif: Notification) => {
     if (!notif.isRead) {
       markAsReadMutation.mutate(notif.id);
     }
 
-    // 2. Điều hướng đến channel hoặc DM tương ứng trong main area
-    if (
-      (notif.type === "mention" ||
-        notif.type === "reply" ||
-        notif.type === "reaction") &&
-      notif.channelId
-    ) {
-      setView({ type: "channel", channelId: notif.channelId });
-      setFocusedMessageId(notif.messageId);
-    } else if (notif.type === "dm" && notif.conversationId) {
-      setView({ type: "dm", conversationId: notif.conversationId });
-      setFocusedMessageId(notif.messageId);
+    navigateToNotification(notif);
+  };
+
+  const handleNotificationMarkAsRead = (notif: Notification) => {
+    if (notif.isRead) return;
+    markAsReadMutation.mutate(notif.id);
+  };
+
+  const handleNotificationClear = (notif: Notification) => {
+    clearNotificationMutation.mutate(notif.id);
+    setSelectedIds((prev) => prev.filter((id) => id !== notif.id));
+  };
+
+  const handleNotificationOpen = async (notif: Notification) => {
+    if (!notif.isRead) {
+      markAsReadMutation.mutate(notif.id);
     }
+
+    if (
+      notif.type === "mention" ||
+      notif.type === "reply" ||
+      notif.type === "reaction" ||
+      notif.type === "channel_invite"
+    ) {
+      await navigateToNotification(notif);
+      return;
+    }
+
+    handleNotificationClick(notif);
   };
 
   const toggleFilter = (filterId: string) => {
@@ -254,28 +272,6 @@ export default function ActivitySidePanel({
           }
         >
           <Typography text="All" variant="p" className="text-[13px] font-semibold" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab("dms")}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-2 -mb-px border-b-2 transition-colors rounded-t-md font-bold",
-            activeTab === "dms"
-              ? ``
-              : "border-transparent text-[#616061] dark:text-[#ababad] hover:text-[#1d1c1d] dark:hover:text-[#f9f8f9] font-normal",
-          )}
-          style={
-            activeTab === "dms"
-              ? {
-                borderColor: theme.selectedItems,
-                borderBottomWidth: 3,
-                color: theme.selectedItems,
-              }
-              : {}
-          }
-        >
-          <Typography text="DMs" variant="p" className="text-[13px] font-semibold" />
         </button>
 
         <button
@@ -325,12 +321,13 @@ export default function ActivitySidePanel({
 
       <div className="flex items-center gap-2 mt-2">
         <div className="flex items-center rounded-md border border-[#797c814d]">
-          <Checkbox
+          <input
             id="select-all-checkbox"
             name="select-all-checkbox"
             checked={selectedIds.length > 0 && selectedIds.length === filteredNotifications.length}
-            onCheckedChange={toggleSelectAll}
-            className="size-4 m-1 border-[#797c814d]"
+            type="checkbox"
+            onChange={toggleSelectAll}
+            className="m-1 size-3 cursor-pointer accent-selection-hover"
           />
 
           <span className="h-4 w-px bg-[#797c814d]"></span>
@@ -369,9 +366,9 @@ export default function ActivitySidePanel({
               <Button variant="submenu" onClick={() => handleSelectByType('unreads')}>
                 <Typography variant="p" text="Select unreads" />
               </Button>
-              <Button variant="submenu">
+              {/* <Button variant="submenu">
                 <Typography variant="p" text="Custom select" />
-              </Button>
+              </Button> */}
             </PopoverContent>
           </Popover>
         </div>
@@ -441,7 +438,7 @@ export default function ActivitySidePanel({
                 <Typography
                   variant="p"
                   text="Filter by:"
-                  className=" font-semibold px-2 py-1"
+                  className=" font-semibold text-xs px-2 py-1"
                 />
                 {FILTER_ITEM.map((item) => (
                   <div
@@ -449,12 +446,13 @@ export default function ActivitySidePanel({
                     key={item.id}
                     onClick={() => toggleFilter(item.id)}
                   >
-                    <Checkbox
+                    <input
                       id={item.id}
                       name={item.id}
                       checked={selectedFilters.includes(item.id)}
-                      onCheckedChange={() => toggleFilter(item.id)}
-                      className="size-4 m-1 border-[#797c814d] group-hover:border-white"
+                      type="checkbox"
+                      onChange={() => toggleFilter(item.id)}
+                      className="size-3 cursor-pointer accent-selection-hover"
                     />
                     <Typography variant="p" text={item.name} />
                   </div>
@@ -467,13 +465,22 @@ export default function ActivitySidePanel({
 
       <div className="flex-1 mt-4 -mx-4 px-4 overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-y-2">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-            <Typography
-              variant="p"
-              className="text-sm text-muted-foreground"
-              text="Loading activity..."
-            />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-[#797c814d] bg-white/40 p-3 dark:border-[#35373B] dark:bg-[#222529]/60"
+              >
+                <div className="flex items-start gap-3">
+                  <Skeleton className="size-9 rounded-md" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-5/6" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredNotifications && filteredNotifications.length > 0 ? (
           <Virtuoso
@@ -490,14 +497,16 @@ export default function ActivitySidePanel({
                 notification={notif}
                 isSelected={selectedIds.includes(notif.id)}
                 onSelect={handleSelect}
-                onClick={handleNotificationClick}
+                onClick={handleNotificationOpen}
+                onMarkAsRead={handleNotificationMarkAsRead}
+                onClear={handleNotificationClear}
               />
             )}
             components={{
               Footer: () =>
                 isFetchingNextPage ? (
                   <div className="flex justify-center p-4">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    <Skeleton className="h-4 w-24" />
                   </div>
                 ) : null,
             }}
@@ -515,7 +524,7 @@ export default function ActivitySidePanel({
             <Typography
               variant="p"
               className="text-xs text-muted-foreground mt-1"
-              text="When you get mentioned or someone replies to you, it'll show up here."
+              text="When you get mentioned, invited, reacted to, or someone replies to you, it'll show up here."
             />
           </div>
         )}

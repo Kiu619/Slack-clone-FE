@@ -192,9 +192,9 @@ const CreateChannelDialog = ({ dialogOpen, setDialogOpen, workspaceId }: Props) 
 
               <div className="pt-8 mt-auto sticky bottom-0 bg-white dark:bg-[#1A1D21]">
                 <Button
-                  className="w-full bg-[#007a5a] text-white hover:bg-[#006248] font-bold h-11"
                   disabled={createChannel.isPending}
                   type="submit"
+                  variant="success"
                 >
                   {createChannel.isPending ? 'Creating...' : 'Create Channel'}
                 </Button>

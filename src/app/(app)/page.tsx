@@ -12,6 +12,10 @@ import { useWorkspaces } from '@/hooks/use-workspace'
 import type { Workspace } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEffect } from 'react'
+import { HomePageSkeleton } from '@/components/loading-skeletons'
+import { signOutApi } from '@/apis'
+import { useUserStore } from '@/stores/useUserStore'
+import { forceLightTheme } from '@/lib/theme-utils'
 
 const VISIBLE_COUNT = 5
 
@@ -25,6 +29,7 @@ function WorkspaceInitials({ name }: { name: string }) {
 }
 
 function WorkspaceRow({ workspace }: { workspace: Workspace }) {
+
   return (
     <Link
       prefetch
@@ -74,6 +79,14 @@ export default function Home() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth()
   const { data: workspaces, isLoading: wsLoading } = useWorkspaces()
 
+  const { clearUser } = useUserStore()
+  const handleSignOut = async () => {
+    await signOutApi();
+    forceLightTheme();
+    clearUser();
+    router.replace('/auth');
+  };
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/auth')
@@ -81,11 +94,7 @@ export default function Home() {
   }, [authLoading, isAuthenticated, router])
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F8F8]">
-        <div className="w-8 h-8 border-4 border-[#3b1141] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return <HomePageSkeleton />
   }
 
   const visibleWorkspaces = workspaces?.slice(0, VISIBLE_COUNT) ?? []
@@ -114,9 +123,9 @@ export default function Home() {
                   as="span"
                 />
               </Typography>
-              <Link href="/auth" className="text-selection-hover hover:underline">
+              <div className="text-selection-hover hover:underline cursor-pointer" onClick={handleSignOut}>
                 Change
-              </Link>
+              </div>
             </div>
           )}
         </header>
@@ -129,7 +138,7 @@ export default function Home() {
                 text="Create a new Slack workspace"
                 variant="h1"
                 as="h1"
-                className="font-bold"
+                className="font-bold text-black"
               />
               <Typography
                 variant="p"
@@ -142,7 +151,7 @@ export default function Home() {
             <Button
               variant="secondary"
               size="lg"
-              className="bg-[#3b1141] hover:bg-[#3b1141]/90 text-white w-md"
+              className="bg-[#3b1141] hover:bg-[#3b1141]/90! text-white! w-md"
               onClick={() => router.push('/create-workspace')}
             >
               <Typography text="Create a Workspace" variant="p" />
@@ -236,12 +245,12 @@ export default function Home() {
               <FiSearch className="h-4 w-4" />
               <span>Not seeing your workspace?</span>
             </div>
-            <Link
-              href="/auth"
-              className="rounded border border-[#DDDDDD] bg-white px-4 py-2 text-sm font-semibold text-[#1D1C1D] transition-colors hover:bg-gray-50"
+            <div
+              className="cursor-pointer rounded border border-[#DDDDDD] bg-white px-4 py-2 text-sm font-semibold text-[#1D1C1D] transition-colors hover:bg-gray-50"
+              onClick={handleSignOut}
             >
               Try a Different Email
-            </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -43,17 +43,17 @@ const DraftsAndSend = ({ theme, workspaceId }: DraftsAndSendProps) => {
     <Link
       href={`/workspace/${workspaceId}/drafts`}
       style={isActive ? { backgroundColor: theme.selectedItems } : {}}
-      className="flex min-w-0 items-center gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md"
+      className={`flex min-w-0 items-center gap-x-2 px-3 py-1 hover:bg-[rgba(255,255,255,0.1)] cursor-pointer rounded-md ${isActive ? "text-workspace-text-active" : ""}`}
     >
-      <VscSend size={20} className="shrink-0 text-workspace-side-panel-text" />
+      <VscSend size={20} className={isActive ? "shrink-0 text-workspace-text-active" : "shrink-0 text-workspace-side-panel-text"} />
       <Typography
         text="Drafts & scheduled"
         variant="p"
-        className="min-w-0 flex-1 text-[15px]! text-workspace-side-panel-text"
+        className={`min-w-0 flex-1 text-[15px]! ${isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text"}`}
       />
       {(draftCount > 0 || scheduledCount > 0) ? (
         <div
-          className="flex shrink-0 items-center gap-2.5 text-[12px] font-semibold tabular-nums text-workspace-side-panel-text/80"
+          className={`flex shrink-0 items-center gap-2.5 text-[12px] font-semibold tabular-nums ${isActive ? "text-workspace-text-active/80" : "text-workspace-side-panel-text/80"}`}
           aria-label={`${draftCount} drafts, ${scheduledCount} scheduled`}
         >
           {draftCount > 0 ? (

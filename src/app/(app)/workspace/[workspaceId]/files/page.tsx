@@ -3,45 +3,27 @@
 import FilePreview, { getFileIcon } from '@/components/attachment-previews/file-preview'
 import FilterFilesSearchDialog, { type FilterValues } from '@/components/dialogs/filter-files-search-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import Typography from '@/components/ui/typography'
 import { useSearchAttachments, type SearchAttachmentsFilters } from '@/hooks/use-attachments'
 import { useDebouncedValue } from '@/hooks/use-debounce'
+import { FILE_TYPES, SORT_OPTIONS } from '@/lib/file-filter-options'
 import { cn } from '@/lib/utils'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
 import { endOfDay, startOfDay, subDays } from 'date-fns'
+import { ChevronDown } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FiCheck, FiChevronDown, FiSearch } from 'react-icons/fi'
+import { FiCheck, FiSearch } from 'react-icons/fi'
 import { IoFilter } from "react-icons/io5"
 import { LiaSlidersHSolid } from "react-icons/lia"
 import { Virtuoso } from "react-virtuoso"
 
 const DROPDOWN_MAX_ITEMS = 10;
 
-const FILE_TYPES = [
-  { id: 'spreadsheet', label: 'Spreadsheets' },
-  { id: 'presentation', label: 'Presentations' },
-  { id: 'pdf', label: 'PDFs' },
-  { id: 'audio', label: 'Audio' },
-  { id: 'image', label: 'Images' },
-  { id: 'video', label: 'Videos' },
-  { id: 'code', label: 'Snippets' },
-]
-
-const SORT_OPTIONS = [
-  { id: 'recent_viewed', label: 'Recently viewed' },
-  { id: 'last_updated', label: 'Last updated' },
-]
+const ALL_FILE_TYPE_IDS = FILE_TYPES.map((type) => type.id)
 
 export default function AllFilesPage() {
   const params = useParams()
@@ -58,7 +40,9 @@ export default function AllFilesPage() {
 
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false)
   const [scope, setScope] = useState<'all' | 'created_by_me' | 'shared_with_me'>('all')
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(ALL_FILE_TYPE_IDS)
+  const [openTypeFilters, setOpenTypeFilters] = useState(false)
+  const [openSortPopover, setOpenSortPopover] = useState(false)
   const [sortBy, setSortBy] = useState<'recent_viewed' | 'last_updated'>('recent_viewed')
 
   const [filterValues, setFilterValues] = useState<FilterValues>({
@@ -88,10 +72,13 @@ export default function AllFilesPage() {
   }, [clearBlurDismiss]);
 
   const filters: SearchAttachmentsFilters = useMemo(() => {
+    const isAllTypesSelected = selectedTypes.length === FILE_TYPES.length
     const f: SearchAttachmentsFilters = {
       workspaceId,
       scope,
-      categories: selectedTypes.length > 0 ? selectedTypes.join(',') : undefined,
+      categories: !isAllTypesSelected && selectedTypes.length > 0
+        ? selectedTypes.join(',')
+        : undefined,
       sort: sortBy,
       userIds: filterValues.userIds.length > 0 ? filterValues.userIds.join(',') : undefined,
       channelIds: filterValues.channelIds.length > 0 ? filterValues.channelIds.join(',') : undefined,
@@ -139,10 +126,16 @@ export default function AllFilesPage() {
   }, [debouncedInput, files]);
 
   const toggleType = (id: string) => {
-    setSelectedTypes(prev => 
+    setSelectedTypes(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
     )
   }
+
+  const clearAllTypes = () => {
+    setSelectedTypes([])
+  }
+
+  const isAllTypesSelected = selectedTypes.length === FILE_TYPES.length
 
   const activeFilterCount = useMemo(() => {
     let count = 0
@@ -153,183 +146,249 @@ export default function AllFilesPage() {
   }, [filterValues])
 
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-[#1A1D21]">
-      {/* Header */}
-      <div className="shrink-0 border-b border-[#dddddd] px-4 py-4 dark:border-[#35373B]">
-        <Typography variant="h4" text="All files" className="mb-4 font-bold" />
-        
-        <div className="relative mb-4 z-20">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#616061] dark:text-[#ababad]" size={18} />
-          <Input
-            placeholder="Search files"
-            value={inputValue}
-            onChange={(e) => {
-              setInputValue(e.target.value);
-            }}
-            onFocus={() => {
-              clearBlurDismiss();
-              setSearchFocused(true);
-            }}
-            onBlur={() => {
-              blurDismissRef.current = setTimeout(() => {
-                setSearchFocused(false);
-                blurDismissRef.current = null;
-              }, 180);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitSearch(inputValue);
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                clearBlurDismiss();
-                setSearchFocused(false);
-              }
-            }}
-            className="h-10 pl-10 bg-transparent border-[#dddddd] dark:border-[#35373B]"
-            autoComplete="off"
+    <div className="flex h-full min-w-0 flex-col bg-white dark:bg-[#1A1D21]">
+      <div className="mx-auto flex h-full w-full max-w-330 min-w-0 flex-col xl:px-4">
+        {/* Header */}
+        <div className="shrink-0 border-b border-[#dddddd] px-3 py-3 sm:px-4 sm:py-4 dark:border-[#35373B]">
+          <Typography
+            variant="h4"
+            text="All files"
+            className="mb-3 text-[22px] font-bold sm:mb-4 sm:text-[28px]"
           />
-          {inputValue && (
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                clearBlurDismiss();
-                setInputValue("");
-                setAppliedQuery("");
-                setSearchFocused(false);
-              }}
-            >
-              Clear
-            </button>
-          )}
 
-          {searchFocused && debouncedInput.trim().length > 0 && (
-            <div 
-              className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-lg border border-[#dddddd] bg-white shadow-lg dark:border-[#35373B] dark:bg-[#1A1D21]"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                clearBlurDismiss();
+          <div className="relative mb-4 z-20">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#616061] dark:text-[#ababad]" size={18} />
+            <Input
+              placeholder="Search files"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
               }}
-            >
+              onFocus={() => {
+                clearBlurDismiss();
+                setSearchFocused(true);
+              }}
+              onBlur={() => {
+                blurDismissRef.current = setTimeout(() => {
+                  setSearchFocused(false);
+                  blurDismissRef.current = null;
+                }, 180);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitSearch(inputValue);
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  clearBlurDismiss();
+                  setSearchFocused(false);
+                }
+              }}
+              className="h-10 pl-10 bg-transparent border-[#dddddd] dark:border-[#35373B]"
+              autoComplete="off"
+            />
+            {inputValue && (
               <button
                 type="button"
-                className="flex w-full cursor-pointer items-center justify-between gap-2 border-b border-[#eeeeee] px-3 py-2.5 text-left text-[14px] text-[#1d1c1d] hover:bg-[#f8f8f8] dark:border-[#35373B] dark:text-[#f9f8f9] dark:hover:bg-[#222529]"
-                onClick={() => commitSearch(debouncedInput)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  clearBlurDismiss();
+                  setInputValue("");
+                  setAppliedQuery("");
+                  setSearchFocused(false);
+                }}
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <FiSearch className="shrink-0 text-[#616061] dark:text-[#ababad]" size={16} />
-                  <span className="min-w-0 truncate">
-                    Show results for: <strong className="font-semibold">{debouncedInput.trim()}</strong>
-                  </span>
-                </span>
-                <kbd className="shrink-0 rounded border border-[#c4c4c4] bg-[#f0f0f0] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#555] dark:border-[#555] dark:bg-[#2a2d31] dark:text-[#d1d2d3]">
-                  Enter
-                </kbd>
+                Clear
               </button>
+            )}
 
-              {previewMatches.length === 0 ? (
-                <div className="px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-                  No files match this name.
-                </div>
-              ) : (
-                <ul className="max-h-[300px] overflow-y-auto py-1">
-                  {previewMatches.map((hit) => (
-                    <li key={hit.attachment.id}>
-                      <button
-                        type="button"
-                        className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left hover:bg-[#f8f8f8] dark:hover:bg-[#222529]"
-                        onClick={() => commitSearch(debouncedInput)}
-                      >
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded bg-[#f0f0f0] dark:bg-[#2a2d31]">
-                          {getFileIcon(hit.attachment.name)}
-                        </div>
-                        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#1d1c1d] dark:text-[#f9f8f9]">
-                          {hit.attachment.name}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
-            {['all', 'created_by_me', 'shared_with_me'].map((s) => (
-              <Button 
-                key={s}
-                variant={scope === s ? 'default' : 'outline'} 
-                size="sm" 
-                onClick={() => setScope(s as 'all' | 'created_by_me' | 'shared_with_me')}
-                className={cn("h-8 px-3 text-[13px] font-semibold", scope === s && "bg-selection-hover text-white")}
+            {searchFocused && debouncedInput.trim().length > 0 && (
+              <div
+                className="absolute left-0 right-0 top-[calc(100%+4px)] z-30 overflow-hidden rounded-lg border border-[#dddddd] bg-white shadow-lg dark:border-[#35373B] dark:bg-[#1A1D21]"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  clearBlurDismiss();
+                }}
               >
-                {s === 'all' ? 'All' : s === 'created_by_me' ? 'Created by you' : 'Shared with you'}
-              </Button>
-            ))}
+                <button
+                  type="button"
+                  className="flex w-full cursor-pointer items-center justify-between gap-2 border-b border-[#eeeeee] px-3 py-2.5 text-left text-[14px] text-[#1d1c1d] hover:bg-[#f8f8f8] dark:border-[#35373B] dark:text-[#f9f8f9] dark:hover:bg-[#222529]"
+                  onClick={() => commitSearch(debouncedInput)}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <FiSearch className="shrink-0 text-[#616061] dark:text-[#ababad]" size={16} />
+                    <span className="min-w-0 truncate">
+                      Show results for: <strong className="font-semibold">{debouncedInput.trim()}</strong>
+                    </span>
+                  </span>
+                  <kbd className="shrink-0 rounded border border-[#c4c4c4] bg-[#f0f0f0] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#555] dark:border-[#555] dark:bg-[#2a2d31] dark:text-[#d1d2d3]">
+                    Enter
+                  </kbd>
+                </button>
+
+                {previewMatches.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
+                    No files match this name.
+                  </div>
+                ) : (
+                  <ul className="max-h-[300px] overflow-y-auto py-1">
+                    {previewMatches.map((hit) => (
+                      <li key={hit.attachment.id}>
+                        <button
+                          type="button"
+                          className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left hover:bg-[#f8f8f8] dark:hover:bg-[#222529]"
+                          onClick={() => commitSearch(debouncedInput)}
+                        >
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded bg-[#f0f0f0] dark:bg-[#2a2d31]">
+                            {getFileIcon(hit.attachment.name)}
+                          </div>
+                          <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#1d1c1d] dark:text-[#f9f8f9]">
+                            {hit.attachment.name}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-2 bg-selection-hover hover:bg-selection-hover! hover:text-white! text-white font-semibold">
-                  <IoFilter size={14} />
-                  <span>{selectedTypes.length > 0 ? `${selectedTypes.length} Types` : 'All Types'}</span>
-                  <FiChevronDown size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {FILE_TYPES.map((type) => (
-                  <DropdownMenuCheckboxItem
-                    key={type.id}
-                    // checked={selectedTypes.includes(type.id)}
-                    onCheckedChange={() => toggleType(type.id)}
-                    className={cn("justify-between hover:bg-selection-hover! hover:text-white", selectedTypes.includes(type.id) && "bg-selection-hover text-white")}
+          <div className="flex flex-col gap-3 min-[905px]:flex-row min-[905px]:items-center min-[905px]:justify-between">
+            <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+              <div className="flex min-w-max items-center gap-1">
+                {['all', 'created_by_me', 'shared_with_me'].map((s) => (
+                  <Button
+                    key={s}
+                    variant={scope === s ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setScope(s as 'all' | 'created_by_me' | 'shared_with_me')}
+                    className={cn(
+                      "h-8 whitespace-nowrap px-3 text-[13px] font-semibold",
+                      scope === s && "bg-selection-hover! text-white",
+                    )}
                   >
-                    {type.label}
-                    {selectedTypes.includes(type.id) && <FiCheck size={14} className="text-white" />}
-                  </DropdownMenuCheckboxItem>
+                    {s === 'all' ? 'All' : s === 'created_by_me' ? 'Created by you' : 'Shared with you'}
+                  </Button>
                 ))}
-                {selectedTypes.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      className="justify-center text-red-500 focus:text-red-500"
-                      onClick={() => setSelectedTypes([])}
+              </div>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:self-end sm:flex-row sm:justify-end min-[905px]:ml-auto min-[905px]:w-auto min-[905px]:flex-nowrap min-[905px]:items-center min-[905px]:justify-end">
+              <Popover open={openTypeFilters} onOpenChange={setOpenTypeFilters}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-8 justify-center gap-2 font-semibold sm:justify-between sm:px-3",
+                      selectedTypes.length > 0
+                        ? "bg-selection-hover text-white hover:bg-selection-hover! hover:text-white!"
+                        : "bg-transparent text-inherit",
+                    )}
+                  >
+                    <IoFilter size={14} />
+                    <span className="truncate">
+                      {isAllTypesSelected ? 'All Types' : `${selectedTypes.length} Types`}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "transition-transform duration-200",
+                        openTypeFilters ? "rotate-180" : "rotate-0",
+                      )}
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  withOverlay={true}
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  className="w-56 py-2"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  {FILE_TYPES.map((type) => (
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 px-2 py-1 hover:bg-selection-hover! hover:text-white cursor-pointer",
+                        selectedTypes.includes(type.id) && "text-selection-hover",
+                      )}
+                      key={type.id}
+                      onClick={() => toggleType(type.id)}
+
                     >
-                      Reset Filters
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                      <input
+                        id={`file-type-${type.id}`}
+                        name={type.id}
+                        type="checkbox"
+                        checked={selectedTypes.includes(type.id)}
+                        onChange={() => toggleType(type.id)}
+                        className="size-3 cursor-pointer accent-selection-hover"
+                      />
+                      <Typography variant="p" text={type.label} />
+                    </div>
+                  ))}
+                  <div className="mt-2 flex items-center justify-between gap-2 px-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-red-500 hover:text-red-500"
+                      onClick={clearAllTypes}
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-2 bg-selection-hover hover:bg-selection-hover! hover:text-white! text-white font-semibold">
-                  <span>{SORT_OPTIONS.find(s => s.id === sortBy)?.label}</span>
-                  <FiChevronDown size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {SORT_OPTIONS.map((option) => (
-                  <DropdownMenuItem
-                    key={option.id}
-                    onClick={() => setSortBy(option.id as 'recent_viewed' | 'last_updated')}
-                    className={cn("justify-between hover:bg-selection-hover! hover:text-white", sortBy === option.id && "bg-selection-hover text-white")}
+              <Popover open={openSortPopover} onOpenChange={setOpenSortPopover}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 justify-center gap-2 bg-selection-hover font-semibold text-white hover:bg-selection-hover! hover:text-white! sm:justify-between sm:px-3"
                   >
-                    {option.label}
-                    {sortBy === option.id && <FiCheck size={14} className="text-white" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <span className="truncate">{SORT_OPTIONS.find(s => s.id === sortBy)?.label}</span>
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        "transition-transform duration-200",
+                        openSortPopover ? "rotate-180" : "rotate-0",
+                      )}
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  withOverlay={true}
+                  side="bottom"
+                  align="end"
+                  sideOffset={8}
+                  className="w-56 py-2"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <div
+                      key={option.id}
+                      onClick={() => {
+                        setSortBy(option.id as 'recent_viewed' | 'last_updated')
+                        setOpenSortPopover(false)
+                      }}
+                      className={cn(
+                        "flex cursor-pointer items-center justify-between px-2 py-1 hover:bg-selection-hover hover:text-white",
+                        sortBy === option.id && "bg-selection-hover text-white",
+                      )}
+                    >
+                      <span className="text-sm font-medium">{option.label}</span>
+                      {sortBy === option.id && <FiCheck size={14} className="text-white" />}
+                    </div>
+                  ))}
+                </PopoverContent>
+              </Popover>
 
-            {/* <CustomSelect
+              {/* <CustomSelect
               options={SORT_OPTIONS.map(option => ({
                 value: option.id,
                 label: option.label,
@@ -338,58 +397,62 @@ export default function AllFilesPage() {
               onChange={(value) => setSortBy(value as 'recent_viewed' | 'last_updated')}
             /> */}
 
-            <Button 
-              variant="outline"
-              size="sm"
-              className={cn("h-8 gap-2 border-[#dddddd] dark:border-[#35373B]", activeFilterCount > 0 && "bg-selection-hover hover:bg-selection-hover! hover:text-white! text-white font-semibold")}
-              onClick={() => setIsFilterDialogOpen(true)}
-            >
-              <LiaSlidersHSolid size={20} />
-              {activeFilterCount > 0 && <span className="text-xs font-bold">{activeFilterCount}</span>}
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-8 w-full justify-center gap-2 border-[#dddddd] dark:border-[#35373B] sm:w-[52px]",
+                  activeFilterCount > 0 && "bg-selection-hover hover:bg-selection-hover! hover:text-white! text-white font-semibold",
+                )}
+                onClick={() => setIsFilterDialogOpen(true)}
+              >
+                <LiaSlidersHSolid size={20} />
+                {activeFilterCount > 0 && <span className="text-xs font-bold">{activeFilterCount}</span>}
+              </Button>
+            </div>
           </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : !files || files.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
+              <Typography variant="p" text="No files found" className="text-lg font-medium" />
+              <Typography variant="p" text="Try adjusting your filters or search terms" />
+            </div>
+          ) : (
+            <div className="flex h-full flex-col">
+              {files.length > 0 && (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="flex-1">
+                    <Virtuoso
+                      style={{ height: "100%" }}
+                      data={files}
+                      itemContent={(_, hit) => (
+                        <div
+                          className="cursor-pointer pb-2"
+                          onClick={() => openFileDetail({ attachment: hit.attachment, message: hit.message })}
+                        >
+                          <FilePreview attachment={hit.attachment} message={hit.message} fromFilesTab={true} />
+                        </div>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : !files || files.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
-            <Typography variant="p" text="No files found" className="text-lg font-medium" />
-            <Typography variant="p" text="Try adjusting your filters or search terms" />
-          </div>
-        ) : (
-          <div className="flex flex-col h-full">
-            {files.length > 0 && (
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex-1">
-                  <Virtuoso
-                    style={{ height: "100%" }}
-                    data={files}
-                    itemContent={(_, hit) => (
-                      <div 
-                        className="pb-2 cursor-pointer"
-                        onClick={() => openFileDetail({ attachment: hit.attachment, message: hit.message })}
-                      >
-                        <FilePreview attachment={hit.attachment} message={hit.message} fromFilesTab={true} />
-                      </div>
-                    )}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <FilterFilesSearchDialog 
-        open={isFilterDialogOpen} 
+      <FilterFilesSearchDialog
+        open={isFilterDialogOpen}
         onOpenChange={setIsFilterDialogOpen}
         workspaceId={workspaceId}
         initialFilters={filterValues}

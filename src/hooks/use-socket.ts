@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
+import type { HuddleSessionSnapshot, HuddleStateSnapshot } from '@/lib/huddle'
 
 const CHANNEL_CHAT_SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/chat'
@@ -119,7 +120,6 @@ export function useChannelChatSocket(
     onMessage?: (msg: unknown) => void
     onMessageUpdated?: (data: unknown) => void
     onMessageDeleted?: (data: { messageId: string }) => void
-    onReactionUpdate?: (data: unknown) => void
     onAttachmentAdded?: (data: { messageId: string; attachment: unknown }) => void
     onAttachmentDeleted?: (data: { messageId: string; attachmentId: string }) => void
     onMessagePinned?: (data: { messageId: string; isPinned: boolean }) => void
@@ -145,7 +145,6 @@ export function useChannelChatSocket(
     const onMessage = (msg: any) => callbacksRef.current.onMessage?.(msg)
     const onMessageUpdated = (data: any) => callbacksRef.current.onMessageUpdated?.(data)
     const onMessageDeleted = (data: any) => callbacksRef.current.onMessageDeleted?.(data)
-    const onReactionUpdate = (data: any) => callbacksRef.current.onReactionUpdate?.(data)
     const onAttachmentAdded = (data: any) => callbacksRef.current.onAttachmentAdded?.(data)
     const onAttachmentDeleted = (data: any) => callbacksRef.current.onAttachmentDeleted?.(data)
     const onMessagePinned = (data: any) => callbacksRef.current.onMessagePinned?.(data)
@@ -154,7 +153,6 @@ export function useChannelChatSocket(
     socket.on('message', onMessage)
     socket.on('message:updated', onMessageUpdated)
     socket.on('message:deleted', onMessageDeleted)
-    socket.on('reaction:update', onReactionUpdate)
     socket.on('attachment:added', onAttachmentAdded)
     socket.on('attachment:deleted', onAttachmentDeleted)
     socket.on('message:pinned', onMessagePinned)
@@ -165,7 +163,6 @@ export function useChannelChatSocket(
       socket.off('message', onMessage)
       socket.off('message:updated', onMessageUpdated)
       socket.off('message:deleted', onMessageDeleted)
-      socket.off('reaction:update', onReactionUpdate)
       socket.off('attachment:added', onAttachmentAdded)
       socket.off('attachment:deleted', onAttachmentDeleted)
       socket.off('message:pinned', onMessagePinned)
@@ -184,7 +181,6 @@ export function useConversationChatSocket(
     onMessage?: (msg: unknown) => void
     onMessageUpdated?: (data: unknown) => void
     onMessageDeleted?: (data: { messageId: string }) => void
-    onReactionUpdate?: (data: unknown) => void
     onAttachmentAdded?: (data: { messageId: string; attachment: unknown }) => void
     onAttachmentDeleted?: (data: { messageId: string; attachmentId: string }) => void
     onMessagePinned?: (data: { messageId: string; isPinned: boolean }) => void
@@ -210,7 +206,6 @@ export function useConversationChatSocket(
     const onMessage = (msg: any) => callbacksRef.current.onMessage?.(msg)
     const onMessageUpdated = (data: any) => callbacksRef.current.onMessageUpdated?.(data)
     const onMessageDeleted = (data: any) => callbacksRef.current.onMessageDeleted?.(data)
-    const onReactionUpdate = (data: any) => callbacksRef.current.onReactionUpdate?.(data)
     const onAttachmentAdded = (data: any) => callbacksRef.current.onAttachmentAdded?.(data)
     const onAttachmentDeleted = (data: any) => callbacksRef.current.onAttachmentDeleted?.(data)
     const onMessagePinned = (data: any) => callbacksRef.current.onMessagePinned?.(data)
@@ -219,7 +214,6 @@ export function useConversationChatSocket(
     socket.on('message', onMessage)
     socket.on('message:updated', onMessageUpdated)
     socket.on('message:deleted', onMessageDeleted)
-    socket.on('reaction:update', onReactionUpdate)
     socket.on('attachment:added', onAttachmentAdded)
     socket.on('attachment:deleted', onAttachmentDeleted)
     socket.on('message:pinned', onMessagePinned)
@@ -229,7 +223,6 @@ export function useConversationChatSocket(
       socket.off('message', onMessage)
       socket.off('message:updated', onMessageUpdated)
       socket.off('message:deleted', onMessageDeleted)
-      socket.off('reaction:update', onReactionUpdate)
       socket.off('attachment:added', onAttachmentAdded)
       socket.off('attachment:deleted', onAttachmentDeleted)
       socket.off('message:pinned', onMessagePinned)
@@ -248,7 +241,6 @@ export function useThreadSocket(
     onMessage?: (msg: unknown) => void
     onMessageUpdated?: (data: unknown) => void
     onMessageDeleted?: (data: { messageId: string }) => void
-    onReactionUpdate?: (data: unknown) => void
     onAttachmentAdded?: (data: { messageId: string; attachment: unknown }) => void
     onAttachmentDeleted?: (data: { messageId: string; attachmentId: string }) => void
     onMessagePinned?: (data: { messageId: string; isPinned: boolean }) => void
@@ -268,7 +260,6 @@ export function useThreadSocket(
     const onMessage = (msg: any) => callbacksRef.current.onMessage?.(msg)
     const onMessageUpdated = (data: any) => callbacksRef.current.onMessageUpdated?.(data)
     const onMessageDeleted = (data: any) => callbacksRef.current.onMessageDeleted?.(data)
-    const onReactionUpdate = (data: any) => callbacksRef.current.onReactionUpdate?.(data)
     const onAttachmentAdded = (data: any) => callbacksRef.current.onAttachmentAdded?.(data)
     const onAttachmentDeleted = (data: any) => callbacksRef.current.onAttachmentDeleted?.(data)
     const onMessagePinned = (data: any) => callbacksRef.current.onMessagePinned?.(data)
@@ -276,7 +267,6 @@ export function useThreadSocket(
     socket.on('thread-panel:message', onMessage)
     socket.on('thread-panel:message_updated', onMessageUpdated)
     socket.on('thread-panel:message_deleted', onMessageDeleted)
-    socket.on('thread-panel:reaction_update', onReactionUpdate)
     socket.on('thread-panel:attachment_added', onAttachmentAdded)
     socket.on('thread-panel:attachment_deleted', onAttachmentDeleted)
     socket.on('thread-panel:message_pinned', onMessagePinned)
@@ -285,7 +275,6 @@ export function useThreadSocket(
       socket.off('thread-panel:message', onMessage)
       socket.off('thread-panel:message_updated', onMessageUpdated)
       socket.off('thread-panel:message_deleted', onMessageDeleted)
-      socket.off('thread-panel:reaction_update', onReactionUpdate)
       socket.off('thread-panel:attachment_added', onAttachmentAdded)
       socket.off('thread-panel:attachment_deleted', onAttachmentDeleted)
       socket.off('thread-panel:message_pinned', onMessagePinned)
@@ -301,6 +290,22 @@ export function useWorkspaceSocket(
   isConnected: boolean,
   callbacks: {
     onUserProfileUpdated?: (data: Record<string, unknown>) => void
+    onEntitySync?: (data: { domain: string; action: string; payload: Record<string, unknown> }) => void
+    onHuddleState?: (data: {
+      reason: string
+      target: { workspaceId: string; entityType: string; entityId: string }
+      state: HuddleStateSnapshot
+      session: HuddleSessionSnapshot | null
+    }) => void
+    onWorkspacePresenceSnapshot?: (data: {
+      workspaceId: string
+      connectedUserIds: string[]
+    }) => void
+    onWorkspacePresenceUpdated?: (data: {
+      workspaceId: string
+      userId: string
+      isConnected: boolean
+    }) => void
   },
 ) {
   const socket = getMainGatewaySocket()
@@ -317,12 +322,70 @@ export function useWorkspaceSocket(
     const onUserProfileUpdated = (data: Record<string, unknown>) => {
       callbacksRef.current.onUserProfileUpdated?.(data)
     }
+    const onWorkspacePresenceSnapshot = (data: {
+      workspaceId: string
+      connectedUserIds: string[]
+    }) => {
+      callbacksRef.current.onWorkspacePresenceSnapshot?.(data)
+    }
+    const onWorkspacePresenceUpdated = (data: {
+      workspaceId: string
+      userId: string
+      isConnected: boolean
+    }) => {
+      callbacksRef.current.onWorkspacePresenceUpdated?.(data)
+    }
+    const onEntitySync = (data: {
+      domain: string
+      action: string
+      payload: Record<string, unknown>
+    }) => {
+      callbacksRef.current.onEntitySync?.(data)
+    }
+    const onHuddleState = (data: {
+      reason: string
+      target: { workspaceId: string; entityType: string; entityId: string }
+      state: HuddleStateSnapshot
+      session: HuddleSessionSnapshot | null
+    }) => {
+      callbacksRef.current.onHuddleState?.(data)
+    }
 
     socket.on('user_profile_updated', onUserProfileUpdated)
+    socket.on('entity:sync', onEntitySync)
+    socket.on('huddle:state', onHuddleState)
+    socket.on('workspace_presence_snapshot', onWorkspacePresenceSnapshot)
+    socket.on('workspace_presence_updated', onWorkspacePresenceUpdated)
 
     return () => {
       socket.emit('leave-workspace', { workspaceId })
       socket.off('user_profile_updated', onUserProfileUpdated)
+      socket.off('entity:sync', onEntitySync)
+      socket.off('huddle:state', onHuddleState)
+      socket.off('workspace_presence_snapshot', onWorkspacePresenceSnapshot)
+      socket.off('workspace_presence_updated', onWorkspacePresenceUpdated)
     }
   }, [workspaceId, isConnected, socket])
+}
+
+/**
+ * leaveHuddleSocket — gửi leave request qua WebSocket, trả về state mới
+ */
+export function leaveHuddleSocket(
+  target: { workspaceId: string; entityType: 'channel' | 'dm'; entityId: string },
+  socket: Socket,
+): Promise<HuddleStateSnapshot | null> {
+  return new Promise((resolve) => {
+    socket.emit(
+      'huddle:leave',
+      {
+        workspaceId: target.workspaceId,
+        entityType: target.entityType,
+        entityId: target.entityId,
+      },
+      (response: { success: boolean; state?: HuddleStateSnapshot }) => {
+        resolve(response?.state ?? null)
+      },
+    )
+  })
 }

@@ -17,12 +17,12 @@ const Threads = ({ theme, workspaceId }: { theme: Theme, workspaceId: string }) 
     >
       <BiMessageSquareDetail
         size={20}
-        className={cn("text-workspace-side-panel-text", isActive ? "text-white" : "")}
+        className={cn("text-workspace-side-panel-text", isActive ? "text-workspace-text-active" : "")}
       />
       <Typography
         text="Threads"
         variant="p"
-        className={cn("text-[15px]! text-workspace-side-panel-text ", isActive ? "text-white" : "")}
+        className={cn("text-[15px]! text-workspace-side-panel-text ", isActive ? "text-workspace-text-active" : "")}
       />
     </div>
   );

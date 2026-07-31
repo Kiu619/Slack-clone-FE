@@ -487,10 +487,7 @@ export function useMessageComposer({
 
   const onSubmit = useCallback(
     async (htmlContent: string, options?: { alsoSendToChannel?: boolean }) => {
-      const textContent = htmlContent
-        .replace(/<[^>]*>/g, '')
-        .replace(/&nbsp;/g, '')
-        .trim()
+      const textContent = previewPlainFromDraftHtml(htmlContent, 50_000).trim()
       const hasContent = textContent !== ''
       const hasFiles = pendingFiles.length > 0
 

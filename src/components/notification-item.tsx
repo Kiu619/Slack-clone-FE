@@ -1,30 +1,39 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { format, isToday, isYesterday } from "date-fns";
+import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import type { Notification, User } from "@/lib/types";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
+import { useMessageStore } from "@/stores/useMessageStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Typography from "@/components/ui/typography";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import {
   FaAt,
   FaReply,
-  FaCommentDots,
   FaUserPlus,
   FaSmile,
 } from "react-icons/fa";
+import { Check, Eraser } from "lucide-react";
+import { FiHash } from "react-icons/fi";
 
 interface NotificationItemProps {
   notification: Notification;
   isSelected?: boolean;
   onSelect?: (id: string, selected: boolean) => void;
   onClick?: (notification: Notification) => void;
+  onMarkAsRead?: (notification: Notification) => void;
+  onClear?: (notification: Notification) => void;
 }
 
 export default function NotificationItem({
@@ -32,8 +41,18 @@ export default function NotificationItem({
   isSelected,
   onSelect,
   onClick,
+  onMarkAsRead,
+  onClear,
 }: NotificationItemProps) {
   const { id, type, actor, channel, message, createdAt, isRead } = notification;
+  const storeMessage = useMessageStore(
+    useCallback(
+      (state) =>
+        notification.messageId ? state.entities[notification.messageId] : undefined,
+      [notification.messageId],
+    ),
+  );
+  const resolvedMessage = storeMessage || message;
 
   const memberOverlay = useWorkspaceMemberOverlay(
     notification.workspaceId,
@@ -55,10 +74,10 @@ export default function NotificationItem({
     switch (type) {
       case "mention":
         return <FaAt className="text-blue-500" size={12} />;
+      case "post":
+        return <FiHash className="text-[#7cc7ff]" size={12} />;
       case "reply":
         return <FaReply className="text-green-500" size={12} />;
-      case "dm":
-        return <FaCommentDots className="text-purple-500" size={12} />;
       case "channel_invite":
         return <FaUserPlus className="text-orange-500" size={12} />;
       case "reaction":
@@ -68,26 +87,37 @@ export default function NotificationItem({
     }
   };
 
-  const getHeaderText = () => {
-    switch (type) {
-      case "mention":
-        return (
-          <span>
-            mentioned you in{" "}
-            <span className="font-bold text-muted-foreground">
-              #{channel?.name || "unknown"}
-            </span>
-          </span>
-        );
-      case "reply":
-        return <span>replied to a thread</span>;
-      case "dm":
-        return <span>sent you a direct message</span>;
-      case "reaction":
-        return <span>reacted to your message</span>;
-      default:
-        return <span>sent a notification</span>;
+  const getContextText = () => {
+    if (type === "post") {
+      return channel ? `Post in #${channel.name}` : "Post in channel";
     }
+
+    if (type === "channel_invite") {
+      return channel ? `Invited you to #${channel.name}` : "Invited you to a channel";
+    }
+
+    if (type === "reply") {
+      return channel ? `Thread in #${channel.name}` : "Thread in DM";
+    }
+
+    if (type === "mention") {
+      return channel ? `Mention in #${channel.name}` : "Mention in DM";
+    }
+
+    if (type === "reaction") {
+      return channel ? `Reacted in #${channel.name}` : "Reacted in DM";
+    }
+
+    return "Notification";
+  };
+
+  const getMetaText = () => {
+    if (type === "post") return channel ? `Post in #${channel.name}` : "Post in channel";
+    if (type === "reply") return channel ? `Thread in #${channel.name}` : "Thread in DM";
+    if (type === "mention") return channel ? `Mention in #${channel.name}` : "Mention in DM";
+    if (type === "reaction") return channel ? `Reacted in #${channel.name}` : "Reacted in DM";
+    if (type === "channel_invite") return channel ? `Invitation to #${channel.name}` : "Channel invitation";
+    return getContextText();
   };
 
   const formatTime = (dateStr: string) => {
@@ -97,29 +127,74 @@ export default function NotificationItem({
     return format(date, "MMM d");
   };
 
+  const sanitizedPreviewContent = useMemo(() => {
+    const content = resolvedMessage?.content ?? "";
+    if (!content) return "";
+    if (typeof window === "undefined") return content;
+    return DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "em",
+        "s",
+        "u",
+        "code",
+        "pre",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "blockquote",
+        "span",
+      ],
+      ALLOWED_ATTR: ["href", "target", "rel", "class"],
+    });
+  }, [resolvedMessage?.content]);
+
+  const attachmentPreviewText = useMemo(() => {
+    const attachments = resolvedMessage?.attachments ?? [];
+    if (!attachments.length) return "";
+    if (sanitizedPreviewContent) return "";
+
+    const names = attachments
+      .map((attachment) => attachment.name?.trim())
+      .filter((name): name is string => Boolean(name));
+
+    if (!names.length) return "";
+
+    const previewNames = names.slice(0, 3);
+    const moreCount = names.length - previewNames.length;
+    return moreCount > 0
+      ? `${previewNames.join(", ")} +${moreCount} more`
+      : previewNames.join(", ");
+  }, [resolvedMessage?.attachments, sanitizedPreviewContent]);
+
   return (
     <div
       onClick={() => onClick?.(notification)}
       className={cn(
-        "group relative flex items-start gap-x-3 p-3 cursor-pointer transition-colors border-b border-border/50",
-        "hover:bg-selection-hover/10 dark:hover:bg-selection-hover/5",
-        isSelected && "bg-selection-hover/20 dark:bg-selection-hover/10",
-        !isRead && !isSelected &&
-        "bg-blue-500/5 dark:bg-blue-500/10 border-l-2 border-l-blue-500",
+        "group relative mb-2.5 flex items-start gap-3 rounded-[18px] border   px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors",
+        "hover:border-white/14 hover:bg-[#22252c]",
+        isSelected && "border-white/16 bg-[#252a33]",
+        !isRead && "before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-full before:bg-[#d946ef]",
       )}
     >
       <div
-        className="pt-1"
+        className="pt-0.5"
         onClick={(e) => e.stopPropagation()}
       >
-        <Checkbox
+        <input
+          id={`select-notification-${id}`}
+          name={`select-notification-${id}`}
           checked={isSelected}
-          onCheckedChange={(checked) => onSelect?.(id, !!checked)}
-          className="size-4"
+          type="checkbox"
+          onChange={(e) => onSelect?.(id, e.target.checked)}
+          className="size-3 cursor-pointer accent-selection-hover"
         />
       </div>
 
-      <div className="flex-1 flex items-start gap-x-3 min-w-0">
+      <div className="flex-1 flex items-start gap-x-3 min-w-0 cursor-pointer">
         <div className="relative shrink-0">
           <Avatar size="default" className="rounded-md">
             <AvatarImage src={actorDisplay?.avatar || ""} />
@@ -127,63 +202,102 @@ export default function NotificationItem({
               {(actorDisplay?.displayName ?? actorDisplay?.name)?.charAt(0).toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
-          <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm">
+          <div className="absolute -bottom-1 -right-1 rounded-full bg-[#111318] p-1 shadow-sm ring-1 ring-white/10">
             {getIcon()}
           </div>
         </div>
 
-          <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-center gap-x-2">
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              <Typography variant="p" className="font-bold truncate min-w-0 flex-1">
-                {actorDisplay?.displayName || actorDisplay?.name || "Someone"}
-              </Typography>
-              {actorDisplay ? (
-                <UserStatusEmojiInline
-                  statusEmoji={actorDisplay.statusEmoji}
-                  statusText={actorDisplay.statusText}
-                  emojiClassName="text-[13px]"
-                  interactive={Boolean(actorDisplay.statusText?.trim())}
-                />
-              ) : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Typography variant="p" className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+                  {actorDisplay?.displayName || actorDisplay?.name || "Someone"}
+                </Typography>
+                {actorDisplay ? (
+                  <UserStatusEmojiInline
+                    statusEmoji={actorDisplay.statusEmoji}
+                    statusText={actorDisplay.statusText}
+                    emojiClassName="text-[13px]"
+                    interactive={Boolean(actorDisplay.statusText?.trim())}
+                  />
+                ) : null}
+              </div>
+              <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
+                <Typography
+                  variant="p"
+                  className="truncate text-[13px] leading-tight text-[#8f98a3]"
+                >
+                  {getMetaText()}
+                </Typography>
+              </div>
             </div>
 
-            <div className="flex items-center gap-x-2 shrink-0">
-              <span
-                className={cn(
-                  "text-[10px] px-1.5 py-0.5 rounded font-medium",
-                  type === "mention" &&
-                  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                  type === "reply" &&
-                  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                  type === "dm" &&
-                  "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-                  type === "reaction" &&
-                  "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-                )}
-              >
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </span>
-              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                {formatTime(createdAt)}
-              </span>
+            <div className="relative h-8 w-[92px] shrink-0">
+              <div className="absolute inset-0 flex items-center justify-end transition-opacity duration-150 group-hover:opacity-0">
+                <span className="whitespace-nowrap text-[12px] text-[#c7cad1]">
+                  {formatTime(createdAt)}
+                </span>
+              </div>
+
+              <div className="absolute inset-0 flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#1a1d22] p-0.5 shadow-sm">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkAsRead?.(notification);
+                        }}
+                        className="rounded-md p-1.5 text-[#c7cad1] transition-colors hover:bg-white/8 hover:text-white"
+                      >
+                        <Check size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Mark as read</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClear?.(notification);
+                        }}
+                        className="rounded-md p-1.5 text-[#c7cad1] transition-colors hover:bg-white/8 hover:text-white"
+                      >
+                        <Eraser size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Clear</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             </div>
           </div>
 
-          <Typography
-            variant="p"
-            className="text-[13px] leading-tight truncate text-muted-foreground"
-          >
-            {getHeaderText()}
-          </Typography>
-
-          {message?.content && (
-            <div className="mt-1">
-              <Typography
-                variant="p"
-                className="text-[13px] text-foreground line-clamp-2 break-words"
-                dangerouslySetInnerHTML={{ __html: message.content }}
-              />
+          {(sanitizedPreviewContent || attachmentPreviewText) && (
+            <div className="mt-2">
+              {sanitizedPreviewContent ? (
+                <Typography
+                  variant="p"
+                  className="line-clamp-2 break-words text-[15px] font-medium text-white"
+                  dangerouslySetInnerHTML={{ __html: sanitizedPreviewContent }}
+                />
+              ) : (
+                <Typography
+                  variant="p"
+                  className="line-clamp-2 break-words text-[15px] font-medium text-white"
+                >
+                  {attachmentPreviewText}
+                </Typography>
+              )}
             </div>
           )}
         </div>

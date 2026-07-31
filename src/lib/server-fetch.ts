@@ -6,8 +6,14 @@ import {
   dehydrate,
   type DehydratedState,
 } from '@tanstack/react-query'
-import type { AccountUser, User, Workspace, Channel } from './types'
-import { workspaceKeys, channelKeys, authKeys } from './query-keys'
+import type {
+  AccountUser,
+  Channel,
+  DirectMessageConversation,
+  User,
+  Workspace,
+} from './types'
+import { workspaceKeys, channelKeys, authKeys, messageKeys } from './query-keys'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -68,6 +74,16 @@ export async function getServerChannels(workspaceId: string): Promise<Channel[]>
   return (await serverFetch<Channel[]>(`/workspaces/${workspaceId}/channels`)) ?? []
 }
 
+export async function getServerDirectMessages(
+  workspaceId: string,
+): Promise<DirectMessageConversation[]> {
+  return (
+    (await serverFetch<DirectMessageConversation[]>(
+      `/workspaces/${workspaceId}/direct-messages`,
+    )) ?? []
+  )
+}
+
 // ─── HydrationBoundary helpers ────────────────────────────────────────────────
 
 /**
@@ -83,6 +99,7 @@ export async function prefetchWorkspaceData(
     workspace: Workspace
     workspaces: Workspace[]
     channels: Channel[]
+    conversations: DirectMessageConversation[]
   },
 ): Promise<DehydratedState> {
   /**
@@ -123,6 +140,10 @@ export async function prefetchWorkspaceData(
 
   // Cache channels của workspace — khớp với useChannels(workspaceId)
   queryClient.setQueryData(channelKeys.all(workspaceId), data.channels)
+  queryClient.setQueryData(
+    messageKeys.conversations(workspaceId),
+    data.conversations,
+  )
 
   /**
    * dehydrate() — serialize QueryClient cache thành plain object

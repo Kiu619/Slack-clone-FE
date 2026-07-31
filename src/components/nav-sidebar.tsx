@@ -20,8 +20,6 @@ import { useRef, useState } from "react";
 import { Workspace } from "@/lib/types";
 // import { useRouter } from 'next/navigation'
 import ProgressBar from "./progress-bar";
-import { toast } from "sonner";
-import { Copy } from "lucide-react";
 import { FaPlus } from "react-icons/fa";
 import Link from "next/link";
 import { MdBookmark, MdBookmarkBorder } from "react-icons/md";
@@ -30,6 +28,10 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { TbBell, TbBellFilled } from "react-icons/tb";
+import { useLaterOverdueSummary } from "@/hooks/use-saved-items";
+import { useUnreadNotificationsCount } from "@/hooks/use-notification-summary";
+import { useDmUnreadSummary } from "@/hooks/use-conversations";
+import { FiSettings } from "react-icons/fi";
 
 interface WorkspaceSidebarProps {
   currentWorkspaceData: Workspace;
@@ -58,21 +60,14 @@ const WorkspaceSidebar = ({
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
 
   const { theme } = useThemeStore();
+  const { overdueCount } = useLaterOverdueSummary();
+  const { unreadCount } = useUnreadNotificationsCount();
+  const { count: dmUnreadCount } = useDmUnreadSummary(currentWorkspaceData.id);
 
   const switchWorkspace = (id: string) => {
     setSwitchingWorkspace(true);
-    // router.push(`/workspace/${id}`)
+    router.push(`/workspace/${id}`)
     setSwitchingWorkspace(true);
-  };
-
-  const copyInviteLink = (inviteCode: string) => {
-    const currentDomain = window.location.origin;
-
-    navigator.clipboard.writeText(
-      `${currentDomain}/create-workspace/${inviteCode}`,
-    );
-
-    toast.success("Invite link copied to clipboard");
   };
 
   const handleMouseEnter = () => {
@@ -156,31 +151,16 @@ const WorkspaceSidebar = ({
 
                   <div className="border-0 py-2">
                     <div className="flex p-0 flex-col">
-                      <div className="px-2 mb-2 hover:bg-[#323539] cursor-pointer">
+                      <div className="px-2 mb-2">
                         <Typography
                           variant="p"
                           text={currentWorkspaceData.name}
-                          className="text-sm"
+                          className="text-md font-semibold"
                         />
-                        <div className="flex items-center gap-x-2">
-                          <Typography
-                            variant="p"
-                            text="Copy Invite Link"
-                            className="text-xs lg:text-xs"
-                          />
-                          <Copy
-                            onClick={(e: React.MouseEvent<SVGSVGElement>) => {
-                              e.stopPropagation();
-                              copyInviteLink(currentWorkspaceData.inviteCode!);
-                            }}
-                            size={18}
-                            className="text-white"
-                          />
-                        </div>
                       </div>
                       <Separator />
                       {switchingWorkspace ? (
-                        <div className="m-2 hover:bg-[#323539] cursor-pointer">
+                        <div className="m-2 dark:hover:bg-[#2b2e35] cursor-pointer">
                           <ProgressBar />
                         </div>
                       ) : (
@@ -197,7 +177,7 @@ const WorkspaceSidebar = ({
                               <div
                                 key={workspace.id}
                                 className={
-                                  "cursor-pointer px-2 py-1 flex gap-2 hover:bg-[#323539] group transition-colors"
+                                  "flex items-center cursor-pointer px-2 py-1 flex gap-2 hover:bg-gray-200 dark:hover:bg-[#2b2e35] group transition-colors"
                                 }
                                 onClick={() =>
                                   !isActive && switchWorkspace(workspace.id)
@@ -206,10 +186,10 @@ const WorkspaceSidebar = ({
                                 {workspace.imageUrl ? (
                                   <Avatar
                                     src={workspace.imageUrl}
-                                    className="w-9 h-9 rounded-lg group-hover:outline-2 group-hover:outline-white group-hover:outline-offset-2"
+                                    className="w-9 h-9 rounded-lg group-hover:outline-2 dark:group-hover:outline-white group-hover:outline-offset-2"
                                   />
                                 ) : (
-                                  <div className="text-center place-content-center cursor-pointer items-center text-black w-9 h-9 rounded-lg  bg-[#ABABAD] font-bold text-xl group-hover:outline-2 group-hover:outline-white group-hover:outline-offset-2">
+                                  <div className="text-center place-content-center cursor-pointer items-center text-black w-9 h-9 rounded-lg  bg-[#ABABAD] font-bold text-xl group-hover:outline-2 dark:group-hover:outline-white group-hover:outline-offset-2">
                                     {workspace.name.slice(0, 1).toUpperCase()}
                                   </div>
                                 )}
@@ -218,24 +198,8 @@ const WorkspaceSidebar = ({
                                   <Typography
                                     variant="p"
                                     text={workspace.name}
-                                    className="text-sm"
+                                    className="text-md font-semibold"
                                   />
-                                  <div className="flex items-center gap-x-2">
-                                    <Typography
-                                      variant="p"
-                                      text="Copy Invite Link"
-                                      className="text-xs lg:text-xs"
-                                    />
-                                    <Copy
-                                      onClick={(
-                                        e: React.MouseEvent<SVGSVGElement>,
-                                      ) => {
-                                        e.stopPropagation();
-                                        copyInviteLink(workspace.inviteCode!);
-                                      }}
-                                      size={18}
-                                    />
-                                  </div>
                                 </div>
                               </div>
                             );
@@ -245,9 +209,9 @@ const WorkspaceSidebar = ({
 
                       <Link
                         href="/create-workspace"
-                        className="flex items-center gap-2 p-2 cursor-pointer hover:bg-[#2b2e35] transition-colors group"
+                        className="flex items-center gap-2 p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-[#2b2e35] transition-colors group"
                       >
-                        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#2b2e35] transition-colors group-hover:outline-2 group-hover:outline-white group-hover:outline-offset-2">
+                      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-200 dark:bg-[#2b2e35] transition-colors group-hover:outline-2 dark:group-hover:outline-white group-hover:outline-offset-2">
                           <FaPlus />
                         </span>
                         <Typography variant="p" text="Add a Workspace" />
@@ -289,7 +253,12 @@ const WorkspaceSidebar = ({
         >
           <div className="flex flex-col cursor-pointer items-center group">
             <div className="flex flex-col items-center cursor-pointer group">
-              <div className={cn("p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isDmsPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+              <div className={cn("relative p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isDmsPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+                {dmUnreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-[#e01e5a] text-white text-[11px] font-bold leading-5 text-center shadow-sm">
+                    {dmUnreadCount > 99 ? "99+" : dmUnreadCount}
+                  </span>
+                )}
                 {isDmsPage ? (
                   <PiChatsTeardropFill
                     size={20}
@@ -312,7 +281,12 @@ const WorkspaceSidebar = ({
         >
           <div className="flex flex-col cursor-pointer items-center group">
             <div className="flex flex-col items-center cursor-pointer group">
-            <div className={cn("p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isActivityPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+            <div className={cn("relative p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isActivityPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-[#e01e5a] text-white text-[11px] font-bold leading-5 text-center shadow-sm">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
                 {isActivityPage ? (
                   <TbBellFilled
                     size={20}
@@ -355,7 +329,12 @@ const WorkspaceSidebar = ({
         >
           <div className="flex flex-col cursor-pointer items-center group">
             <div className="flex flex-col items-center cursor-pointer group">
-              <div className={cn("p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isLaterPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+              <div className={cn("relative p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]", isLaterPage ? "bg-[rgba(255,255,255,0.3)]" : "")}>
+                {overdueCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-[#e01e5a] text-white text-[11px] font-bold leading-5 text-center shadow-sm">
+                    {overdueCount > 99 ? "99+" : overdueCount}
+                  </span>
+                )}
                 {isLaterPage ? (
                   <MdBookmark
                     size={20}
@@ -373,16 +352,20 @@ const WorkspaceSidebar = ({
           </div>
         </li>
 
-        <li>
+        <Separator className="w-8 border-gray-600" />
+
+        <li
+          onClick={() => router.push(`/workspace/${currentWorkspaceData.id}/settings`)}
+        >
           <div className="flex flex-col cursor-pointer items-center group">
             <div className="flex flex-col items-center cursor-pointer group">
               <div className="p-2 rounded-lg hover:bg-[rgba(255,255,255,0.3)]">
-                <BsThreeDots
+                <FiSettings
                   size={20}
                   className="group-hover:scale-125 transition-all duration-300"
                 />
               </div>
-              <Typography variant="p" text="More" className="text-[11px]!" />
+              <Typography variant="p" text="Settings" className="text-[11px]!" />
             </div>
           </div>
         </li>

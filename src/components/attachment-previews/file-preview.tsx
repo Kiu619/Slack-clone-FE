@@ -20,12 +20,14 @@ import {
 import FileToolbar from "./file-toolbar";
 
 import { cn } from "@/lib/utils";
+import { openSafeUrl } from "@/lib/open-safe-url";
 import { format } from "date-fns";
 import { useUserStore } from "@/stores/useUserStore";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
+import { isImageAttachment, isVideoAttachment } from "./file-utils";
 
 interface FilePreviewProps {
   message?: Message;
@@ -71,36 +73,31 @@ export default function FilePreview({
     if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
-      window.open(attachment.url, "_blank");
+      openSafeUrl(attachment.url);
     }
   };
   const handleOpenInNewTab = () => {
-    window.open(attachment.url, "_blank");
+    openSafeUrl(attachment.url);
   };
 
   const fileIcon = getFileIcon(attachment.name);
   const fileSize = formatFileSize(attachment.size);
 
-  const mime = (attachment.mimeType ?? "").toLowerCase();
-  const typeLower = (attachment.type ?? "").toLowerCase();
-  const isImage =
-    typeLower === "image" || mime.startsWith("image/");
-  const isVideo =
-    typeLower === "video" || mime.startsWith("video/");
+  const isImage = isImageAttachment(attachment);
+  const isVideo = isVideoAttachment(attachment);
 
   function sharerLabel(message?: Message, uploader?: AttachmentsUser): string {
-    if (uploader?.id === currentUser?.id || !message) {
+    if (uploader?.id === currentUser?.id) {
       return "you";
     }
 
-    if(message?.user.id === currentUser?.id){
+    if (message?.user.id === currentUser?.id) {
       return "you";
     }
 
     if (uploader) {
       return uploader.displayName?.trim() || uploader.name?.trim() || "Someone";
     }
-    if (!message) return "Someone";
     const u = messageAuthor;
     return u?.displayName?.trim() || u?.name?.trim() || "Someone";
   }

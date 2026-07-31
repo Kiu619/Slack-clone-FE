@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "./ui/button";
+import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 
 interface Option {
   label: string;
@@ -50,7 +52,7 @@ export const CustomSelect = ({
   const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const selectedItemRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLButtonElement>(null);
 
   // Đồng bộ inputValue khi selected hoặc currentValue thay đổi
   useEffect(() => {
@@ -130,7 +132,7 @@ export const CustomSelect = ({
     const newVal = e.target.value;
     setInputValue(newVal);
     if (!isOpen) setIsOpen(true);
-    
+
     // Gọi onChange ngay lập tức để form nhận được giá trị đang gõ
     if (editable) {
       onChange?.(newVal);
@@ -173,27 +175,26 @@ export const CustomSelect = ({
             width: coords.width,
             zIndex: 1100,
           }}
-          className="overflow-hidden rounded-md border border-white/10 bg-white dark:bg-[#1A1D21] shadow-2xl ring-1 ring-black/5"
+          className="overflow-hidden rounded-md border border-input bg-white dark:bg-[#1A1D21] shadow-2xl ring-1 ring-black/5"
         >
-          <div className="custom-scrollbar max-h-[280px] overflow-y-auto py-1.5">
+          <div className="custom-scrollbar max-h-70 overflow-y-auto py-1.5">
             {options.length > 0 ? (
               options.map((option) => (
-                <div
+                <Button
+                  type="button"
+                  variant="checkedMenu"
                   key={option.value}
                   ref={currentValue === option.value ? selectedItemRef : null}
                   onClick={() => handleSelect(option)}
                   className={cn(
-                    "group flex w-full cursor-pointer items-center px-4 py-2.5 text-[14px] transition-colors",
-                    currentValue === option.value
-                      ? "bg-selection-hover text-white"
-                      : " hover:bg-selection-hover hover:text-white"
+                    currentValue === option.value && ACTIVE_ITEM_STYLE
                   )}
                 >
-                  <span className="flex-1 truncate">{option.label}</span>
+                  <span className=" truncate">{option.label}</span>
                   {currentValue === option.value && (
                     <Check size={14} className="ml-2" />
                   )}
-                </div>
+                </Button>
               ))
             ) : (
               <div className="px-4 py-8 text-[13px] text-center italic">
@@ -212,8 +213,8 @@ export const CustomSelect = ({
         ref={triggerRef}
         onClick={() => !editable && setIsOpen(!isOpen)}
         className={cn(
-          "flex h-[40px] w-full items-center justify-between rounded-md border bg-transparent px-3 py-2 text-sm transition-all focus:outline-none",
-          isInvalid ? "border-red-500" : "border-[#565856]",
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm transition-all focus:outline-none dark:bg-input/30",
+          isInvalid && "border-red-500",
           !editable ? "cursor-pointer hover:border-selection-hover select-none" : "cursor-text",
           isOpen && (isInvalid ? "ring-[3px] ring-red-500/20" : "border-selection-hover ring-[3px] ring-offset-0 ring-focus-ring")
         )}
@@ -229,7 +230,7 @@ export const CustomSelect = ({
           onFocus={() => editable && setIsOpen(true)}
           placeholder={placeholder}
           className={cn(
-            "w-full bg-transparent border-none outline-none p-0 text-inherit placeholder:text-inherit",
+            "w-full border-none bg-transparent p-0 text-inherit outline-none placeholder:text-muted-foreground",
             !editable && "cursor-pointer select-none"
           )}
         />

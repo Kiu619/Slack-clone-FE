@@ -14,10 +14,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { messageKeys } from "@/lib/query-keys";
 import type { ThreadsPage } from "@/lib/types";
 import { useMessageComposer } from "@/hooks/use-message-composer";
+import { useChannel } from "@/hooks/use-channel";
 import { useSocket, useThreadSocket, useChannelChatSocket, useConversationChatSocket } from "@/hooks/use-socket";
 import { useMessageSync } from "@/hooks/use-message-sync";
 import { useAuth } from "@/hooks/use-auth";
 import { useMessageStore } from "@/stores/useMessageStore";
+import { useUserStore } from "@/stores/useUserStore";
 import { useParams } from "next/navigation";
 import MessageItem from "@/components/message-item";
 import { useThreadPanelStore } from "@/stores/useThreadPanelStore";
@@ -37,6 +39,7 @@ import UploadingFileItem from "@/components/uploading-file-item";
 import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import ScheduleSendDialog from "@/components/dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
+import { canUserPostInChannel } from "@/lib/channel-posting-permissions";
 
 /** Skeleton khi đang load lần đầu */
 function ThreadSkeleton() {
@@ -70,11 +73,13 @@ function ThreadCard({
   thread,
   workspaceId,
   currentUserId,
+  currentUserRole,
   onMarkAsRead,
 }: {
   thread: ThreadMessage;
   workspaceId: string;
   currentUserId: string;
+  currentUserRole?: string | null;
   onMarkAsRead: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -111,6 +116,16 @@ function ThreadCard({
 
   // Sử dụng dữ liệu thực thể từ Zustand để đồng bộ realtime O(1)
   const threadMessage = useMessageStore(s => s.entities[thread.id]) || thread;
+  const { data: threadChannelData } = useChannel(workspaceId, thread.channelId || "");
+  const canReplyInThread = useMemo(() => {
+    if (!thread.channelId) return true;
+    return canUserPostInChannel(
+      threadChannelData,
+      currentUserId,
+      currentUserRole ?? null,
+    ).canReply;
+  }, [thread.channelId, threadChannelData, currentUserId, currentUserRole]);
+  const restrictedThreadLabel = "Only certain people can post in this channel";
 
   // Fetch full replies when user wants to see more
   const {
@@ -383,30 +398,40 @@ function ThreadCard({
             workspaceTimeZone={workspaceTimeZone}
           />
         )}
-        <Editor
-          key={composerEditorKey}
-          workspaceId={workspaceId}
-          currentMembers={currentMembers}
-          onSubmit={onSubmit}
-          onFileAttach={addPendingFiles}
-          disabled={isSending || isScheduling}
-          pendingFiles={pendingFiles}
-          hasPendingFiles={pendingFiles.length > 0}
-          onRemoveFile={removePendingFile}
-          initialContent={composerInitialHtml}
-          onContentChange={onComposerHtmlChange}
-          onScheduleClick={() => setScheduleOpen(true)}
-          onScheduleQuickPick={async (iso) => {
-            try {
-              await scheduleMessage({
-                scheduledAtIso: iso,
-                alsoSendToChannel: false,
-              });
-            } catch {
-              /* toast trong hook */
-            }
-          }}
-        />
+        {canReplyInThread ? (
+          <Editor
+            key={composerEditorKey}
+            workspaceId={workspaceId}
+            currentMembers={currentMembers}
+            onSubmit={onSubmit}
+            onFileAttach={addPendingFiles}
+            disabled={isSending || isScheduling}
+            pendingFiles={pendingFiles}
+            hasPendingFiles={pendingFiles.length > 0}
+            onRemoveFile={removePendingFile}
+            initialContent={composerInitialHtml}
+            onContentChange={onComposerHtmlChange}
+            onScheduleClick={() => setScheduleOpen(true)}
+            onScheduleQuickPick={async (iso) => {
+              try {
+                await scheduleMessage({
+                  scheduledAtIso: iso,
+                  alsoSendToChannel: false,
+                });
+              } catch {
+                /* toast trong hook */
+              }
+            }}
+          />
+        ) : (
+          <div className="flex h-28 flex-col items-center justify-center gap-2 rounded-lg border border-[#797c814d] bg-[rgba(232,226,226,0.4)] dark:bg-[#222529]">
+            <Typography
+              variant="p"
+              text={restrictedThreadLabel}
+              className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
+            />
+          </div>
+        )}
 
         <ScheduleSendDialog
           open={scheduleOpen}
@@ -447,6 +472,8 @@ function ThreadCard({
 export default function ThreadsPage() {
   const { workspaceId } = useParams() as { workspaceId: string };
   const { user } = useAuth();
+  const currentUserRole = useUserStore((s) => s.user?.role ?? null);
+  console.log("Current user role in ThreadsPage:", currentUserRole);
   const { isConnected } = useSocket();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
@@ -512,6 +539,7 @@ export default function ThreadsPage() {
               thread={thread}
               workspaceId={workspaceId}
               currentUserId={user?.id ?? ""}
+              currentUserRole={currentUserRole}
               onMarkAsRead={(id) => markAsRead(id)}
             />
           )}

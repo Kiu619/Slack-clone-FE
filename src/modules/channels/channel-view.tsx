@@ -114,8 +114,8 @@ export default function ChannelView({ channelId, workspaceId, fromChannelPage = 
   useEffect(() => {
     if (!channel?.id || !workspaceId) return;
     if (!memberStatus?.isMember) return;
-    recordRecent.mutate({ kind: "channel", id: channel.id });
-  }, [channel?.id, workspaceId, memberStatus?.isMember, recordRecent]);
+    recordRecent.recordVisit({ kind: "channel", id: channel.id });
+  }, [channel?.id, workspaceId, memberStatus?.isMember, recordRecent.recordVisit]);
 
   const isForbidden = isAxiosError(error) && error.response?.status === 403;
 

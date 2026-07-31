@@ -8,7 +8,7 @@ import FilePreview from "./file-preview";
 import CodePreview from "./code-preview";
 import OfficeFilePreview from "./office-file-preview";
 import AudioPreview from "./audio-preview";
-import { isCodeOrTextFile, isOfficeFile, isPdfFile } from "./file-utils";
+import { getAttachmentPreviewKind, isImageAttachment } from "./file-utils";
 import Typography from "../ui/typography";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { useAttachmentExpanded } from "@/hooks/use-attachment-expanded";
@@ -41,7 +41,7 @@ export default function AttachmentList({
 
   if (!attachments.length) return null;
 
-  const isAllImages = attachments.every((a) => a.type === "image");
+  const isAllImages = attachments.every((a) => isImageAttachment(a));
   const isMixedOrFiles = attachments.length >= 2 && !isAllImages;
 
   if (isMixedOrFiles) {
@@ -80,25 +80,13 @@ export default function AttachmentList({
   }
 
   // Group theo type
-  const images = attachments.filter((a) => a.type === "image");
-  const videos = attachments.filter((a) => a.type === "video");
-  const audioFiles = attachments.filter((a) => a.type === "audio");
-  const allFiles = attachments.filter((a) => a.type === "file");
-
-  const officeFiles = allFiles.filter((a) => isOfficeFile(a.name));
-  const pdfFiles = allFiles.filter((a) => isPdfFile(a.name, a.mimeType));
-  const codeFiles = allFiles.filter(
-    (a) =>
-      !isOfficeFile(a.name) &&
-      !isPdfFile(a.name, a.mimeType) &&
-      isCodeOrTextFile(a.name, a.mimeType),
-  );
-  const otherFiles = allFiles.filter(
-    (a) =>
-      !isOfficeFile(a.name) &&
-      !isPdfFile(a.name, a.mimeType) &&
-      !isCodeOrTextFile(a.name, a.mimeType),
-  );
+  const images = attachments.filter((a) => getAttachmentPreviewKind(a) === "image");
+  const videos = attachments.filter((a) => getAttachmentPreviewKind(a) === "video");
+  const audioFiles = attachments.filter((a) => getAttachmentPreviewKind(a) === "audio");
+  const officeFiles = attachments.filter((a) => getAttachmentPreviewKind(a) === "office");
+  const pdfFiles = attachments.filter((a) => getAttachmentPreviewKind(a) === "pdf");
+  const codeFiles = attachments.filter((a) => getAttachmentPreviewKind(a) === "code");
+  const otherFiles = attachments.filter((a) => getAttachmentPreviewKind(a) === "other");
 
   return (
     <>

@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Button } from "./ui/button";
 
 interface CustomDialogProps {
   open: boolean;

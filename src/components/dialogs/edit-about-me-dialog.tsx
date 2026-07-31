@@ -63,16 +63,16 @@ export function EditAboutMeDialog({ open, setOpen, userData, workspaceId }: { op
 
       <CustomDialogFooter className="px-6 py-4">
         <Button
-          variant="ghost"
+          variant="outline"
           onClick={() => setOpen(false)}
-          className="text-white hover:bg-[#2C2E33] hover:text-white mr-2"
+          disabled={isSaving}
         >
           Cancel
         </Button>
         <Button
+          variant="success"
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
-          className="bg-[#007a5a] hover:bg-[#006248] text-white font-bold px-4 py-2"
         >
           {isSaving ? "Saving..." : "Save Changes"}
         </Button>

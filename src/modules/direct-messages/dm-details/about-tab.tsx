@@ -70,6 +70,7 @@ export default function AboutTab({
       }
       closeEdit();
     } catch (e: unknown) {
+      console.error(e);
       const msg = isAxiosError(e)
         ? ((e.response?.data as { message?: string })?.message ?? e.message)
         : "Update failed";

@@ -58,6 +58,15 @@ export type MessageDraftSummary = {
 
 export function previewPlainFromDraftHtml(html: string, maxLen = 80): string {
   const text = html
+    .replace(
+      /<img\b[^>]*data-custom-emoji="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/gi,
+      (_match, name: string, alt: string) => alt || `:${name || 'emoji'}:`,
+    )
+    .replace(
+      /<img\b[^>]*data-custom-emoji='([^']+)'[^>]*alt='([^']*)'[^>]*>/gi,
+      (_match, name: string, alt: string) => alt || `:${name || 'emoji'}:`,
+    )
+    .replace(/<img\b[^>]*data-custom-emoji[^>]*>/gi, ' :emoji: ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\u00a0/g, ' ')
