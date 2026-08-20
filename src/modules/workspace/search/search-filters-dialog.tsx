@@ -24,6 +24,7 @@ import {
 import { useChannels } from "@/hooks/use-channel";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebouncedValue } from "@/hooks/use-debounce";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { messageKeys, workspaceKeys } from "@/lib/query-keys";
 import type {
   Channel,
@@ -43,25 +44,43 @@ import type { MessagesSearchFilters } from "./messages-search-state";
 import { createDefaultMessagesSearchFilters } from "./messages-search-state";
 import { MdOutlineLock } from "react-icons/md";
 
-const DATE_OPTIONS: { value: MessagesSearchFilters["datePreset"]; label: string }[] =
-  [
-    { value: "any", label: "Any time" },
-    { value: "today", label: "Today" },
-    { value: "7d", label: "Last 7 days" },
-    { value: "30d", label: "Last 30 days" },
-  ];
-
-const FILE_TYPE_OPTIONS: {
-  value: MessagesSearchFilters["fileType"];
-  label: string;
-}[] = [
-  { value: "any", label: "Any type" },
-  { value: "pdf", label: "PDFs" },
-  { value: "image", label: "Images" },
-  { value: "video", label: "Videos" },
-  { value: "audio", label: "Audio" },
-  { value: "code", label: "Snippets" },
+const DATE_OPTION_VALUES: MessagesSearchFilters["datePreset"][] = [
+  "any",
+  "today",
+  "7d",
+  "30d",
 ];
+
+const FILE_TYPE_VALUES: MessagesSearchFilters["fileType"][] = [
+  "any",
+  "pdf",
+  "image",
+  "video",
+  "audio",
+  "code",
+];
+
+function getDateOptionLabel(value: MessagesSearchFilters["datePreset"], t: ReturnType<typeof useAppTranslation>): string {
+  switch (value) {
+    case "any": return t("anyTime")
+    case "today": return t("today")
+    case "7d": return t("last7Days")
+    case "30d": return t("last30Days")
+    default: return value
+  }
+}
+
+function getFileTypeLabel(value: MessagesSearchFilters["fileType"], t: ReturnType<typeof useAppTranslation>): string {
+  switch (value) {
+    case "any": return t("anyType")
+    case "pdf": return t("pdfs")
+    case "image": return t("images")
+    case "video": return t("videos")
+    case "audio": return t("audio")
+    case "code": return t("snippets")
+    default: return value
+  }
+}
 
 type SearchFiltersDialogProps = {
   open: boolean;
@@ -83,6 +102,7 @@ const convLabel = (
   conversation: DirectMessageConversation,
   currentUserId?: string,
   memberOverlayMap?: Record<string, Partial<User>>,
+  t?: ReturnType<typeof useAppTranslation>,
 ) => {
   if (conversation.isGroup) {
     const labels = conversation.members
@@ -96,13 +116,13 @@ const convLabel = (
       })
       .filter(Boolean);
 
-    return labels.join(", ") || "Group DM";
+    return labels.join(", ") || (t ? t("groupDM") : "Group DM");
   }
 
   const otherMember =
     conversation.members.find((member) => member.id !== currentUserId) ??
     conversation.members[0];
-  if (!otherMember) return "Direct message";
+  if (!otherMember) return t ? t("directMessage") : "Direct message";
 
   const merged = mergeUserForDisplay(
     otherMember as User,
@@ -111,7 +131,7 @@ const convLabel = (
       : undefined,
   );
 
-  return merged.displayName || merged.name || merged.email || "Direct message";
+  return merged.displayName || merged.name || merged.email || (t ? t("directMessage") : "Direct message");
 };
 
 const ResultEmpty = ({ text }: { text: string }) => (
@@ -146,6 +166,8 @@ export const SearchFiltersDialog = ({
   onFiltersChange,
   onApply,
 }: SearchFiltersDialogProps) => {
+  const t = useAppTranslation("search")
+
   const { user: currentUser } = useAuth();
   const { data: channels = [] } = useChannels(workspaceId);
   const { data: conversations = [] } = useQuery({
@@ -250,7 +272,7 @@ export const SearchFiltersDialog = ({
       .filter((conversation) => conversation.id !== filters.inConversationId)
       .filter((conversation) => {
         if (!query) return true;
-        return convLabel(conversation, currentUser?.id, memberOverlayMap)
+        return convLabel(conversation, currentUser?.id, memberOverlayMap, t)
           .toLowerCase()
           .includes(query);
       })
@@ -333,7 +355,7 @@ export const SearchFiltersDialog = ({
       >
         <DialogHeader className="border-b border-[#34363b] px-6 py-4 text-left">
           <DialogTitle className="text-xl font-semibold text-white">
-            Filter by
+            {t("filterBy")}
           </DialogTitle>
         </DialogHeader>
 
@@ -341,7 +363,7 @@ export const SearchFiltersDialog = ({
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="relative space-y-2" ref={fromRef}>
               <Label className="text-[13px] font-semibold text-neutral-200">
-                From
+                {t("from")}
               </Label>
               <div
                 className={cn(
@@ -374,7 +396,7 @@ export const SearchFiltersDialog = ({
               {showFromResults ? (
                 <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-lg border border-[#3b3d42] bg-[#222529] shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
                   <div className="border-b border-[#34363b] px-3 py-2 text-xs font-medium text-neutral-400">
-                    Suggestions
+                    {t("suggestions")}
                   </div>
                   <div className="max-h-72 overflow-y-auto py-1">
                     {filteredMembers.length > 0 ? (
@@ -401,14 +423,14 @@ export const SearchFiltersDialog = ({
                                 {label}
                               </p>
                               <p className="truncate text-xs text-neutral-400">
-                                {display.email || "Workspace member"}
+                                {display.email || t("workspaceMember")}
                               </p>
                             </div>
                           </button>
                         );
                       })
                     ) : (
-                      <ResultEmpty text="No people found" />
+                      <ResultEmpty text={t("noPeopleFound")} />
                     )}
                   </div>
                 </div>
@@ -417,7 +439,7 @@ export const SearchFiltersDialog = ({
 
             <div className="relative space-y-2" ref={inRef}>
               <Label className="text-[13px] font-semibold text-neutral-200">
-                In
+                {t("in")}
               </Label>
               <div
                 className={cn(
@@ -433,7 +455,7 @@ export const SearchFiltersDialog = ({
                   ) : null}
                   {selectedConversation ? (
                     <TokenButton onRemove={() => clearInSelection("conversation")}>
-                      {convLabel(selectedConversation, currentUser?.id, memberOverlayMap)}
+                      {convLabel(selectedConversation, currentUser?.id, memberOverlayMap, t)}
                     </TokenButton>
                   ) : null}
                   <input
@@ -461,7 +483,7 @@ export const SearchFiltersDialog = ({
                       <Input
                         value={inQuery}
                         onChange={(event) => setInQuery(event.target.value)}
-                        placeholder="Search channels and DMs"
+                        placeholder={t("searchChannelsOrDMs")}
                         className="h-auto border-0 bg-transparent p-0 text-sm text-white shadow-none focus-visible:ring-0"
                       />
                     </div>
@@ -469,7 +491,7 @@ export const SearchFiltersDialog = ({
 
                   <div className="max-h-80 overflow-y-auto py-1">
                     <div className="px-3 py-2 text-xs font-medium text-neutral-400">
-                      Channels
+                      {t("channels")}
                     </div>
                     {filteredTargets.channels.length > 0 ? (
                       filteredTargets.channels.map((channel) => (
@@ -491,17 +513,17 @@ export const SearchFiltersDialog = ({
                               {channel.name}
                             </p>
                             <p className="text-xs text-neutral-400">
-                              {channel.isPrivate ? "Private channel" : "Channel"}
+                              {channel.isPrivate ? t("privateChannel") : t("channel")}
                             </p>
                           </div>
                         </button>
                       ))
                     ) : (
-                      <ResultEmpty text="No channels found" />
+                      <ResultEmpty text={t("noChannelsFound")} />
                     )}
 
                     <div className="px-3 pt-3 pb-2 text-xs font-medium text-neutral-400">
-                      Direct messages
+                      {t("directMessages")}
                     </div>
                     {filteredTargets.conversations.length > 0 ? (
                       filteredTargets.conversations.map((conversation) => {
@@ -546,14 +568,14 @@ export const SearchFiltersDialog = ({
                                 {label}
                               </p>
                               <p className="text-xs text-neutral-400">
-                                {conversation.isGroup ? "Group DM" : "Direct message"}
+                                {conversation.isGroup ? t("groupDM") : t("directMessage")}
                               </p>
                             </div>
                           </button>
                         );
                       })
                     ) : (
-                      <ResultEmpty text="No conversations found" />
+                      <ResultEmpty text={t("noConversationsFound")} />
                     )}
                   </div>
                 </div>
@@ -564,7 +586,7 @@ export const SearchFiltersDialog = ({
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-[13px] font-semibold text-neutral-200">
-                Date
+                {t("date")}
               </Label>
               <Select
                 value={filters.datePreset}
@@ -576,9 +598,9 @@ export const SearchFiltersDialog = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-[#3b3d42] bg-[#222529] text-neutral-200">
-                  {DATE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {DATE_OPTION_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {getDateOptionLabel(value, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -587,7 +609,7 @@ export const SearchFiltersDialog = ({
 
             <div className="space-y-2">
               <Label className="text-[13px] font-semibold text-neutral-200">
-                File type
+                {t("fileType")}
               </Label>
               <Select
                 value={filters.fileType}
@@ -599,9 +621,9 @@ export const SearchFiltersDialog = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-[#3b3d42] bg-[#222529] text-neutral-200">
-                  {FILE_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {FILE_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {getFileTypeLabel(value, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -610,14 +632,14 @@ export const SearchFiltersDialog = ({
           </div>
 
           <div className="rounded-lg border border-[#34363b] bg-[#222529] p-4">
-            <p className="mb-3 text-sm font-semibold text-white">Message has...</p>
+            <p className="mb-3 text-sm font-semibold text-white">{t("messageHas")}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {(
                 [
-                  ["hasFile", "A file attached"],
-                  ["hasLink", "A link shared"],
-                  ["hasAction", "A Slack app action"],
-                  ["isDm", "Sent in a DM"],
+                  ["hasFile", t("aFileAttached")],
+                  ["hasLink", t("aLinkShared")],
+                  ["hasAction", t("aSlackAppAction")],
+                  ["isDm", t("sentInDM")],
                 ] as const
               ).map(([key, label]) => (
                 <label
@@ -637,13 +659,13 @@ export const SearchFiltersDialog = ({
           </div>
 
           <div className="rounded-lg border border-[#34363b] bg-[#222529] p-4">
-            <p className="mb-3 text-sm font-semibold text-white">Message is...</p>
+            <p className="mb-3 text-sm font-semibold text-white">{t("messageIs")}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {(
                 [
-                  ["inThread", "In a thread"],
-                  ["saved", "Saved"],
-                  ["pinned", "Pinned"],
+                  ["inThread", t("inAThread")],
+                  ["saved", t("saved")],
+                  ["pinned", t("pinned")],
                 ] as const
               ).map(([key, label]) => (
                 <label
@@ -669,7 +691,7 @@ export const SearchFiltersDialog = ({
             className="inline-flex items-center gap-1.5 text-sm text-[#36c5f0] transition hover:underline"
           >
             <FiInfo className="size-4 shrink-0" />
-            Learn more about search
+            {t("learnMoreAboutSearch")}
           </a>
         </div>
 
@@ -680,7 +702,7 @@ export const SearchFiltersDialog = ({
             onClick={clearAll}
             disabled={activeInDialog === 0}
           >
-            Clear filters{activeInDialog > 0 ? ` (${activeInDialog})` : ""}
+            {t("clearFilters")}{activeInDialog > 0 ? ` (${activeInDialog})` : ""}
           </Button>
           <Button
             type="button"
@@ -690,7 +712,7 @@ export const SearchFiltersDialog = ({
               onOpenChange(false);
             }}
           >
-            Search
+            {t("searchAction")}
           </Button>
         </DialogFooter>
       </DialogContent>

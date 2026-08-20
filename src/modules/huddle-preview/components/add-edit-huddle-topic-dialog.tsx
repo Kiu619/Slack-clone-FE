@@ -15,9 +15,10 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useHuddle } from "@/hooks/use-translation";
 
 const topicSchema = z.object({
-  topic: z.string().max(200, "Topic must be 200 characters or less"),
+  topic: z.string().max(200, "topicMustBe200Chars"),
 });
 
 type TopicFormData = z.infer<typeof topicSchema>;
@@ -37,6 +38,7 @@ export function AddEditHuddleTopicDialog({
   onSave,
   isLoading = false,
 }: AddEditHuddleTopicDialogProps) {
+  const t = useHuddle()
   const {
     register,
     handleSubmit,
@@ -73,7 +75,7 @@ export function AddEditHuddleTopicDialog({
       <form onSubmit={handleSubmit(onSubmit)}>
         <CustomDialogHeader onOpenChange={handleClose}>
           <CustomDialogTitle>
-            {initialTopic ? "Edit topic" : "Add a topic"}
+            {initialTopic ? t("editTopic") : t("addATopic")}
           </CustomDialogTitle>
         </CustomDialogHeader>
 
@@ -81,18 +83,20 @@ export function AddEditHuddleTopicDialog({
           <FieldGroup className="space-y-4">
             <Field>
               <Label htmlFor="huddle-topic" className="">
-                Topic
+                {t("topic")}
               </Label>
               <Input
                 {...register("topic")}
                 id="huddle-topic"
                 name="topic"
-                placeholder="What are we discussing?"
+                placeholder={t("topicPlaceholder")}
                 className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
               />
               {errors.topic && (
                 <p className="mt-1 text-sm text-red-500">
-                  {errors.topic.message}
+                  {errors.topic.message === "Topic must be 200 characters or less"
+                    ? t("topicMustBe200Chars")
+                    : errors.topic.message}
                 </p>
               )}
             </Field>
@@ -107,10 +111,10 @@ export function AddEditHuddleTopicDialog({
               disabled={isLoading}
               className=" mr-2"
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" variant="success" disabled={isLoading || !isDirty || !isValid}>
-              {isLoading ? "Saving..." : "Save"}
+              {isLoading ? t("saving") : t("save")}
             </Button>
         </CustomDialogFooter>
 

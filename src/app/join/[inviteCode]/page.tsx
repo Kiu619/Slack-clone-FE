@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import Image from 'next/image'
 import { useJoinWorkspace } from '@/hooks/use-workspace'
 import { useAuth } from '@/hooks/use-auth'
+import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
 import { Button } from '@/components/ui/button'
 import Typography from '@/components/ui/typography'
 import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
@@ -17,6 +18,7 @@ export default function JoinWorkspacePage() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   const { mutateAsync: joinWorkspace, isPending } = useJoinWorkspace()
   const autoJoined = useRef(false)
+  const timeZone = useLanguageRegionStore((s) => s.timeZone)
 
   // If not authenticated, redirect to auth with redirect back here
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function JoinWorkspacePage() {
     autoJoined.current = true
 
     try {
-      const workspace = await joinWorkspace(inviteCode)
+      const workspace = await joinWorkspace({ inviteCode, timeZone })
       toast.success(`You joined "${workspace.name}" successfully!`)
       router.replace('/')
     } catch (err: unknown) {

@@ -6,6 +6,10 @@ export const authKeys = {
     ['workspace-profile', workspaceId] as const,
 }
 
+export const memberPreferencesKeys = {
+  detail: (workspaceId: string) => ['member-preferences', workspaceId] as const,
+}
+
 export const workspaceKeys = {
   all: ['workspaces'] as const,
   detail: (id: string) => ['workspaces', id] as const,

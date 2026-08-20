@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { QueryProvider } from "@/providers/query-provider"
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { I18nProvider } from "@/providers/I18nProvider"
+import { cookies } from "next/headers"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,23 +28,28 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const cookieStore = await cookies()
+  const initialLocale = cookieStore.get("NEXT_LOCALE")?.value ?? "en"
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={initialLocale} suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
         <QueryProvider>
-          <TooltipProvider>
-            <Toaster />
-            {children}
-            <ReactQueryDevtools initialIsOpen={false} />
-          </TooltipProvider>
+          <I18nProvider initialLocale={initialLocale as "en" | "vi"}>
+            <TooltipProvider>
+              <Toaster />
+              {children}
+              <ReactQueryDevtools initialIsOpen={false} />
+            </TooltipProvider>
+          </I18nProvider>
         </QueryProvider>
       </body>
     </html>

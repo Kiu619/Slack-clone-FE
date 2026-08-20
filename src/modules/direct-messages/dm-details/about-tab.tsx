@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import Typography from "@/components/ui/typography";
 import { useUpdateConversation } from "@/hooks/use-conversation";
+import { useAppTranslation } from "@/hooks/use-translation";
 import type { DirectMessageConversation } from "@/lib/types";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -34,6 +35,7 @@ export default function AboutTab({
     workspaceId,
     conversationId,
   );
+  const t = useAppTranslation("directMessages");
 
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
@@ -62,39 +64,39 @@ export default function AboutTab({
       if (editField === "topic") {
         const v = draft.trim();
         await updateConversation({ topic: v.length ? v : null });
-        toast.success("Topic updated");
+        toast.success(t("topicUpdated"));
       } else {
         const v = draft.trim();
         await updateConversation({ description: v.length ? v : null });
-        toast.success("Description updated");
+        toast.success(t("descriptionUpdated"));
       }
       closeEdit();
     } catch (e: unknown) {
       console.error(e);
       const msg = isAxiosError(e)
         ? ((e.response?.data as { message?: string })?.message ?? e.message)
-        : "Update failed";
-      toast.error(typeof msg === "string" ? msg : "Update failed");
+        : t("updateFailed");
+      toast.error(typeof msg === "string" ? msg : t("updateFailed"));
     }
-  }, [editField, draft, updateConversation, closeEdit]);
+  }, [editField, draft, updateConversation, closeEdit, t]);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-md border border-[#797c814d] bg-white dark:bg-[#1A1D21]">
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
-            <Typography text="Topic" className="font-bold" />
+            <Typography text={t("topic")} className="font-bold" />
             <button
               type="button"
               onClick={() => openEdit("topic")}
               className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
             >
-              Edit
+              {t("edit")}
             </button>
           </div>
           <Typography
             text={
-              currentDmData.topic?.trim() ? currentDmData.topic : "Add a topic"
+              currentDmData.topic?.trim() ? currentDmData.topic : t("addATopic")
             }
             variant="p"
             className="text-[14px] text-[#8e9297]"
@@ -102,27 +104,27 @@ export default function AboutTab({
         </div>
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
-            <Typography text="Description" className="font-bold" />
+            <Typography text={t("description")} className="font-bold" />
             <button
               type="button"
               onClick={() => openEdit("description")}
               className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
             >
-              Edit
+              {t("edit")}
             </button>
           </div>
           <Typography
             text={
               currentDmData.description?.trim()
                 ? currentDmData.description
-                : "Add a description"
+                : t("addADescription")
             }
             variant="p"
             className="text-[14px] text-[#8e9297]"
           />
         </div>
         <div className="p-4">
-          <Typography text="Created on" className="font-bold" />
+          <Typography text={t("createdOn")} className="font-bold" />
           <Typography
             text={format(currentDmData.createdAt, "EEEE, MMMM d, yyyy", {
               locale: enUS,
@@ -144,7 +146,7 @@ export default function AboutTab({
               <LuUserPlus className="size-5" aria-hidden />
             </span>
             <Typography
-              text="Add people to this conversation"
+              text={t("addPeopleToThisConversation")}
               className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
             />
           </button>
@@ -153,7 +155,7 @@ export default function AboutTab({
 
       <div className="flex items-center gap-2 text-[#8e9297]">
         <Typography
-          text={`Conversation ID: ${currentDmData.id}`}
+          text={`${t("conversationId")}: ${currentDmData.id}`}
           className="text-xs"
         />
         <Copy
@@ -161,7 +163,7 @@ export default function AboutTab({
           className="cursor-pointer"
           onClick={() => {
             void navigator.clipboard.writeText(currentDmData.id);
-            toast.success("Channel ID copied to clipboard");
+            toast.success(t("conversationIdCopied"));
           }}
         />
       </div>
@@ -182,7 +184,7 @@ export default function AboutTab({
         <CustomDialogHeader onOpenChange={closeEdit}>
           <CustomDialogTitle>
             <Typography
-              text={editField === "topic" ? "Edit topic" : "Edit description"}
+              text={editField === "topic" ? t("editTopic") : t("editDescription")}
               className="text-[17px] font-bold"
             />
           </CustomDialogTitle>
@@ -195,15 +197,15 @@ export default function AboutTab({
             className="min-h-0 resize-y text-[14px]"
             placeholder={
               editField === "topic"
-                ? "What is this conversation about?"
-                : "Add a description to the conversation"
+                ? t("whatIsThisConversationAbout")
+                : t("addADescriptionToTheConversation")
             }
             autoFocus
           />
         </CustomDialogBody>
         <CustomDialogFooter>
           <Button type="button" variant="outline" onClick={closeEdit}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             type="button"
@@ -211,7 +213,7 @@ export default function AboutTab({
             disabled={isPending}
             onClick={() => void saveEdit()}
           >
-            Save
+            {t("save")}
           </Button>
         </CustomDialogFooter>
       </CustomDialog>

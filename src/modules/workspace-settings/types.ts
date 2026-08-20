@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 export type SidebarGroupItem = {
   label: string;
   key: string;
+  labelKey?: string;
 };
 
 export type SidebarEntry =
@@ -11,6 +12,7 @@ export type SidebarEntry =
       label: string;
       key: string;
       icon: ComponentType<{ className?: string }>;
+      labelKey?: string;
     }
   | {
       kind: "group";
@@ -18,6 +20,7 @@ export type SidebarEntry =
       key: string;
       icon: ComponentType<{ className?: string }>;
       items: SidebarGroupItem[];
+      labelKey?: string;
     };
 
 export type SectionItem = {
@@ -25,6 +28,7 @@ export type SectionItem = {
   description: string;
   icon: ComponentType<{ className?: string }>;
   iconBg: string;
+  titleKey?: string;
 };
 
 export type MainSection = "people" | "account" | "profiles" | "roles" | "security" | "settings";

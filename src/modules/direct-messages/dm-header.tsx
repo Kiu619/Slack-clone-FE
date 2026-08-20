@@ -17,6 +17,7 @@ import {
 import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 import { useAuth } from "@/hooks/use-auth";
 import { useStarConversation } from "@/hooks/use-conversation";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { clearLastDmConversationId } from "@/lib/last-dm-storage";
 import { getDmDisplayName, isDeactivatedUser } from "@/lib/dm-members";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ const DMHeader = ({
   const { theme: storeTheme } = useThemeStore();
   const { user: currentUser } = useAuth();
   const { reset } = useMainPanelStore();
+  const t = useAppTranslation("directMessages");
   const openGlobalSearch = useGlobalSearchStore((state) => state.openSearch);
   const armSuppressNextClose = useGlobalSearchStore((state) => state.armSuppressNextClose);
   const setInChannelIds = useGlobalSearchStore((state) => state.setInChannelIds);
@@ -133,7 +135,7 @@ const DMHeader = ({
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <Typography
-                text={isStarred ? "Bỏ sao cuộc trò chuyện" : "Gắn sao cuộc trò chuyện"}
+                text={isStarred ? t("unstarDm") : t("starDm")}
                 variant="p"
                 className="text-[14px]!"
               />
@@ -181,7 +183,7 @@ const DMHeader = ({
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <Typography
-                text="View conversation details"
+                text={t("viewConversationDetails")}
                 variant="p"
                 className="text-[14px]!"
               />
@@ -222,7 +224,7 @@ const DMHeader = ({
               </TooltipTrigger>
               <TooltipContent side="bottom" align="center">
                 <Typography
-                  text="More actions"
+                  text={t("moreActions")}
                   variant="p"
                   className="text-[14px]!"
                 />
@@ -246,7 +248,7 @@ const DMHeader = ({
                 >
                   <Typography
                     variant="p"
-                    text="Open conversation details"
+                    text={t("openConversationDetails")}
                     className="text-[15px]"
                   />
                 </Button>
@@ -262,7 +264,7 @@ const DMHeader = ({
                   <div className="flex items-center gap-2">
                     <Typography
                       variant="p"
-                      text={isStarred ? "Unstar conversation" : "Star conversation"}
+                      text={isStarred ? t("unstarConversation") : t("starConversation")}
                     />
                   </div>
                 </Button>
@@ -273,19 +275,19 @@ const DMHeader = ({
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(window.location.href)
-                    toast.success("Link copied to clipboard")
+                    toast.success(t("linkCopiedToClipboard"))
                   }}
                 >
-                  <Typography variant="p" text="Copy link" />
+                  <Typography variant="p" text={t("copyLink")} />
                 </Button>
                 <Button variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(getDMName())
-                    toast.success("Name copied to clipboard")
+                    toast.success(t("nameCopiedToClipboard"))
                   }}
                 >
-                  <Typography variant="p" text="Copy name" />
+                  <Typography variant="p" text={t("copyName")} />
                 </Button>
 
                 <Separator />
@@ -304,7 +306,7 @@ const DMHeader = ({
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <Typography variant="p" text="Search in conversation" />
+                    <Typography variant="p" text={t("searchInConversation")} />
                   </div>
                 </Button>
               </div>
@@ -342,7 +344,7 @@ const DMHeader = ({
           <BiMessageRounded size={16}
             style={activeTab === "messages" ? { fill: storeTheme.selectedItems } : {}}
           />
-          <Typography text="Messages" variant="p" className="text-[13px]!" />
+          <Typography text={t("messages")} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -357,7 +359,7 @@ const DMHeader = ({
           style={activeTab === "files" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
         >
           <ImFilesEmpty size={16} />
-          <Typography text="Files" variant="p" className="text-[13px]!" />
+          <Typography text={t("files")} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -372,7 +374,7 @@ const DMHeader = ({
           style={activeTab === "folders" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
         >
           {activeTab === "folders" ? <FaRegFolderOpen size={17} /> : <FaRegFolderClosed size={16} />}
-          <Typography text="Folders" variant="p" className="text-[13px]!" />
+          <Typography text={t("folders")} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -387,7 +389,7 @@ const DMHeader = ({
           style={activeTab === "pins" ? { borderColor: storeTheme.selectedItems, borderBottomWidth: 3, color: storeTheme.selectedItems } : {}}
         >
           <RiPushpinLine size={16} />
-          <Typography text="Pins" variant="p" className="text-[13px]!" />
+          <Typography text={t("pins")} variant="p" className="text-[13px]!" />
         </button>
       </div>
 

@@ -11,6 +11,7 @@ type DraftsScheduledTabBarProps = {
   onTabChange: (tab: DraftsScheduledTabId) => void
   draftsCount: number
   scheduledCount: number
+  t: (key: string) => string
 }
 
 export const DraftsScheduledTabBar = ({
@@ -18,6 +19,7 @@ export const DraftsScheduledTabBar = ({
   onTabChange,
   draftsCount,
   scheduledCount,
+  t,
 }: DraftsScheduledTabBarProps) => {
   const theme = useThemeStore((s) => s.theme)
 
@@ -46,7 +48,7 @@ export const DraftsScheduledTabBar = ({
         className={tabButtonClass(tab === 'drafts')}
         style={activeStyle(tab === 'drafts')}
       >
-        <Typography text="Drafts" variant="p" className="text-[13px] font-semibold" />
+        <Typography text={t('tabs.drafts')} variant="p" className="text-[13px] font-semibold" />
         {draftsCount > 0 ? (
           <span className="text-[13px] font-semibold opacity-70">{draftsCount}</span>
         ) : null}
@@ -57,7 +59,7 @@ export const DraftsScheduledTabBar = ({
         className={tabButtonClass(tab === 'scheduled')}
         style={activeStyle(tab === 'scheduled')}
       >
-        <Typography text="Scheduled" variant="p" className="text-[13px] font-semibold" />
+        <Typography text={t('tabs.scheduled')} variant="p" className="text-[13px] font-semibold" />
         {scheduledCount > 0 ? (
           <span className="text-[13px] font-semibold opacity-70">{scheduledCount}</span>
         ) : null}

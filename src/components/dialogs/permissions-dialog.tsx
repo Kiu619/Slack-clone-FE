@@ -13,6 +13,7 @@ import {
 } from "../custom-dialog";
 import { Button } from "../ui/button";
 import Typography from "../ui/typography";
+import { useDialogs } from "@/hooks/use-translation";
 
 export type PermissionRoleOption = {
   key: string;
@@ -38,6 +39,7 @@ export default function PermissionsDialog({
   saving,
   onSave,
 }: PermissionsDialogProps) {
+  const t = useDialogs();
   const [draftRoles, setDraftRoles] = useState<PermissionRoleOption[]>(roles);
 
   const hasChanges = useMemo(
@@ -69,7 +71,7 @@ export default function PermissionsDialog({
       <CustomDialogBody className="px-7 py-5">
         <div className="flex flex-col gap-5">
           <Typography className="text-[18px] font-semibold leading-7 text-[#1d1c1d] dark:text-[#f2f2f2]">
-            Who can access?
+            {t('permissions.whoCanAccess')}
           </Typography>
 
           <div className="space-y-3">
@@ -105,7 +107,7 @@ export default function PermissionsDialog({
           onClick={() => onOpenChange(false)}
           className="h-10 rounded-[6px] border-[#cfcacf] px-5 text-[14px] font-semibold"
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="button"
@@ -117,10 +119,10 @@ export default function PermissionsDialog({
           {saving ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Saving
+              {t('permissions.saving')}
             </span>
           ) : (
-            "Save"
+            t('common.save')
           )}
         </Button>
       </CustomDialogFooter>

@@ -44,6 +44,7 @@ import {
 } from "@/stores/useWorkspaceMemberStore";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { UserPresenceIndicator } from "@/components/user-presence-indicator";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const UserSidebar = ({
   userData,
@@ -52,6 +53,7 @@ const UserSidebar = ({
   userData: User;
   currentWorkspaceData: Workspace;
 }) => {
+  const t = useAppTranslation("userSidebar");
   const [open, setOpen] = useState(false);
   const [openAvatarPopover, setOpenAvatarPopover] = useState(false);
   const router = useRouter();
@@ -150,7 +152,7 @@ const UserSidebar = ({
                 <div className=" rounded-lg">
                   <div className="px-4 py-2">
                     <Typography
-                      text="Create"
+                      text={t("create")}
                       variant="p"
                       className="text-left font-bold"
                     />
@@ -173,9 +175,9 @@ const UserSidebar = ({
                         <HiOutlinePencilAlt size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Message" variant="p" className="text-left font-semibold" />
+                        <Typography text={t("message")} variant="p" className="text-left font-semibold" />
                         <Typography
-                          text="Start a conversation in a DM or channel"
+                          text={t("messageDescription")}
                           variant="p"
                           className="text-gray-400 text-xs"
                         />
@@ -188,9 +190,9 @@ const UserSidebar = ({
                         <FiHash size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Channel" variant="p" className="text-left font-semibold" />
+                        <Typography text={t("channel")} variant="p" className="text-left font-semibold" />
                         <Typography
-                          text="Start a group conversation by topic"
+                          text={t("channelDescription")}
                           variant="p"
                           className="text-gray-400 text-xs"
                         />
@@ -203,9 +205,9 @@ const UserSidebar = ({
                         <IoMdHeadset size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text="Huddle" variant="p" className="text-left font-semibold" />
+                        <Typography text={t("huddle")} variant="p" className="text-left font-semibold" />
                         <Typography
-                          text="Start a video or audio chat"
+                          text={t("huddleDescription")}
                           variant="p"
                           className="text-gray-400 text-xs"
                         />
@@ -219,9 +221,9 @@ const UserSidebar = ({
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text="Canvas" variant="p" className="text-left font-semibold" />
+                          <Typography text={t("canvas")} variant="p" className="text-left font-semibold" />
                           <Typography
-                            text="Create and share content"
+                            text={t("canvasDescription")}
                             variant="p"
                             className="text-gray-400 text-xs"
                           />
@@ -239,9 +241,9 @@ const UserSidebar = ({
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text="List" variant="p" className="text-left font-semibold" />
+                          <Typography text={t("list")} variant="p" className="text-left font-semibold" />
                           <Typography
-                            text="Track and manage projects"
+                            text={t("listDescription")}
                             variant="p"
                             className="text-gray-400 text-xs"
                           />
@@ -261,7 +263,7 @@ const UserSidebar = ({
                         <MdOutlinePersonAddAlt size={20} />
                       </div>
                       <div>
-                        <Typography text="Invite people" variant="p" className="text-left font-semibold" />
+                        <Typography text={t("invitePeople")} variant="p" className="text-left font-semibold" />
                       </div>
                     </button>
                   </div>
@@ -270,7 +272,7 @@ const UserSidebar = ({
             </Popover>
           </div>
           <TooltipContent side="right" sideOffset={10}>
-            <Typography text="Create new" variant="p" />
+            <Typography text={t("createNewTooltip")} variant="p" />
           </TooltipContent>
         </Tooltip>
       </div>
@@ -362,7 +364,7 @@ const UserSidebar = ({
                         className="hidden group-hover:block text-yellow-500 font-bold"
                       />
                       <Typography
-                        text="Update your status"
+                        text={t("updateYourStatus")}
                         variant="p"
                         className="text-sm font-medium dark:text-[#d1d2d3]"
                       />
@@ -378,7 +380,7 @@ const UserSidebar = ({
                     >
                       <Typography
                         variant="p"
-                        text="Clear status"
+                        text={t("clearStatus")}
                       />
                     </div>
                   )}
@@ -391,13 +393,13 @@ const UserSidebar = ({
                       variant="p"
                       text={
                         displayUser.isAway
-                          ? "Set yourself as active"
-                          : "Set yourself as away"
+                          ? t("setAsActive")
+                          : t("setAsAway")
                       }
                     />
                   </div>
                   <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                    <Typography variant="p" text="Pause notifications" />
+                    <Typography variant="p" text={t("pauseNotifications")} />
                   </div>
 
                   <Separator />
@@ -411,7 +413,7 @@ const UserSidebar = ({
                       setOpenAvatarPopover(false)
                     }}
                   >
-                    <Typography variant="p" text="Profile" />
+                    <Typography variant="p" text={t("profile")} />
                   </div>
                   <div
                     className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
@@ -420,7 +422,7 @@ const UserSidebar = ({
                       setOpenAvatarPopover(false)
                     }}
                   >
-                    <Typography variant="p" text={"Preferences"} />
+                    <Typography variant="p" text={t("preferences")} />
                   </div>
 
                   <Separator />
@@ -431,7 +433,9 @@ const UserSidebar = ({
                   >
                     <Typography
                       variant="p"
-                      text={`Sign out of ${currentWorkspaceData.name || ""}`}
+                      text={t("signOut", {
+                        workspaceName: currentWorkspaceData.name || "",
+                      })}
                     />
                   </div>
                 </div>

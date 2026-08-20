@@ -11,6 +11,7 @@ import {
   updateProfileApi,
 } from "@/apis";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
 import { useUserStore } from "@/stores/useUserStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -74,6 +75,7 @@ function memberStatusToUserPatch(s: WorkspaceMemberStatus): Partial<User> {
 }
 
 export default function ProfilePanel() {
+  const t = useAppTranslation("profile");
   const { user: currentUserData } = useUserStore();
   const {
     userData: storeUserData,
@@ -174,11 +176,11 @@ export default function ProfilePanel() {
   const handleMessagePeer = async () => {
     if (isViewAsCoworker) return;
     if (!workspaceId || !userData?.id) {
-      toast.error("Could not open a DM from this profile.");
+      toast.error(t("error.couldNotOpenDm"));
       return;
     }
     if (userData.id === currentUserData?.id) {
-      toast.error("You cannot message yourself.");
+      toast.error(t("error.cannotMessageSelf"));
       return;
     }
     setIsOpeningDm(true);
@@ -198,7 +200,7 @@ export default function ProfilePanel() {
       toast.error(
         typeof msg === "string" && msg.trim()
           ? msg
-          : "Could not open a direct message.",
+          : t("error.couldNotOpenDirectMessage"),
       );
     } finally {
       setIsOpeningDm(false);
@@ -227,7 +229,7 @@ export default function ProfilePanel() {
     const tzValue = displayUser?.timeZone;
     if (!tzValue) {
       const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return `${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: browserTz })} ${browserTz} (local time)`;
+      return `${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: browserTz })} ${browserTz} (${t("localTimeSuffix")})`;
     }
     const iana = timeZoneValueToIana(tzValue);
     const timeStr = iana
@@ -237,7 +239,7 @@ export default function ProfilePanel() {
           timeZone: iana,
         })
       : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    return `${timeStr} local time`;
+    return `${timeStr} (${t("localTimeSuffix")})`;
   };
 
   const sanitizedContent = () => {
@@ -269,7 +271,7 @@ export default function ProfilePanel() {
   if (awaitingOtherMemberProfile) {
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
-        <PanelHeader title="Profile" onClose={close} />
+        <PanelHeader title={t("title")} onClose={close} />
         <div className="flex flex-col gap-4 p-6 flex-1">
           <Skeleton className="mx-auto mt-4 h-60 w-60 rounded-lg" />
           <Skeleton className="h-6 w-48 mx-auto" />
@@ -283,9 +285,9 @@ export default function ProfilePanel() {
   if (failedOtherMemberProfile) {
     return (
       <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3]">
-        <PanelHeader title="Profile" onClose={close} />
+        <PanelHeader title={t("title")} onClose={close} />
         <div className="p-6 text-[15px] text-[#616061] dark:text-[#ababad]">
-          Could not load this member profile. Try closing and opening the profile again.
+          {t("couldNotLoadProfile")}
         </div>
       </div>
     );
@@ -298,19 +300,19 @@ export default function ProfilePanel() {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-y-auto overflow-x-hidden">
       {/* Header */}
-      <PanelHeader title="Profile" onClose={close} />
+      <PanelHeader title={t("title")} onClose={close} />
 
       {/* Banner for View as coworker */}
       {isViewAsCoworker && (
         <div className="bg-selection-hover text-white px-4 py-2 flex items-center justify-between shrink-0">
           <span className="text-[13px]">
-            This is how others see your profile
+            {t("viewAsCoworker.banner")}
           </span>
           <button
             onClick={() => setIsViewAsCoworker(false)}
             className="text-[13px] font-bold hover:underline"
           >
-            Done
+            {t("viewAsCoworker.done")}
           </button>
         </div>
       )}
@@ -332,7 +334,7 @@ export default function ProfilePanel() {
             />
             {showOwnerView && (
               <Typography
-                text="Edit"
+                text={t("edit")}
                 variant="p"
                 className="text-[#2BA5CE] font-semibold cursor-pointer hover:underline"
                 onClick={() => setIsOpenEditProfileDialog(true)}
@@ -342,7 +344,7 @@ export default function ProfilePanel() {
 
           {isDeactivatedMember && (
             <div className="inline-flex w-fit items-center rounded-md border border-[#797c814d] bg-[#2a2d31] px-2 py-1 text-[12px] font-semibold text-[#d1d2d3]">
-              Deactivated account
+              {t("status.deactivatedAccount")}
             </div>
           )}
 
@@ -362,7 +364,7 @@ export default function ProfilePanel() {
             >
               <MdAdd size={20} className="text-[#2BA5CE]" />
               <Typography
-                text="Add a name pronunciation"
+                text={t("status.addNamePronunciation")}
                 variant="p"
                 className="text-[#2BA5CE] font-normal"
               />
@@ -413,13 +415,13 @@ export default function ProfilePanel() {
               >
                 {mergedMemberStatus?.statusText ? (
                   <Typography
-                    text="Edit status"
+                    text={t("status.editStatus")}
                     variant="p"
                     className="dark:text-[#d1d2d3] font-semibold"
                   />
                 ) : (
                   <Typography
-                    text="Set a status"
+                    text={t("status.setStatus")}
                     variant="p"
                     className="dark:text-[#d1d2d3] font-semibold"
                   />
@@ -430,7 +432,7 @@ export default function ProfilePanel() {
                 onClick={() => setIsViewAsCoworker(true)}
               >
                 <Typography
-                  text="View as a coworker"
+                  text={t("actions.viewAsCoworker")}
                   variant="p"
                   className=" font-semibold cursor-pointer"
                 />
@@ -456,10 +458,10 @@ export default function ProfilePanel() {
                           navigator.clipboard.writeText(
                             displayUser?.displayName || "",
                           );
-                          toast.success("Display name copied to clipboard");
+                          toast.success(t("actions.displayNameCopied"));
                         }}
                       >
-                        <Typography variant="p" text="Copy display name" />
+                        <Typography variant="p" text={t("actions.copyDisplayName")} />
                       </div>
                       <Separator />
                       <div
@@ -468,15 +470,15 @@ export default function ProfilePanel() {
                           openPreferencesDialog();
                         }}
                       >
-                        <Typography variant="p" text="View preferences" />
+                        <Typography variant="p" text={t("actions.viewPreferences")} />
                       </div>
                       <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer flex items-center justify-between">
-                        <Typography variant="p" text="Account settings" />
+                        <Typography variant="p" text={t("actions.accountSettings")} />
                         <MdOpenInNew size={16} />
                       </div>
                       <Separator />
                       <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                        <Typography variant="p" text="View your files" />
+                        <Typography variant="p" text={t("actions.viewYourFiles")} />
                       </div>
                       <div
                         className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
@@ -486,8 +488,8 @@ export default function ProfilePanel() {
                           variant="p"
                           text={
                             displayUser?.isAway
-                              ? "Set yourself as active"
-                              : "Set yourself as away"
+                              ? t("actions.setYourselfActive")
+                              : t("actions.setYourselfAway")
                           }
                         />
                       </div>
@@ -496,10 +498,10 @@ export default function ProfilePanel() {
                         className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                         onClick={() => {
                           navigator.clipboard.writeText(userData?.id || "");
-                          toast.success("Member ID copied to clipboard");
+                          toast.success(t("actions.memberIdCopied"));
                         }}
                       >
-                        <Typography variant="p" text="Copy member ID" />
+                        <Typography variant="p" text={t("actions.copyMemberId")} />
                       </div>
                     </div>
                   </div>
@@ -519,10 +521,10 @@ export default function ProfilePanel() {
                 <Typography
                   text={
                     isDeactivatedMember
-                      ? "Deactivated"
+                      ? t("coworkerActions.deactivated")
                       : isOpeningDm
-                        ? "Opening…"
-                        : "Message"
+                        ? t("coworkerActions.opening")
+                        : t("coworkerActions.message")
                   }
                   variant="p"
                   className="dark:text-[#d1d2d3] font-semibold"
@@ -540,7 +542,7 @@ export default function ProfilePanel() {
                 }}
               >
                 <Typography
-                  text="Start a huddle"
+                  text={t("coworkerActions.startHuddle")}
                   variant="p"
                   className=" font-semibold cursor-pointer"
                 />
@@ -566,24 +568,24 @@ export default function ProfilePanel() {
                           navigator.clipboard.writeText(
                             displayUser?.displayName || "",
                           );
-                          toast.success("Display name copied to clipboard");
+                          toast.success(t("actions.displayNameCopied"));
                         }}
                       >
-                        <Typography variant="p" text="Copy display name" />
+                        <Typography variant="p" text={t("actions.copyDisplayName")} />
                       </div>
                       <Separator />
                       <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                        <Typography variant="p" text="View files" />
+                        <Typography variant="p" text={t("coworkerActions.viewFiles")} />
                       </div>
                       <Separator />
                       <div
                         className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                         onClick={() => {
                           navigator.clipboard.writeText(userData?.id || "");
-                          toast.success("Member ID copied to clipboard");
+                          toast.success(t("actions.memberIdCopied"));
                         }}
                       >
-                        <Typography variant="p" text="Copy member ID" />
+                        <Typography variant="p" text={t("actions.copyMemberId")} />
                       </div>
                     </div>
                   </div>
@@ -598,13 +600,13 @@ export default function ProfilePanel() {
         <div className="flex flex-col p-4 space-y-3">
           <div className="flex items-center justify-between">
             <Typography
-              text="Contact information"
+              text={t("contactInformation")}
               variant="p"
               className="font-semibold"
             />
             {showOwnerView && (
               <Typography
-                text="Edit"
+                text={t("edit")}
                 variant="p"
                 className="text-[#2BA5CE] font-semibold cursor-pointer hover:underline"
                 onClick={() => setIsOpenEditContactInforDialog(true)}
@@ -618,7 +620,7 @@ export default function ProfilePanel() {
             </div>
             <div className="flex flex-col">
               <Typography
-                text="Email"
+                text={t("email")}
                 variant="p"
                 className="dark:text-[#d1d2d3] text-[13px] font-semibold"
               />
@@ -637,7 +639,7 @@ export default function ProfilePanel() {
               </div>
               <div className="flex flex-col">
                 <Typography
-                  text="Phone"
+                  text={t("phone")}
                   variant="p"
                   className="dark:text-[#d1d2d3] text-[13px] font-semibold"
                 />
@@ -660,7 +662,7 @@ export default function ProfilePanel() {
               >
                 <MdAdd size={20} className="text-[#2BA5CE]" />
                 <Typography
-                  text="Add a phone number"
+                  text={t("addPhoneNumber")}
                   variant="p"
                   className="text-[#2BA5CE] font-normal"
                 />
@@ -672,10 +674,10 @@ export default function ProfilePanel() {
 
         <div className="flex flex-col p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <Typography text="About me" variant="p" className="font-semibold" />
+            <Typography text={t("aboutMe")} variant="p" className="font-semibold" />
             {showOwnerView && (
               <Typography
-                text="Edit"
+                text={t("edit")}
                 variant="p"
                 className="text-[#2BA5CE] font-semibold cursor-pointer hover:underline"
                 onClick={() => setIsOpenEditAboutMeDialog(true)}
@@ -697,7 +699,7 @@ export default function ProfilePanel() {
               <button className="flex items-center">
                 <MdAdd size={20} className="text-[#2BA5CE]" />
                 <Typography
-                  text="Add a description"
+                  text={t("addDescription")}
                   variant="p"
                   className="text-[#2BA5CE] font-normal"
                   onClick={() => setIsOpenEditAboutMeDialog(true)}

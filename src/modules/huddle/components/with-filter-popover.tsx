@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type WithFilterPopoverProps = {
   workspaceId: string;
@@ -26,6 +27,7 @@ export function WithFilterPopover({
   selectedMemberIds,
   onSelectionChange,
 }: WithFilterPopoverProps) {
+  const t = useAppTranslation('huddle.filter.withFilter')
   const { user: currentUser } = useAuth();
   const { data: members = [] } = useQuery({
     queryKey: ["workspace-members", workspaceId],
@@ -83,13 +85,13 @@ export function WithFilterPopover({
   }, [members, currentUser?.id, withSearch, displayMember]);
 
   const withButtonLabel = useMemo(() => {
-    if (selectedWithMembers.length === 0) return "With";
-    if (selectedWithMembers.length >= 2) return `${selectedWithMembers.length} teammates`;
+    if (selectedWithMembers.length === 0) return t('with');
+    if (selectedWithMembers.length >= 2) return t('teammates', { count: selectedWithMembers.length });
 
     const [firstMember] = selectedWithMembers;
     const display = displayMember(firstMember);
     return display.displayName || display.name || firstMember.email || firstMember.id;
-  }, [selectedWithMembers, displayMember]);
+  }, [selectedWithMembers, displayMember, t]);
 
   const selectedWithMember = selectedWithMembers[0];
   const selectedWithMemberDisplay = selectedWithMember ? displayMember(selectedWithMember) : null;
@@ -104,7 +106,7 @@ export function WithFilterPopover({
             selectedWithMembers.length > 0 && ACTIVE_ITEM_STYLE,
           )}
         >
-          <Typography variant="p" className="text-[13px]" text="With" />
+          <Typography variant="p" className="text-[13px]" text={t('with')} />
           {selectedWithMembers.length === 1 && selectedWithMemberDisplay ? (
             <span className="flex max-w-[260px] items-center gap-2 rounded-md text-sm font-medium">
               <Avatar className="size-5">
@@ -146,7 +148,7 @@ export function WithFilterPopover({
           <Input
             value={withSearch}
             onChange={(event) => setWithSearch(event.target.value)}
-            placeholder="Search people..."
+            placeholder={t('searchPeople')}
             className="h-8 border-[#797c814d] text-sm"
           />
         </div>
@@ -181,12 +183,12 @@ export function WithFilterPopover({
                 className="cursor-pointer px-3 py-2 text-sm text-muted-foreground hover:underline"
                 onClick={clearAll}
               >
-                Clear all
+                {t('clearAll')}
               </span>
             </div>
           ) : null}
 
-          <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
+          <div className="px-3 py-2 text-sm text-neutral-400">{t('suggestions')}</div>
           {filteredWithMembers
             .filter((member: WorkspaceMember) => !selectedMemberIds.includes(member.id))
             .map((member: WorkspaceMember) => {

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Typography from "@/components/ui/typography";
 import { formatCustomEmojiShortcode, normalizeCustomEmojiName, validateCustomEmojiName } from "@/lib/custom-emojis";
+import { useDialogs } from "@/hooks/use-translation";
 
 export function AddCustomEmojiDialog({
   open,
@@ -24,6 +25,7 @@ export function AddCustomEmojiDialog({
   uploadFileBinary: (file: File) => Promise<{ url: string }>;
   onSubmit: (payload: { name: string; imageUrl: string }) => Promise<void>;
 }) {
+  const t = useDialogs();
   const [name, setName] = useState("");
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -55,10 +57,10 @@ export function AddCustomEmojiDialog({
     const validation = validateCustomEmojiName(name);
     if (validation) return validation;
     if (existingNames.has(normalizeCustomEmojiName(name))) {
-      return "This emoji name already exists in the workspace";
+      return t('addCustomEmoji.emojiNameExists');
     }
     return null;
-  }, [existingNames, name]);
+  }, [existingNames, name, t]);
 
   const canSave = Boolean(name && file && !nameError && canManageEmoji && !isSubmitting);
 
@@ -78,7 +80,7 @@ export function AddCustomEmojiDialog({
 
   const handleSubmit = async () => {
     if (!file) {
-      setError("Please upload an image");
+      setError(t('addCustomEmoji.chooseImageFile'));
       return;
     }
     if (nameError) {
@@ -94,7 +96,7 @@ export function AddCustomEmojiDialog({
       });
       onOpenChange(false);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to add emoji");
+      setError(submitError instanceof Error ? submitError.message : t('addCustomEmoji.failedToAdd'));
     } finally {
       setIsSubmitting(false);
     }
@@ -103,18 +105,18 @@ export function AddCustomEmojiDialog({
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="640px">
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Add custom emoji</CustomDialogTitle>
+        <CustomDialogTitle>{t('addCustomEmoji.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody className="space-y-6">
         <Typography
           className="text-[15px] leading-6 text-[#1d1c1d] dark:text-[#d1d2d3]"
-          text="Your custom emoji will be available to everyone in your workspace."
+          text={t('addCustomEmoji.description')}
         />
 
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[15px] font-semibold text-[#1d1c1d] dark:text-[#f2f2f2]">
             <span>1.</span>
-            <span>Upload an image</span>
+            <span>{t('addCustomEmoji.step1Upload')}</span>
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex h-20 w-20 items-center justify-center rounded-md border border-[#ece8ec] bg-[#fafafa] dark:border-[#2c2e33] dark:bg-[#141619]">
@@ -125,12 +127,12 @@ export function AddCustomEmojiDialog({
               )}
             </div>
             <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-[#797c814d] px-4 py-2 text-sm font-semibold text-[#1d1c1d] transition-colors hover:bg-[#f2f0f1] dark:text-[#f2f2f2] dark:hover:bg-[#222529]">
-              Upload Image
+              {t('addCustomEmoji.uploadButton')}
               <input type="file" accept="image/*" className="hidden" onChange={(event) => {
                 const selected = event.target.files?.[0] ?? null;
                 if (!selected) return;
                 if (!selected.type.startsWith("image/")) {
-                  setError("Please choose an image file");
+                  setError(t('addCustomEmoji.chooseImageFile'));
                   return;
                 }
                 setError(null);
@@ -143,7 +145,7 @@ export function AddCustomEmojiDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[15px] font-semibold text-[#1d1c1d] dark:text-[#f2f2f2]">
             <span>2.</span>
-            <span>Give it a name</span>
+            <span>{t('addCustomEmoji.step2Name')}</span>
           </div>
           <Input
             ref={nameInputRef}
@@ -166,10 +168,10 @@ export function AddCustomEmojiDialog({
       </CustomDialogBody>
       <CustomDialogFooter className="justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="button" variant="success" onClick={() => void handleSubmit()} disabled={!canSave}>
-          {isSubmitting ? "Saving..." : "Save"}
+          {isSubmitting ? t('addCustomEmoji.saving') : t('addCustomEmoji.save')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

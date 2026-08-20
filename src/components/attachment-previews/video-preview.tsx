@@ -17,6 +17,7 @@ import {
 import { MdPictureInPictureAlt } from "react-icons/md";
 
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 // Helper
 function fmtTime(sec: number) {
@@ -66,6 +67,7 @@ export default function VideoPreview({
   fromPublicChannel,
 }: VideoPreviewProps) {
   const { trackView } = useTrackAttachmentView();
+  const t = useAppTranslation("attachments");
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const portalFsAttemptedRef = useRef(false);
@@ -394,7 +396,7 @@ export default function VideoPreview({
         )}
       >
         <div className="flex h-full min-h-[120px] w-full items-center justify-center px-3 text-center text-[12px] text-white/55">
-          Đang phát toàn màn hình…
+          {t("status.playingFullscreen")}
         </div>
       </div>
     );

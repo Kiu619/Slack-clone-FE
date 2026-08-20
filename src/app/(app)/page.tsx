@@ -176,10 +176,10 @@ export default function Home() {
 
           {/* Right: Illustration */}
           <div className="relative hidden lg:flex lg:items-center lg:justify-center">
-            <div className="relative h-[400px] w-full">
-              <div className="absolute right-0 top-0 h-40 w-40 rounded-lg bg-gradient-to-br from-purple-400 to-pink-400 shadow-lg" />
-              <div className="absolute bottom-0 right-20 h-32 w-32 rounded-lg bg-gradient-to-br from-green-400 to-blue-400 shadow-lg" />
-              <div className="absolute left-0 top-20 h-48 w-48 rounded-lg bg-gradient-to-br from-orange-400 to-red-400 shadow-lg" />
+            <div className="relative h-100 w-full">
+              <div className="absolute right-0 top-0 h-40 w-40 rounded-lg bg-linear-to-br from-purple-400 to-pink-400 shadow-lg" />
+              <div className="absolute bottom-0 right-20 h-32 w-32 rounded-lg bg-linear-to-br from-green-400 to-blue-400 shadow-lg" />
+              <div className="absolute left-0 top-20 h-48 w-48 rounded-lg bg-linear-to-br from-orange-400 to-red-400 shadow-lg" />
             </div>
           </div>
         </div>

@@ -59,6 +59,7 @@ import { useHuddleReactions } from "@/modules/huddle-preview/hooks/use-huddle-re
 import { useMessageStore } from "@/stores/useMessageStore"
 import { useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore"
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore"
+import { useHuddle } from "@/hooks/use-translation"
 import type { User } from "@/lib/types"
 
 export type HuddlePreviewWindowProps = {
@@ -84,6 +85,7 @@ export function useHuddlePreviewWindow({
   label,
   mode = 'start',
 }: HuddlePreviewWindowProps) {
+  const t = useHuddle()
   const target = useMemo<HuddleTarget>(
     () => ({ workspaceId, entityType, entityId }),
     [workspaceId, entityType, entityId],
@@ -186,15 +188,15 @@ export function useHuddlePreviewWindow({
     workspaceProfile?.name?.trim() ||
     accountUser?.name?.trim() ||
     accountUser?.email?.trim() ||
-    "You"
+    t("you")
 
   const launchMode = mode === 'join' ? 'join' : 'start'
   const headline = useMemo(
     () =>
       launchMode === "join"
         ? entityType === "channel"
-          ? `Join huddle in # ${label}`
-          : `Join huddle with ${label}`
+          ? t("joinHuddleIn", { name: label })
+          : t("joinHuddleWith", { name: label })
         : buildHeadline(entityType, label),
     [entityType, label, launchMode],
   )
@@ -204,10 +206,10 @@ export function useHuddlePreviewWindow({
   )
   const startButtonLabel =
     phase === 'connecting'
-      ? 'Connecting...'
+      ? t("connecting")
       : launchMode === 'join'
-        ? 'Join Huddle'
-        : 'Start Huddle'
+        ? t("joinHuddle")
+        : t("startHuddle")
 
   const stopPreviewStream = useCallback((stream: MediaStream | null) => {
     stream?.getTracks().forEach((track) => track.stop())
@@ -285,14 +287,14 @@ export function useHuddlePreviewWindow({
       const domError = error as DOMException | Error
       if (domError instanceof DOMException && domError.name === "NotAllowedError") {
         setPreviewStatus("blocked")
-        setPreviewError("Camera and microphone permission is required to preview huddle.")
+        setPreviewError(t("cameraAndMicPermission"))
       } else {
         setPreviewStatus("error")
         setPreviewError(
-          domError instanceof Error ? domError.message : "Could not start camera preview.",
+          domError instanceof Error ? domError.message : t("cannotOpenCameraPreview"),
         )
       }
-      toast.error("Cannot open camera preview")
+      toast.error(t("cannotOpenCameraPreview"))
     }
   }, [
     isCameraEnabled,
@@ -389,7 +391,7 @@ export function useHuddlePreviewWindow({
 
   useEffect(() => {
     document.title =
-      phase === "live" ? `Huddle: ${label} - Slack` : `Slack - Huddle Preview - ${label}`
+      phase === "live" ? t("huddleTitle", { name: label }) : t("huddlePreviewTitle", { name: label })
   }, [label, phase])
 
   useEffect(() => {
@@ -460,7 +462,7 @@ export function useHuddlePreviewWindow({
         if (leaveRequestedRef.current) return
         leaveRequestedRef.current = false
         roomRef.current = null
-        setLiveError("The huddle connection was closed.")
+        setLiveError(t("huddleConnectionClosed"))
         setPhase("preview")
         setLiveSession(null)
         setIsCurrentUserRaisedHand(false)
@@ -587,14 +589,14 @@ export function useHuddlePreviewWindow({
       const joinResponse = await joinHuddleApi(target)
       await finishLiveJoin(joinResponse)
       await syncHuddleFeedMessage(joinResponse.session.feedMessageId ? joinResponse.session : startResponse)
-      toast.success(launchMode === 'join' ? "Joined huddle" : "Huddle started")
+      toast.success(launchMode === 'join' ? t("joinedHuddle") : t("huddleStarted"))
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : launchMode === "join"
-            ? "Could not join huddle."
-            : "Could not start huddle."
+            ? t("couldNotJoinHuddle")
+            : t("couldNotStartHuddle")
       setLiveError(message)
       setPhase("preview")
       try {
@@ -735,9 +737,9 @@ export function useHuddlePreviewWindow({
       try {
         await updateHuddleTopicApi(workspaceId, liveSession.id, topic || null);
         setIsTopicDialogOpen(false);
-        toast.success(topic ? "Topic updated" : "Topic saved");
+        toast.success(topic ? t("topicUpdated") : t("topicSaved"));
       } catch (error) {
-        toast.error("Failed to update topic");
+        toast.error(t("failedToUpdateTopic"));
         console.error("Failed to update topic:", error);
       } finally {
         setIsTopicSaving(false);
@@ -814,7 +816,7 @@ export function useHuddlePreviewWindow({
     } catch (error) {
       setIsMicEnabled(!next)
       toast.error(
-        error instanceof Error ? error.message : "Could not toggle microphone.",
+        error instanceof Error ? error.message : t("couldNotToggleMic"),
       )
     }
   }, [isMicEnabled, phase, selectedMicId, updateRoomVersion])
@@ -846,7 +848,7 @@ export function useHuddlePreviewWindow({
       updateRoomVersion()
     } catch (error) {
       setIsCameraEnabled(!next)
-      toast.error(error instanceof Error ? error.message : "Could not toggle camera.")
+      toast.error(error instanceof Error ? error.message : t("couldNotToggleCamera"))
     }
   }, [isCameraEnabled, phase, selectedCameraId, updateRoomVersion])
 
@@ -865,7 +867,7 @@ export function useHuddlePreviewWindow({
     } catch (error) {
       setIsScreenSharing(!next)
       toast.error(
-        error instanceof Error ? error.message : "Could not toggle screen share.",
+        error instanceof Error ? error.message : t("couldNotToggleScreenShare"),
       )
     }
   }, [isScreenSharing, phase, updateRoomVersion])
@@ -889,7 +891,7 @@ export function useHuddlePreviewWindow({
     } catch (error) {
       setIsCurrentUserRaisedHand(!next)
       toast.error(
-        error instanceof Error ? error.message : "Could not toggle raise hand.",
+        error instanceof Error ? error.message : t("couldNotToggleRaiseHand"),
       )
     }
   }, [isCurrentUserRaisedHand, phase, updateRoomVersion])
@@ -971,7 +973,7 @@ export function useHuddlePreviewWindow({
             value: device.deviceId,
             label: formatDeviceLabel(device, `Speaker ${index + 1}`),
           }))
-        : [{ value: "", label: "No speakers found" }],
+        : [{ value: "", label: t("noSpeakerFound") }],
     [deviceState.audioOutputs],
   )
 
@@ -982,7 +984,7 @@ export function useHuddlePreviewWindow({
             value: device.deviceId,
             label: formatDeviceLabel(device, `Microphone ${index + 1}`),
           }))
-        : [{ value: "", label: "No microphones found" }],
+        : [{ value: "", label: t("noMicrophoneFound") }],
     [deviceState.audioInputs],
   )
 
@@ -993,7 +995,7 @@ export function useHuddlePreviewWindow({
             value: device.deviceId,
             label: formatDeviceLabel(device, `Camera ${index + 1}`),
           }))
-        : [{ value: "", label: "No cameras found" }],
+        : [{ value: "", label: t("noCameraFound") }],
     [deviceState.videoInputs],
   )
 

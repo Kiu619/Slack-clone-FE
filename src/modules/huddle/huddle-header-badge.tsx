@@ -30,6 +30,7 @@ import {
   type WorkspaceMemberDisplay,
 } from "@/stores/useWorkspaceMemberStore"
 import { useShallow } from "zustand/react/shallow"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 type HuddleHeaderBadgeProps = {
   workspaceId: string
@@ -129,6 +130,7 @@ export function HuddleHeaderBadge({
   const { user: currentUser } = useAuth()
   const [isLeaving, setIsLeaving] = useState(false)
   const { socket } = useSocket()
+  const t = useAppTranslation('huddle.header')
   const overlayMap = useWorkspaceMemberStore(
     useShallow((state) => state.byWorkspace[workspaceId] ?? {}),
   )
@@ -173,10 +175,10 @@ export function HuddleHeaderBadge({
   const showJoinAction = hasActiveHuddle && !joinedByCurrentUser
   const showLeaveAction = hasActiveHuddle && joinedByCurrentUser
   const tooltipText = showLeaveAction
-    ? "Leave huddle"
+    ? t('leaveHuddle')
     : showJoinAction
-      ? "Join huddle"
-      : "Start huddle"
+      ? t('joinHuddle')
+      : t('startHuddle')
 
   const badgeClassName = cn(
     "flex items-center gap-1 rounded-md border px-2 py-1 transition-colors",

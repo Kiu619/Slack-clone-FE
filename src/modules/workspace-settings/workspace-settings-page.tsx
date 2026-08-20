@@ -11,6 +11,7 @@ import { useWorkspace } from "@/hooks/use-workspace";
 import { authKeys } from "@/lib/query-keys";
 import { mergeAccountWithWorkspaceProfile } from "@/lib/merge-user";
 import Typography from "@/components/ui/typography";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 import { AccountSection } from "./account-section";
 import { PeopleInvitationsSection } from "./invitations-section";
@@ -23,6 +24,7 @@ import type { MainSection, PeopleTab, SettingsTab } from "./types";
 import { hasWorkspacePermission, type WorkspaceRoleKey } from "@/lib/workspace-permissions";
 
 export default function WorkspaceSettingsPage() {
+  const t = useAppTranslation("workspaceSettings");
   const params = useParams<{ workspaceId: string; tab?: string }>();
   const workspaceId =
     typeof params.workspaceId === "string" ? params.workspaceId : "";
@@ -109,17 +111,17 @@ export default function WorkspaceSettingsPage() {
           variant="h3"
           className="text-[28px] font-bold tracking-[-0.03em]  md:text-[32px]"
         >
-          Only members with permission can view this page
+          {t("deniedAccess.onlyMembersWithPermissionCanViewThisPage")}
         </Typography>
       </div>
 
       <div className="rounded-[4px] border border-[#d9d7da] bg-white px-7 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
         <Typography
-          text="Apologies, but you can't view this page."
+          text={t("deniedAccess.apologiesCannotViewThisPage")}
           className="text-[18px] font-semibold "
         />
         <Typography
-          text="You may have ended up here if you have access to this page on another Slack workspace."
+          text={t("deniedAccess.apologiesDescription")}
           className="mt-6 text-[16px] leading-7 "
         />
       </div>

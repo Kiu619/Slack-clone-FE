@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import AddChannelMemberDialog from "@/components/dialogs/add-channel-member-dialog";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { UserPresenceIndicator } from "@/components/user-presence-indicator";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -62,6 +63,7 @@ function MemberRow({
   removePending,
   onAdd,
   onRemove,
+  t,
 }: {
   m: ChannelMember;
   workspaceId: string;
@@ -74,6 +76,7 @@ function MemberRow({
   removePending: boolean;
   onAdd: () => void;
   onRemove: () => void;
+  t: ReturnType<typeof useAppTranslation>;
 }) {
   const overlay = useWorkspaceMemberOverlay(workspaceId, m.id);
   const row = useMemo(() => mergeChannelMemberWithOverlay(m, overlay), [m, overlay]);
@@ -102,7 +105,7 @@ function MemberRow({
           <div className="flex min-w-0 items-center gap-1">
             <div className="min-w-0 flex-1">
               <Typography
-                text={isYou ? `${primary} (you)` : primary}
+                text={isYou ? `${primary} ${t('you')}` : primary}
                 className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
               />
             </div>
@@ -136,7 +139,7 @@ function MemberRow({
             onAdd();
           }}
         >
-          Add to channel
+          {t('addToChannel')}
         </Button>
       ) : null}
 
@@ -150,7 +153,7 @@ function MemberRow({
             onRemove();
           }}
         >
-          Remove
+          {t('remove')}
         </button>
       ) : null}
     </li>
@@ -166,6 +169,7 @@ export default function MembersTab({
   onOpenChange: (open: boolean) => void;
   isMember: boolean;
 }) {
+  const t = useAppTranslation('channel.members')
   const [openAddMemberDialog, setOpenAddMemberDialog] = useState(false);
   const [addMemberDialogNonce, setAddMemberDialogNonce] = useState(0);
   const workspaceId = currentChannelData.workspaceId;
@@ -227,13 +231,13 @@ export default function MembersTab({
       addChannelMemberApi(workspaceId, channelId, userId),
     onSuccess: () => {
       invalidateMemberQueries();
-      toast.success("Added to channel");
+      toast.success(t('addedToChannel'));
     },
     onError: (e: unknown) => {
       const msg = isAxiosError(e)
         ? (e.response?.data as { message?: string })?.message ?? e.message
-        : "Could not add member";
-      toast.error(typeof msg === "string" ? msg : "Could not add member");
+        : t('couldNotAddMember');
+      toast.error(typeof msg === "string" ? msg : t('couldNotAddMember'));
     },
   });
 
@@ -242,13 +246,13 @@ export default function MembersTab({
       removeChannelMemberApi(workspaceId, channelId, memberUserId),
     onSuccess: () => {
       invalidateMemberQueries();
-      toast.success("Removed from channel");
+      toast.success(t('removedFromChannel'));
     },
     onError: (e: unknown) => {
       const msg = isAxiosError(e)
         ? (e.response?.data as { message?: string })?.message ?? e.message
-        : "Could not remove member";
-      toast.error(typeof msg === "string" ? msg : "Could not remove member");
+        : t('couldNotRemoveMember');
+      toast.error(typeof msg === "string" ? msg : t('couldNotRemoveMember'));
     },
   });
 
@@ -283,7 +287,7 @@ export default function MembersTab({
     return (
       <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
         <Typography
-          text="Could not load members"
+          text={t('couldNotLoadMembers')}
           className="text-[14px] font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]"
         />
         <button
@@ -291,7 +295,7 @@ export default function MembersTab({
           onClick={() => void refetch()}
           className="text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
-          Try again
+          {t('tryAgain')}
         </button>
       </div>
     );
@@ -301,13 +305,13 @@ export default function MembersTab({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="relative shrink-0">
         <FiSearch
-          className="pointer-events-none absolute left-2.5 top-1/2 size-[18px] -translate-y-1/2 text-[#616061] sm:left-3 dark:text-[#ababad]"
+          className="pointer-events-none absolute left-2.5 top-1/2 size-4.5 -translate-y-1/2 text-[#616061] sm:left-3 dark:text-[#ababad]"
           aria-hidden
         />
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Find members"
+          placeholder={t('findMembers')}
           autoComplete="off"
           className={cn(
             "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
@@ -320,7 +324,7 @@ export default function MembersTab({
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
             onClick={() => setInputValue("")}
           >
-            Clear
+            {t('clear')}
           </button>
         ) : null}
       </div>
@@ -335,7 +339,7 @@ export default function MembersTab({
             <LuUserPlus className="size-5" aria-hidden />
           </span>
           <Typography
-            text="Add people"
+            text={t('addPeople')}
             className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
           />
         </button>
@@ -360,15 +364,15 @@ export default function MembersTab({
         ) : showEmpty ? (
           <p className="py-6 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
             {searchKey
-              ? "No members match your search."
-              : "No members in this channel."}
+              ? t('noMembersMatchSearch')
+              : t('noMembersInChannel')}
           </p>
         ) : (
           <div className="flex flex-col gap-6">
             {inChannel.length > 0 ? (
               <section>
                 <Typography
-                  text="In this channel"
+                  text={t('inThisChannel')}
                   className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
                 />
                 <ul className="flex flex-col gap-1">
@@ -390,6 +394,7 @@ export default function MembersTab({
                         removePending={removeMutation.isPending}
                         onAdd={() => addMutation.mutate(m.id)}
                         onRemove={() => removeMutation.mutate(m.id)}
+                        t={t}
                       />
                     );
                   })}
@@ -404,7 +409,7 @@ export default function MembersTab({
             {showNotInSection ? (
               <section>
                 <Typography
-                  text="Not in this channel"
+                  text={t('notInThisChannel')}
                   className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
                 />
                 <ul className="flex flex-col gap-1">
@@ -422,6 +427,7 @@ export default function MembersTab({
                       removePending={removeMutation.isPending}
                       onAdd={() => addMutation.mutate(m.id)}
                       onRemove={() => removeMutation.mutate(m.id)}
+                      t={t}
                     />
                   ))}
                 </ul>

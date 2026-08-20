@@ -6,6 +6,7 @@ import Typography from '@/components/ui/typography'
 import { toast } from 'sonner'
 import { useCreateWorkspaceValues } from '@/stores/useCreateWorkspaceStore'
 import { useCreateWorkspace } from '@/hooks/use-workspace'
+import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
 import slugify from 'slugify'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
@@ -15,6 +16,7 @@ const Step4 = () => {
   const { name, imageUrl, invite_code, emails, setCurrStep, resetWorkspace } =
     useCreateWorkspaceValues()
   const { mutateAsync: createWorkspace, isPending } = useCreateWorkspace()
+  const timeZone = useLanguageRegionStore((s) => s.timeZone)
 
   const slug = slugify(name, { lower: true, strict: true })
 
@@ -26,6 +28,7 @@ const Step4 = () => {
         inviteCode: invite_code,
         imageUrl: imageUrl || '',
         memberEmails: emails,
+        timeZone,
       })
 
       toast.success(`Workspace "${workspace.name}" created successfully!`)

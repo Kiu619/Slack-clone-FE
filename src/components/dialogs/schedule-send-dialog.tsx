@@ -22,16 +22,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { authKeys } from "@/lib/query-keys";
 import { useParams } from "next/navigation";
 import { TIMEZONE_OPTIONS } from "@/lib/timezone";
+import { useDialogs } from "@/hooks/use-translation";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 
-/** Logic CŨ: chỉ cần slot thời gian > "bây giờ" (không bắt buộc buffer 1 phút). */
 const MIN_LEAD_MS_LEGACY = 0;
-
-/**
- * Logic MỚI (đã comment — trùng rule backend Nest: scheduledAt phải cách hiện tại ≥ 1 phút):
- * const MIN_LEAD_MS_NEW = 60_000;
- * - superRefine: at.getTime() < Date.now() + MIN_LEAD_MS_NEW
- * - filteredTimes: slotAt.getTime() > now.getTime() + MIN_LEAD_MS_NEW
- */
 
 const TIMES = Array.from({ length: 48 }).map((_, i) => {
   const hour = Math.floor(i / 2);
@@ -91,7 +85,6 @@ const parseSmartTime = (input: string): string | null => {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 };
 
-/** Chuẩn hóa giá trị `time` form → `HH:mm` (24h). */
 export function parseFormTimeToHHmm(val: string): string | null {
   const v = val.trim();
   if (!v) return null;
@@ -123,33 +116,24 @@ const formSchema = z
     time: z.string(),
   })
   .superRefine((data, ctx) => {
+    const t = useDialogs();
     const hhmm = parseFormTimeToHHmm(data.time);
     if (!hhmm) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Invalid time",
+        message: t('scheduleSend.invalidTime'),
         path: ["time"],
       });
       return;
     }
     const at = combineDateAndHHmm(data.date, hhmm);
-    /* --- Logic check thời gian CŨ (đang dùng) --- */
     if (at.getTime() <= Date.now() + MIN_LEAD_MS_LEGACY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Thời gian phải ở tương lai",
+        message: t('scheduleSend.timeMustBeFuture'),
         path: ["time"],
       });
     }
-    /* --- Logic check thời gian MỚI (comment — khớp backend ≥ 1 phút) ---
-    if (at.getTime() < Date.now() + MIN_LEAD_MS_NEW) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Thời gian phải cách hiện tại ít nhất 1 phút",
-        path: ["time"],
-      });
-    }
-    */
   });
 
 export type ScheduleSendDialogDefaultValues = {
@@ -170,6 +154,8 @@ export default function ScheduleSendDialog({
   defaultValues?: ScheduleSendDialogDefaultValues;
   isSubmitting?: boolean;
 }) {
+  const t = useDialogs();
+  const language = useLanguageRegionStore((s) => s.language);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -214,11 +200,7 @@ export default function ScheduleSendDialog({
 
     const now = new Date();
     const slotAt = combineDateAndHHmm(selectedDate, t.value);
-    /* Logic CŨ: slot chỉ cần sau "bây giờ" */
     return slotAt.getTime() > now.getTime() + MIN_LEAD_MS_LEGACY;
-    /* Logic MỚI (comment — lọc slot cách hiện tại ≥ 1 phút, khớp backend):
-    return slotAt.getTime() > now.getTime() + MIN_LEAD_MS_NEW;
-    */
   });
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
@@ -242,9 +224,9 @@ export default function ScheduleSendDialog({
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CustomDialogHeader onOpenChange={onOpenChange}>
             <div className="flex flex-col gap-2">
-              <CustomDialogTitle>Schedule message</CustomDialogTitle>
+              <CustomDialogTitle>{t('scheduleSend.title')}</CustomDialogTitle>
               <Typography
-                text={`Time zone: ${displayTimezone}`}
+                text={t('scheduleSend.timeZone', { timezone: displayTimezone })}
                 variant="p"
                 className="text-xs font-medium"
               />
@@ -253,7 +235,7 @@ export default function ScheduleSendDialog({
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] space-y-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label>Date</Label>
+                <Label>{t('scheduleSend.date')}</Label>
                 <FormField
                   control={form.control}
                   name="date"
@@ -270,7 +252,7 @@ export default function ScheduleSendDialog({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Time</Label>
+                <Label>{t('scheduleSend.time')}</Label>
                 <FormField
                   control={form.control}
                   name="time"
@@ -322,14 +304,14 @@ export default function ScheduleSendDialog({
                 disabled={busy}
                 onClick={() => onOpenChange(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid || busy}
                 variant="success"
               >
-                Schedule message
+                {t('scheduleSend.title')}
               </Button>
             </div>
           </CustomDialogFooter>

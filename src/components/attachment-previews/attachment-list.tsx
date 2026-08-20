@@ -12,6 +12,7 @@ import { getAttachmentPreviewKind, isImageAttachment } from "./file-utils";
 import Typography from "../ui/typography";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { useAttachmentExpanded } from "@/hooks/use-attachment-expanded";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false });
 
@@ -37,6 +38,7 @@ export default function AttachmentList({
   attachments,
   onDownload,
 }: AttachmentListProps) {
+  const t = useAppTranslation("attachments")
   const [isExpanded, handleToggle] = useAttachmentExpanded(message.id);
 
   if (!attachments.length) return null;
@@ -55,7 +57,7 @@ export default function AttachmentList({
           <Typography
             variant="p"
             className="text-[10px]"
-            text={`${attachments.length} files`}
+            text={t("file.fileCount", { count: attachments.length })}
           />
           {isExpanded ? (
             <FaCaretDown className="w-3 h-3 shrink-0 text-[#797c81]" />
@@ -99,7 +101,7 @@ export default function AttachmentList({
           <Typography
             variant="p"
             className="text-[10px]"
-            text={`${attachments.length} files`}
+            text={t("file.fileCount", { count: attachments.length })}
           />
         ) : (
           <Typography

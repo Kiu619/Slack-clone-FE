@@ -13,7 +13,7 @@ import { previewPlainFromDraftHtml } from '@/lib/message-drafts'
 import type { ScheduledMessageRow } from '@/lib/scheduled-messages-api'
 import type { Channel, DirectMessageConversation } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { LuPencil, LuSend } from 'react-icons/lu'
+import { LuSend } from 'react-icons/lu'
 import { MdMoreVert, MdOutlineScheduleSend } from 'react-icons/md'
 import { formatDraftsScheduledTime } from './drafts-scheduled-format'
 import { resolveScheduledRowTitle } from './drafts-scheduled-resolve'
@@ -35,6 +35,7 @@ type ScheduledTabContentProps = {
   onCancelToDraft: (row: ScheduledMessageRow) => void | Promise<void>
   onDeleteScheduled: (row: ScheduledMessageRow) => void
   onNewMessage: () => void
+  t: (key: string) => string
 }
 
 export const ScheduledTabContent = ({
@@ -49,6 +50,7 @@ export const ScheduledTabContent = ({
   onCancelToDraft,
   onDeleteScheduled,
   onNewMessage,
+  t,
 }: ScheduledTabContentProps) => {
   const ctx = { channels, conversations, userId }
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -57,18 +59,18 @@ export const ScheduledTabContent = ({
     return (
       <div className="flex min-h-full max-w-100 flex-col items-center justify-center gap-2 mx-auto text-center">
         <Typography
-          text="Write now, send later"
+          text={t('scheduledEmptyState.title')}
           variant="h5"
           className="font-semibold"
         />
         <Typography
-          text="Schedule messages to be sent at a later time, or another day altogether. They’ll wait here until they’re delivered."
+          text={t('scheduledEmptyState.description')}
           variant="p"
           className="text-[14px] font-medium"
         />
         <Button onClick={onNewMessage} variant="outline">
           <Typography
-            text="New message "
+            text={t('scheduledEmptyState.newMessage')}
             variant="p"
             className="text-[13px] font-semibold"
           />
@@ -91,7 +93,7 @@ export const ScheduledTabContent = ({
                   {resolveScheduledRowTitle(row, ctx)}
                 </span>
                 <span className="shrink-0 text-xs text-[#616061] dark:text-[#ababad]">
-                  Send at{' '}
+                  {t('scheduledSendAt')}{' '}
                   {formatDraftsScheduledTime(
                     new Date(row.scheduledAt).getTime(),
                   )}
@@ -113,23 +115,6 @@ export const ScheduledTabContent = ({
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            {/* <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={TOOLBAR_ITEM_STYLE}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEditScheduled(row)
-                  }}
-                >
-                  <LuPencil size={18} className={ICON_TRANSITION} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p className="text-xs">Edit message</p>
-              </TooltipContent>
-            </Tooltip> */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -147,7 +132,7 @@ export const ScheduledTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Reschedule message</p>
+                <p className="text-xs">{t('tooltips.rescheduleMessage')}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -164,7 +149,7 @@ export const ScheduledTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Send message</p>
+                <p className="text-xs">{t('tooltips.sendMessage')}</p>
               </TooltipContent>
             </Tooltip>
 
@@ -185,7 +170,7 @@ export const ScheduledTabContent = ({
                   </PopoverTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p className="text-xs">More actions</p>
+                  <p className="text-xs">{t('tooltips.moreActions')}</p>
                 </TooltipContent>
               </Tooltip>
               <PopoverContent
@@ -208,7 +193,7 @@ export const ScheduledTabContent = ({
                     >
                       <Typography
                         variant="p"
-                        text="Cancel schedule and save to draft"
+                        text={t('actions.cancelScheduleAndSaveToDraft')}
                       />
                     </Button>
                     <Button
@@ -221,7 +206,7 @@ export const ScheduledTabContent = ({
                         onDeleteScheduled(row)
                       }}
                     >
-                      Delete message
+                      {t('actions.deleteMessage')}
                     </Button>
                   </div>
                 </div>

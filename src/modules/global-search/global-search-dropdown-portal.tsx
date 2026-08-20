@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { HAS_FILTER_OPTIONS, IS_FILTER_OPTIONS, TYPE_FILTER_OPTIONS } from "./constants";
 import type { HasFilterType, IsFilterType, TypeFilterType } from "./types";
 import { getConversationSummary, getMemberLabel } from "./utils";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type Props = {
   workspaceId: string;
@@ -40,6 +41,8 @@ type Props = {
 };
 
 export function GlobalSearchDropdownPortal(props: Props) {
+  const t = useAppTranslation("globalSearch");
+
   const {
     workspaceId,
     dropdownRect,
@@ -132,7 +135,7 @@ export function GlobalSearchDropdownPortal(props: Props) {
 
         {inPickerOpen && (filteredInChannels.length > 0 || filteredInConversations.length > 0) ? (
           <div>
-            <div className="px-3 py-2 text-xs uppercase tracking-wide text-neutral-400">Suggestions</div>
+            <div className="px-3 py-2 text-xs uppercase tracking-wide text-neutral-400">{t("dropdown.suggestions")}</div>
             {filteredInChannels.map((channel) => (
               <MessageTargetSearchRow
                 key={channel.id}
@@ -173,7 +176,7 @@ export function GlobalSearchDropdownPortal(props: Props) {
                   onClick={() => onSelectHasFilter(option.id)}
                 >
                   <Icon size={16} />
-                  <span>{option.label}</span>
+                  <span>{t(`hasFilters.${option.labelKey}`)}</span>
                 </Button>
               );
             })}
@@ -192,7 +195,7 @@ export function GlobalSearchDropdownPortal(props: Props) {
                   onClick={() => onSelectIsFilter(option.id)}
                 >
                   <Icon size={16} />
-                  <span>{option.label}</span>
+                  <span>{t(`isFilters.${option.labelKey}`)}</span>
                 </Button>
               );
             })}
@@ -204,14 +207,14 @@ export function GlobalSearchDropdownPortal(props: Props) {
             {TYPE_FILTER_OPTIONS.map((option) => {
               const Icon = option.icon;
               return (
-                <Button 
+                <Button
                   variant="submenu"
                   key={option.id}
                   type="button"
                   onClick={() => onSelectTypeFilter(option.id)}
                 >
                   <Icon size={16} />
-                  <span>{option.label}</span>
+                  <span>{t(`typeFilters.${option.labelKey}`)}</span>
                 </Button>
               );
             })}
@@ -219,13 +222,13 @@ export function GlobalSearchDropdownPortal(props: Props) {
         ) : null}
 
         {fromPickerOpen && filteredMembers.length === 0 ? (
-          <div className="px-4 py-5 text-center text-sm text-neutral-500">No people found</div>
+          <div className="px-4 py-5 text-center text-sm text-neutral-500">{t("dropdown.noPeopleFound")}</div>
         ) : null}
         {withPickerOpen && filteredWithMembers.length === 0 ? (
-          <div className="px-4 py-5 text-center text-sm text-neutral-500">No people found</div>
+          <div className="px-4 py-5 text-center text-sm text-neutral-500">{t("dropdown.noPeopleFound")}</div>
         ) : null}
         {inPickerOpen && filteredInChannels.length === 0 && filteredInConversations.length === 0 ? (
-          <div className="px-4 py-5 text-center text-sm text-neutral-500">No results found</div>
+          <div className="px-4 py-5 text-center text-sm text-neutral-500">{t("dropdown.noResultsFound")}</div>
         ) : null}
       </div>
     </div>,

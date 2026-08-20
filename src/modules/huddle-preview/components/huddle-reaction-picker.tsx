@@ -17,6 +17,7 @@ import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { LuSmile } from "react-icons/lu";
+import { useHuddle } from "@/hooks/use-translation";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -27,6 +28,7 @@ type HuddleReactionPickerProps = {
 export function HuddleReactionPicker({
   onSendReaction,
 }: HuddleReactionPickerProps) {
+  const t = useHuddle()
   const [open, setOpen] = useState(false);
   const { theme } = useTheme();
 
@@ -49,14 +51,14 @@ export function HuddleReactionPicker({
                   ? "bg-[#7b6847] hover:bg-[#8a764b]"
                   : "bg-white/20 hover:bg-white/40",
               )}
-              aria-label="Add reaction"
+              aria-label={t("addReaction")}
             >
               <LuSmile size={20} />
             </Button>
           </TooltipTrigger>
         </PopoverTrigger>
 
-        <TooltipContent>Add reaction</TooltipContent>
+        <TooltipContent>{t("addReaction")}</TooltipContent>
       </Tooltip>
 
       <PopoverContent
@@ -71,7 +73,7 @@ export function HuddleReactionPicker({
           theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
           width={320}
           height={380}
-          searchPlaceHolder="Search emoji..."
+          searchPlaceHolder={t("searchEmoji")}
           previewConfig={{ showPreview: false }}
         />
       </PopoverContent>

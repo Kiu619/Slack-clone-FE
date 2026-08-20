@@ -13,7 +13,8 @@ import type {
   User,
   Workspace,
 } from './types'
-import { workspaceKeys, channelKeys, authKeys, messageKeys } from './query-keys'
+import { workspaceKeys, channelKeys, authKeys, messageKeys, memberPreferencesKeys } from './query-keys'
+import type { MemberPreferencesResponse } from '@/apis'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -84,6 +85,14 @@ export async function getServerDirectMessages(
   )
 }
 
+export async function getServerMemberPreferences(
+  workspaceId: string,
+): Promise<MemberPreferencesResponse | null> {
+  return serverFetch<MemberPreferencesResponse | null>(
+    `/workspaces/${workspaceId}/member-preferences`,
+  )
+}
+
 // ─── HydrationBoundary helpers ────────────────────────────────────────────────
 
 /**
@@ -100,6 +109,7 @@ export async function prefetchWorkspaceData(
     workspaces: Workspace[]
     channels: Channel[]
     conversations: DirectMessageConversation[]
+    memberPreferences: MemberPreferencesResponse | null
   },
 ): Promise<DehydratedState> {
   /**
@@ -144,6 +154,14 @@ export async function prefetchWorkspaceData(
     messageKeys.conversations(workspaceId),
     data.conversations,
   )
+
+  // Cache member preferences for Language & Region autosave
+  if (data.memberPreferences) {
+    queryClient.setQueryData(
+      memberPreferencesKeys.detail(workspaceId),
+      data.memberPreferences,
+    )
+  }
 
   /**
    * dehydrate() — serialize QueryClient cache thành plain object

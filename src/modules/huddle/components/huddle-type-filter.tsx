@@ -7,13 +7,9 @@ import { ACTIVE_ITEM_STYLE } from "@/constants/styles"
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
 import { FiCheck } from "react-icons/fi"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 type HuddleTypeFilterValue = "all" | "missed"
-
-const OPTIONS = [
-  { id: "all" as const, label: "All huddles" },
-  { id: "missed" as const, label: "Missed huddles" },
-]
 
 type Props = {
   value: HuddleTypeFilterValue
@@ -23,6 +19,13 @@ type Props = {
 }
 
 export function HuddleTypeFilter({ value, open, onOpenChange, onChange }: Props) {
+  const t = useAppTranslation('huddle.typeFilter')
+
+  const options = [
+    { id: "all" as const, label: t('allHuddles') },
+    { id: "missed" as const, label: t('missedHuddles') },
+  ]
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -30,7 +33,7 @@ export function HuddleTypeFilter({ value, open, onOpenChange, onChange }: Props)
           <Typography
             variant="p"
             className="text-[13px]"
-            text={OPTIONS.find((option) => option.id === value)?.label ?? "All huddles"}
+            text={options.find((option) => option.id === value)?.label ?? t('allHuddles')}
           />
           <ChevronDown
             size={13}
@@ -49,7 +52,7 @@ export function HuddleTypeFilter({ value, open, onOpenChange, onChange }: Props)
         className="py-2 w-50!"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        {OPTIONS.map((option) => (
+        {options.map((option) => (
           <Button
             variant="checkedMenu"
             key={option.id}

@@ -21,6 +21,7 @@ import { AddToFolderSubmenu } from "./add-to-folder-submenu";
 
 import { ICON_TRANSITION, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 interface Props {
   isHovered: boolean
@@ -37,6 +38,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
   const currentUser = useUserStore((state) => state.user)
   const { requestNewFolder } = useChannelFolderActions()
   const { trackView } = useTrackAttachmentView()
+  const t = useAppTranslation("attachments")
   const isOwner = message.user.id === currentUser?.id
 
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
@@ -90,7 +92,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p className="text-xs">Download</p>
+          <p className="text-xs">{t("toolbar.download")}</p>
         </TooltipContent>
       </Tooltip>
       <Tooltip>
@@ -107,7 +109,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p className="text-xs">Share file</p>
+          <p className="text-xs">{t("toolbar.shareFile")}</p>
         </TooltipContent>
       </Tooltip>
       <Tooltip>
@@ -125,7 +127,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           </p>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p className="text-xs">View file details</p>
+          <p className="text-xs">{t("toolbar.viewDetails")}</p>
         </TooltipContent>
       </Tooltip>
       <Popover>
@@ -145,7 +147,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p className="text-xs">More actions</p>
+            <p className="text-xs">{t("toolbar.moreActions")}</p>
           </TooltipContent>
         </Tooltip>
         <PopoverContent
@@ -159,12 +161,12 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           <div className="py-2 ">
             <div className="flex flex-col space-y-1">
               <Button variant="submenu" onClick={onOpen}>
-                <Typography variant="p" text="Open in new tab" onClick={onOpen} />
+                <Typography variant="p" text={t("toolbar.openInNewTab")} onClick={onOpen} />
               </Button>
               <Button variant="submenu" onClick={() => {
                 handleSaveForLater(attachment?.id!)
               }}>
-                <Typography variant="p" text="Save for later" />
+                <Typography variant="p" text={t("toolbar.saveForLater")} />
               </Button>
 
 
@@ -179,7 +181,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
                     onMouseLeave={() => setIsAddToFolderOpen(false)}
                   >
                     <Button variant="checkedMenu" className={cn("relative justify-between")}>
-                      {effectiveFolderId ? <Typography variant="p" text="Move to folder" /> : <Typography variant="p" text="Add to folder" />}
+                      {effectiveFolderId ? <Typography variant="p" text={t("toolbar.moveToFolder")} /> : <Typography variant="p" text={t("toolbar.addToFolder")} />}
                       <MdOutlineKeyboardArrowRight size={13} />
                     </Button>
                     {isAddToFolderOpen && (
@@ -200,7 +202,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
               {isOwner && (
                 <Typography
                   variant="p"
-                  text="Delete file"
+                  text={t("toolbar.deleteFile")}
                   className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 cursor-pointer transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();

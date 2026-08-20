@@ -79,6 +79,9 @@ const parseSmartTime = (input: string): string | null => {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 };
 
+import { useDialogs } from "@/hooks/use-translation";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+
 export default function ReminderDialog({
   open,
   onOpenChange,
@@ -96,12 +99,13 @@ export default function ReminderDialog({
     description?: string;
   };
 }) {
+  const t = useDialogs();
+
   const formSchema = z.object({
     date: z.date(),
     time: z.string(),
-    description: hideDescription ? z.string() : z.string().min(1, "Description is required"),
+    description: hideDescription ? z.string() : z.string(),
   }).superRefine((data, ctx) => {
-    // 1. Validate time format/parsing
     const val = data.time;
     let hhmm = val;
     if (!(val.includes("AM") || val.includes("PM"))) {
@@ -116,15 +120,12 @@ export default function ReminderDialog({
       }
       hhmm = parsed;
     } else {
-      // Convert "h:mm AM/PM" back to "HH:mm" for comparison
       const [timePart, ampm] = val.split(" ");
       let [h, m] = timePart.split(":").map(Number);
       if (ampm === "PM" && h < 12) h += 12;
       if (ampm === "AM" && h === 12) h = 0;
       hhmm = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
     }
-
-    // 2. Check if time is in the past for today
     const selectedDate = data.date;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
     if (isToday) {
@@ -160,16 +161,15 @@ export default function ReminderDialog({
     }
   }, [open, defaultValues, form]);
 
-  // Watch field 'time' để validate real-time cho nút Save và hiển thị lỗi
   const selectedDate = useWatch({ control: form.control, name: "date" });
-  const filteredTimes = TIMES.filter((t) => {
+  const filteredTimes = TIMES.filter((time) => {
     if (!selectedDate) return true;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
     if (!isToday) return true;
 
     const now = new Date();
-    if (t.hour < now.getHours()) return false;
-    if (t.hour === now.getHours() && t.min <= now.getMinutes()) return false;
+    if (time.hour < now.getHours()) return false;
+    if (time.hour === now.getHours() && time.min <= now.getMinutes()) return false;
     return true;
   });
 
@@ -182,17 +182,19 @@ export default function ReminderDialog({
     form.reset();
   };
 
+  const language = useLanguageRegionStore((s) => s.language);
+
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="600px">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CustomDialogHeader onOpenChange={onOpenChange}>
-            <CustomDialogTitle>Set a reminder</CustomDialogTitle>
+            <CustomDialogTitle>{t('reminder.title')}</CustomDialogTitle>
           </CustomDialogHeader>
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] space-y-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label>Date</Label>
+                <Label>{t('reminder.date')}</Label>
                 <FormField
                   control={form.control}
                   name="date"
@@ -209,7 +211,7 @@ export default function ReminderDialog({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Time</Label>
+                <Label>{t('reminder.time')}</Label>
                 <FormField
                   control={form.control}
                   name="time"
@@ -222,7 +224,6 @@ export default function ReminderDialog({
                           value={field.value.includes(":") ? formatToAMPM(field.value) : field.value}
                           isInvalid={fieldState.invalid}
                           onChange={(val) => {
-                            // Cập nhật giá trị thô vào form để useEffect validate và khóa nút Save
                             field.onChange(val);
                           }}
                           onKeyDown={(e) => {
@@ -248,7 +249,7 @@ export default function ReminderDialog({
               </div>
               {!hideDescription && (
                 <div className="flex flex-col gap-2">
-                  <Label>Description</Label>
+                  <Label>{t('reminder.description')}</Label>
                   <FormField
                     control={form.control}
                     name="description"
@@ -257,7 +258,7 @@ export default function ReminderDialog({
                         <FormControl>
                           <Input
                             {...field}
-                            placeholder="Remind me to..."
+                            placeholder={t('reminder.descriptionPlaceholder')}
                             className="h-10 rounded-lg border-[#dddddd] bg-white text-[14px] placeholder:text-[#616061] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]"
                           />
                         </FormControl>
@@ -275,14 +276,14 @@ export default function ReminderDialog({
                 type="button"
                 onClick={() => onOpenChange(false)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={!form.formState.isValid}
                 variant="success"
               >
-                Save
+                {t('common.save')}
               </Button>
             </div>
           </CustomDialogFooter>

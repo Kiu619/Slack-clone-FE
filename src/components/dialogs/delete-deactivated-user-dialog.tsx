@@ -10,6 +10,7 @@ import {
 import { Button } from "../ui/button";
 import Typography from "../ui/typography";
 import type { WorkspaceMember } from "@/lib/types";
+import { useDialogs } from "@/hooks/use-translation";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,7 @@ export default function DeleteDeactivatedUserDialog({
   saving = false,
   onDelete,
 }: Props) {
+  const t = useDialogs();
   const memberName =
     member.name?.trim() || member.displayName?.trim() || member.email;
 
@@ -33,20 +35,20 @@ export default function DeleteDeactivatedUserDialog({
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="620px">
       <CustomDialogHeader onOpenChange={onOpenChange} className="px-7 py-6">
         <CustomDialogTitle className="text-[28px] font-bold tracking-[-0.03em]">
-          Delete deactivated account
+          {t('deleteDeactivatedUser.title')}
         </CustomDialogTitle>
       </CustomDialogHeader>
 
       <CustomDialogBody className="px-7 py-5">
         <div className="flex flex-col gap-5">
           <Typography className="text-[18px] leading-7">
-            Delete <strong>{memberName}</strong> from this workspace?
+            {t('deleteDeactivatedUser.description', { name: memberName })}
           </Typography>
 
           <ul className="list-disc space-y-2 pl-6 text-[14px] leading-6 text-[#616061]">
-            <li>The member will be removed from the member list and channels.</li>
-            <li>Their historical messages and files will remain.</li>
-            <li>Historical identity will show as deactivated user.</li>
+            <li>{t('deleteDeactivatedUser.removedFromList')}</li>
+            <li>{t('deleteDeactivatedUser.messagesRemain')}</li>
+            <li>{t('deleteDeactivatedUser.showDeactivated')}</li>
           </ul>
         </div>
       </CustomDialogBody>
@@ -58,7 +60,7 @@ export default function DeleteDeactivatedUserDialog({
           onClick={() => onOpenChange(false)}
           className="h-10 rounded-[6px] border-[#cfcacf] px-5 text-[14px] font-semibold"
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="button"
@@ -70,10 +72,10 @@ export default function DeleteDeactivatedUserDialog({
           {saving ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Deleting
+              {t('deleteDeactivatedUser.deleting')}
             </span>
           ) : (
-            "Delete"
+            t('deleteDeactivatedUser.delete')
           )}
         </Button>
       </CustomDialogFooter>

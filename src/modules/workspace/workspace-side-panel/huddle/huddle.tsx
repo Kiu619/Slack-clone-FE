@@ -10,6 +10,7 @@ import Typography from "@/components/ui/typography";
 import { useAuth } from "@/hooks/use-auth";
 import { useChannels } from "@/hooks/use-channel";
 import { useConversations } from "@/hooks/use-conversations";
+import { useAppTranslation } from "@/hooks/use-translation";
 import type {
     HuddleParticipantSnapshot,
     HuddleSessionSnapshot,
@@ -115,6 +116,7 @@ interface HuddleItemProps {
   workspaceId: string;
   overlayMap: Record<string, WorkspaceMemberDisplay>;
   onOpen: () => void;
+  t: ReturnType<typeof useAppTranslation>;
 }
 
 function HuddleItem({
@@ -122,6 +124,7 @@ function HuddleItem({
   workspaceId,
   overlayMap,
   onOpen,
+  t,
 }: HuddleItemProps) {
   const { user: currentUser } = useAuth();
   const { activeSession, label, target } = huddle;
@@ -158,14 +161,14 @@ function HuddleItem({
       const isCurrentUser = participant.userId === currentUser?.id;
 
       if (isCurrentUser) {
-        return `Only you in the huddle ${inLabel}`;
+        return t("huddleOnlyYou", { inLabel });
       }
 
       const displayName = participant.displayName || participant.name || "User";
-      return `${displayName} in the huddle ${inLabel}`;
+      return t("huddleWithUser", { name: displayName, inLabel });
     }
 
-    return `${participantCount} people in the huddle ${inLabel}`;
+    return t("huddlePeopleCount", { count: participantCount, inLabel });
   };
 
   const handleOpen = () => {
@@ -205,9 +208,10 @@ function HuddleItem({
 
 interface HuddleListProps {
   workspaceId: string;
+  t: ReturnType<typeof useAppTranslation>;
 }
 
-function HuddleList({ workspaceId }: HuddleListProps) {
+function HuddleList({ workspaceId, t }: HuddleListProps) {
   const { user: currentUser } = useAuth();
   const { data: channels = [] } = useChannels(workspaceId);
   const { data: conversations = [] } = useConversations(workspaceId);
@@ -228,7 +232,7 @@ function HuddleList({ workspaceId }: HuddleListProps) {
       const otherMembers = conversation.members.filter(
         (m) => m.id !== currentUser?.id,
       );
-      if (otherMembers.length === 0) return "Yourself";
+      if (otherMembers.length === 0) return t("yourself");
 
       return otherMembers
         .map((m) => {
@@ -237,7 +241,7 @@ function HuddleList({ workspaceId }: HuddleListProps) {
         })
         .join(", ");
     };
-  }, [conversations, currentUser?.id, overlayMap]);
+  }, [conversations, currentUser?.id, overlayMap, t]);
 
   // Build list of active huddles the user can join
   const activeHuddles = useMemo((): HuddleEntry[] => {
@@ -304,6 +308,7 @@ function HuddleList({ workspaceId }: HuddleListProps) {
           workspaceId={workspaceId}
           overlayMap={overlayMap}
           onOpen={() => {}}
+          t={t}
         />
       ))}
     </div>
@@ -317,6 +322,7 @@ interface HuddleProps {
 
 const Huddle = ({ theme, workspaceId }: HuddleProps) => {
   const pathname = usePathname();
+  const t = useAppTranslation("workspaceSidePanel")
   const isActive = pathname === `/workspace/${workspaceId}/huddles`;
   return (
     <Link
@@ -327,12 +333,12 @@ const Huddle = ({ theme, workspaceId }: HuddleProps) => {
       <div className="flex items-center gap-x-2">
         <RiHeadphoneLine size={20} className={` ${isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text"}`} />
         <Typography
-          text="Huddle"
+          text={t("huddle")}
           variant="p"
           className={`min-w-0 flex-1 text-[15px]! ${isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text"}`}
         />
       </div>
-      <HuddleList workspaceId={workspaceId} />
+      <HuddleList workspaceId={workspaceId} t={t} />
     </Link>
   );
 };

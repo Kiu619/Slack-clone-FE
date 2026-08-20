@@ -1,7 +1,6 @@
 "use client";
 
 import type { AttachmentsUser, Message, MessageAttachment, User } from "@/lib/types";
-import { enUS } from "date-fns/locale";
 import React, { useState } from "react";
 import {
   FaFileExcel,
@@ -21,13 +20,15 @@ import FileToolbar from "./file-toolbar";
 
 import { cn } from "@/lib/utils";
 import { openSafeUrl } from "@/lib/open-safe-url";
-import { format } from "date-fns";
 import { useUserStore } from "@/stores/useUserStore";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
 import { isImageAttachment, isVideoAttachment } from "./file-utils";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { formatMessageTime } from "@/lib/format-message-time";
 
 interface FilePreviewProps {
   message?: Message;
@@ -58,6 +59,14 @@ export default function FilePreview({
 }: FilePreviewProps) {
   const { user: currentUser } = useUserStore();
   const [isHovered, setIsHovered] = useState(false);
+  const t = useAppTranslation("attachments");
+  const commonT = useAppTranslation("common");
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
+
+  const formatShortDate = (iso: string) =>
+    formatMessageTime(iso, { t, commonT, language, timeFormat, dateFormat });
 
   const workspaceId = message?.workspaceId ?? "";
   const messageUser = message?.user;
@@ -88,18 +97,18 @@ export default function FilePreview({
 
   function sharerLabel(message?: Message, uploader?: AttachmentsUser): string {
     if (uploader?.id === currentUser?.id) {
-      return "you";
+      return t("file.you");
     }
 
     if (message?.user.id === currentUser?.id) {
-      return "you";
+      return t("file.you");
     }
 
     if (uploader) {
-      return uploader.displayName?.trim() || uploader.name?.trim() || "Someone";
+      return uploader.displayName?.trim() || uploader.name?.trim() || t("file.someone");
     }
     const u = messageAuthor;
-    return u?.displayName?.trim() || u?.name?.trim() || "Someone";
+    return u?.displayName?.trim() || u?.name?.trim() || t("file.someone");
   }
 
   return (
@@ -160,10 +169,13 @@ export default function FilePreview({
           )}
           {fromFilesTab && (
             <p className="text-[13px] text-[#616061] dark:text-[#ababad] truncate">
-              {message || uploader ? `Shared by ${sharerLabel(message, uploader)} on ` : "Updated "}
-              {format(new Date(attachment.createdAt), "MMM do", {
-                locale: enUS,
-              })}
+              {message || uploader
+                ? t("file.sharedBy", {
+                    name: sharerLabel(message, uploader),
+                    date: formatShortDate(attachment.createdAt),
+                  })
+                : t("file.updated")}
+              {message || uploader ? "" : ` ${formatShortDate(attachment.createdAt)}`}
             </p>
           )}
         </div>

@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  getNotificationSettingApi,
-  updateNotificationSettingApi,
+    getNotificationSettingApi,
+    updateNotificationSettingApi,
 } from "@/apis";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
-import { notificationKeys } from "@/lib/query-keys";
 import Typography from "@/components/ui/typography";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { notificationKeys } from "@/lib/query-keys";
 import type { NotificationOverrideMode } from "@/lib/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2 } from "lucide-react";
@@ -21,36 +21,11 @@ type Props = {
   channelId: string;
 };
 
-const OPTIONS: Array<{
-  mode: NotificationOverrideMode;
-  title: string;
-  description: string;
-  icon: typeof TbBell;
-}> = [
-  {
-    mode: "all_messages",
-    title: "All new posts",
-    description: "Messages and threads you follow",
-    icon: TbBellRinging,
-  },
-  {
-    mode: "mentions_only",
-    title: "Just mentions",
-    description: "@you, @channel, @here",
-    icon: TbBell,
-  },
-  {
-    mode: "muted",
-    title: "Mute and hide",
-    description: "Only badge the channel",
-    icon: TbBellOff,
-  },
-];
-
 export default function ChannelNotificationPopover({
   workspaceId,
   channelId,
 }: Props) {
+  const t = useAppTranslation('notifications.channelPopover')
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const queryKey = notificationKeys.setting(workspaceId, "channel", channelId);
@@ -86,11 +61,11 @@ export default function ChannelNotificationPopover({
     onSuccess: async (updated) => {
       queryClient.setQueryData(queryKey, updated);
       await queryClient.invalidateQueries({ queryKey });
-      toast.success("Channel notification setting updated");
+      toast.success(t('updatedSuccess'));
       setOpen(false);
     },
     onError: () => {
-      toast.error("Failed to update channel notification setting");
+      toast.error(t('updateFailed'));
     },
   });
 
@@ -115,52 +90,90 @@ export default function ChannelNotificationPopover({
       <PopoverContent withOverlay className="z-999!">
         <div className="flex flex-col py-2">
           <span className="mx-4 text-[13px] text-[#8e9297]">
-            Notify you about...
+            {t('header')}
           </span>
 
           {isLoading ? (
             <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
               <Loader2 size={16} className="animate-spin" />
-              <span>Loading notification setting...</span>
+              <span>{t('loading')}</span>
             </div>
           ) : (
-            OPTIONS.map((option) => {
-              const Icon = option.icon;
-              const isActive = activeMode === option.mode;
-              return (
-                <Button
-                  key={option.mode}
-                  variant="submenu"
-                  disabled={mutation.isPending}
-                  onClick={() => mutation.mutate(option.mode)}
-                  className="justify-between!"
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon size={20} />
-                    <div className="flex flex-col gap-1">
-                      <Typography
-                        text={option.title}
-                        variant="p"
-                        className="text-left"
-                      />
-                      <Typography
-                        text={option.description}
-                        variant="p"
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-                  {mutation.isPending && isActive ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : isActive ? (
-                    <Check size={16} />
-                  ) : null}
-                </Button>
-              );
-            })
+            <>
+              <OptionButton
+                icon={TbBellRinging}
+                title={t('allPosts.title')}
+                description={t('allPosts.description')}
+                isActive={activeMode === "all_messages"}
+                isPending={mutation.isPending}
+                onClick={() => mutation.mutate("all_messages")}
+              />
+              <OptionButton
+                icon={TbBell}
+                title={t('justMentions.title')}
+                description={t('justMentions.description')}
+                isActive={activeMode === "mentions_only"}
+                isPending={mutation.isPending}
+                onClick={() => mutation.mutate("mentions_only")}
+              />
+              <OptionButton
+                icon={TbBellOff}
+                title={t('muteHide.title')}
+                description={t('muteHide.description')}
+                isActive={activeMode === "muted"}
+                isPending={mutation.isPending}
+                onClick={() => mutation.mutate("muted")}
+              />
+            </>
           )}
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function OptionButton({
+  icon: Icon,
+  title,
+  description,
+  isActive,
+  isPending,
+  onClick,
+}: {
+  icon: typeof TbBell;
+  title: string;
+  description: string;
+  isActive: boolean;
+  isPending: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant="submenu"
+      disabled={isPending}
+      onClick={onClick}
+      className="justify-between!"
+    >
+      <div className="flex items-center gap-2">
+        <Icon size={20} />
+        <div className="flex flex-col gap-1">
+          <Typography
+            text={title}
+            variant="p"
+            className="text-left"
+          />
+          <Typography
+            text={description}
+            variant="p"
+            className="text-xs"
+          />
+        </div>
+      </div>
+      {isPending && isActive ? (
+        <Loader2 size={16} className="animate-spin" />
+      ) : isActive ? (
+        <Check size={16} />
+      ) : null}
+    </Button>
   );
 }

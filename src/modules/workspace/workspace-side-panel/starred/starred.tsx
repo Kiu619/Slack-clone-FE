@@ -21,6 +21,7 @@ import { useConversations } from "@/hooks/use-conversations";
 import { useSidebarMutedItems } from "@/hooks/use-sidebar-muted-items";
 import { usePrefetchSidebarMutedItems } from "@/hooks/use-prefetch-sidebar-muted-items";
 import { useWorkspaceUnreadCounts } from "@/hooks/use-workspace-unread-counts";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { getDmDisplayName } from "@/lib/dm-members";
 import type {
   Channel,
@@ -53,6 +54,7 @@ interface Props {
 }
 
 const Starred = ({ theme, currentWorkspaceData }: Props) => {
+  const t = useAppTranslation("workspaceSidePanel")
   const params = useParams<{
     workspaceId: string;
     channelId?: string;
@@ -230,7 +232,7 @@ const Starred = ({ theme, currentWorkspaceData }: Props) => {
           )}
 
           <Typography
-            text="Starred"
+            text={t("starred")}
             variant="p"
             className="text-[15px]! text-workspace-side-panel-text"
           />
@@ -251,7 +253,7 @@ const Starred = ({ theme, currentWorkspaceData }: Props) => {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Muted conversations</p>
+                        <p>{t("mutedConversations")}</p>
                       </TooltipContent>
                     </Tooltip>
                   </button>
@@ -265,7 +267,7 @@ const Starred = ({ theme, currentWorkspaceData }: Props) => {
                 >
                   <div className="flex flex-col gap-1 py-1">
                     <Typography
-                      text="Muted conversations"
+                      text={t("mutedConversations")}
                       variant="p"
                       className="px-3 pb-1 text-xs font-semibold text-workspace-side-panel-text/70"
                     />
@@ -352,7 +354,7 @@ const Starred = ({ theme, currentWorkspaceData }: Props) => {
         ) : rows.length === 0 ? (
           <div className="px-9 py-2">
             <Typography
-              text="Gắn sao channel hoặc DM để truy cập nhanh."
+              text={t("starredHint")}
               variant="p"
               className="text-xs text-workspace-side-panel-text/50"
             />

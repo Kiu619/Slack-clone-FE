@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles"
 import { cn } from "@/lib/utils"
 import { ChevronDown } from "lucide-react"
@@ -10,21 +11,9 @@ import { FiCheck } from "react-icons/fi"
 
 type SearchType = "messages" | "dms" | "files" | "channels"
 
-const OPTIONS = [
-  { id: "messages", label: "Messages", enabled: true },
-  { id: "dms", label: "DMs", enabled: true },
-  { id: "channels", label: "Channels", enabled: true },
-  { id: "files", label: "Files", enabled: true },
-] as const
-
-type Props = {
-  value: SearchType
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onChange: (value: SearchType) => void
-}
-
 export function SearchTypeSelect({ value, open, onOpenChange, onChange }: Props) {
+  const t = useAppTranslation("search")
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -32,7 +21,7 @@ export function SearchTypeSelect({ value, open, onOpenChange, onChange }: Props)
           <Typography
             variant="p"
             className="text-[13px]"
-            text={OPTIONS.find((option) => option.id === value)?.label ?? "Messages"}
+            text={t(`searchType.${value}` as never)}
           />
           <ChevronDown
             size={13}
@@ -51,25 +40,22 @@ export function SearchTypeSelect({ value, open, onOpenChange, onChange }: Props)
         className="py-2"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        {OPTIONS.map((option) => (
+        {(["messages", "dms", "channels", "files"] as const).map((type) => (
           <Button
             variant="checkedMenu"
-            key={option.id}
+            key={type}
             onClick={() => {
-              if (!option.enabled) return
-              onChange(option.id as SearchType)
+              onChange(type)
               onOpenChange(false)
             }}
             className={cn(
               "flex items-center justify-between px-2 py-1",
-              option.enabled
-                ? "cursor-pointer hover:bg-selection-hover hover:text-white"
-                : "cursor-not-allowed opacity-50",
-              value === option.id && ACTIVE_ITEM_STYLE,
+              "cursor-pointer hover:bg-selection-hover hover:text-white",
+              value === type && ACTIVE_ITEM_STYLE,
             )}
           >
-            <span className="text-sm font-medium">{option.label}</span>
-            {value === option.id ? (
+            <span className="text-sm font-medium">{t(`searchType.${type}` as never)}</span>
+            {value === type ? (
               <FiCheck size={14} className="text-white" />
             ) : null}
           </Button>
@@ -77,4 +63,11 @@ export function SearchTypeSelect({ value, open, onOpenChange, onChange }: Props)
       </PopoverContent>
     </Popover>
   )
+}
+
+type Props = {
+  value: SearchType
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onChange: (value: SearchType) => void
 }

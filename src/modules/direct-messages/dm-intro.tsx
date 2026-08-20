@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage, AvatarGroup } from "@/components/u
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
+import { useAppTranslation } from "@/hooks/use-translation";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberStore,
@@ -22,6 +23,7 @@ interface DMIntroProps {
 
 const DMIntro = ({ members, isGroup, createdAt, workspaceId }: DMIntroProps) => {
   const { user: currentUser } = useAuth();
+  const t = useAppTranslation("directMessages");
   const otherMembers = members.filter(m => m.id !== currentUser?.id);
   const isSelf = otherMembers.length === 0;
 
@@ -87,7 +89,7 @@ const DMIntro = ({ members, isGroup, createdAt, workspaceId }: DMIntroProps) => 
       
       <div className="flex flex-col gap-y-1">
         <Typography
-          text={isSelf ? "This is your space" : getDMName()}
+          text={isSelf ? t("thisIsYourSpace") : getDMName()}
           variant="h2"
           className="text-2xl font-bold dark:text-white"
         />
@@ -95,16 +97,12 @@ const DMIntro = ({ members, isGroup, createdAt, workspaceId }: DMIntroProps) => 
         <div className="text-[15px] text-[#616061] dark:text-[#ababad] leading-normal">
           {isSelf ? (
             <p>
-              This is your very own space. Draft messages, list your to-dos, or keep links handy. 
-              You can also talk to yourself here, but please bear in mind you’ll have to provide both sides of the conversation.
+              {t("thisIsYourSpaceDescription")}
             </p>
           ) : (
             <p>
-              This is the very beginning of your direct message history with{" "}
-              <span className="font-bold text-[#1d1c1d] dark:text-[#f9f8f9]">
-                {getDMName()}
-              </span>
-              . Only the two of you are in this conversation, and no one else can join it.
+              {t("beginningOfDm", { name: getDMName() })}
+              {t("beginningOfDmPrivate")}
             </p>
           )}
         </div>
@@ -114,7 +112,7 @@ const DMIntro = ({ members, isGroup, createdAt, workspaceId }: DMIntroProps) => 
             <Button variant="outline" size="sm" className="font-bold"
               onClick={() => openProfilePanel({ userData: displayMember(otherMembers[0]), workspaceId })}
             >
-              View Profile
+              {t("viewProfile")}
             </Button>
           </div>
         )}

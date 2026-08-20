@@ -47,6 +47,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CreateFolderDialog } from "../dialogs/create-folder-dialog";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 /** Vỏ nội dung: full width trên mobile, max ~Slack desktop, padding ngang theo breakpoint */
 const FOLDER_TAB_SHELL =
@@ -63,6 +64,7 @@ export default function FolderTab({
   onGoToFilesTab?: () => void;
   isMember?: boolean;
 }) {
+  const t = useAppTranslation("headerTabs");
   const targetId = currentChannelData?.id ?? currentConversationData?.id ?? "";
   const isDM = !!currentConversationData;
 
@@ -128,7 +130,7 @@ export default function FolderTab({
     mutationFn: (folderId: string) =>
       deleteChannelFolderApi(targetId, folderId, isDM),
     onSuccess: () => {
-      toast.success("Folder deleted");
+      toast.success(t("folder.folderDeleted"));
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(targetId),
       });
@@ -137,8 +139,8 @@ export default function FolderTab({
     onError: (err: unknown) => {
       const msg = isAxiosError(err)
         ? ((err.response?.data as { message?: string })?.message ?? err.message)
-        : "Delete failed";
-      toast.error(typeof msg === "string" ? msg : "Delete failed");
+        : t("folder.deleteFailed");
+      toast.error(typeof msg === "string" ? msg : t("folder.deleteFailed"));
     },
   });
 
@@ -155,13 +157,13 @@ export default function FolderTab({
         <div className="min-h-4">
           {isFetchingNextPage ? (
             <p className="py-3 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-              Loading more…
+              {t("folder.loadingMore")}
             </p>
           ) : null}
         </div>
       ),
     }),
-    [isFetchingNextPage],
+    [isFetchingNextPage, t],
   );
 
   const invalidateAfterFolderUpload = useCallback(() => {
@@ -211,12 +213,12 @@ export default function FolderTab({
           );
           ok += 1;
         } catch {
-          toast.error(`Could not upload: ${file.name}`);
+          toast.error(t("folder.couldNotUpload", { filename: file.name }));
         }
       }
       if (ok > 0) {
         toast.success(
-          ok === 1 ? "File added to folder" : `${ok} files added to folder`,
+          ok === 1 ? t("folder.fileAddedToFolder") : t("folder.filesAddedToFolder", { count: ok }),
         );
         invalidateAfterFolderUpload();
       }
@@ -312,11 +314,11 @@ export default function FolderTab({
       >
         <Typography
           variant="p"
-          text="Could not load folders."
+          text={t("folder.couldNotLoadFolders")}
           className="text-[#616061] dark:text-[#ababad]"
         />
         <Button type="button" variant="ghost" onClick={() => void refetch()}>
-          Retry
+          {t("folder.retry")}
         </Button>
       </div>
     );
@@ -332,12 +334,12 @@ export default function FolderTab({
       >
         <Typography
           variant="h4"
-          text="No folders in this channel yet"
+          text={t("folder.noFoldersInChannel")}
           className="font-semibold text-[1.1rem] leading-snug sm:text-xl"
         />
         <Typography
           variant="p"
-          text="Create a folder to organize files from this channel."
+          text={t("folder.noFoldersInChannelDescription")}
           className="text-[#616061] dark:text-[#ababad] max-w-md"
         />
         {isMember == false && currentChannelData?.isPrivate === false ? null : (
@@ -350,7 +352,7 @@ export default function FolderTab({
               setCreateFolderOpen(true);
             }}
           >
-            Create a folder
+            {t("folder.createFolder")}
           </Button>
         )}
         <CreateFolderDialog
@@ -384,12 +386,12 @@ export default function FolderTab({
           <div className="max-w-[min(100%,20rem)] rounded-xl border-2 border-dashed border-[#1264a3] bg-white/90 px-5 py-6 dark:border-[#1d9bd1] dark:bg-[#1A1D21]/95 sm:max-w-none sm:px-10 sm:py-8">
             <Typography
               variant="p"
-              text="Drop to upload"
+              text={t("folder.dropToUpload")}
               className="text-center text-base font-bold text-[#1264a3] dark:text-[#1d9bd1] sm:text-[18px]"
             />
             <Typography
               variant="p"
-              text={`Into "${selectedFolder?.name ?? "folder"}"`}
+              text={t("folder.intoFolder", { folder: selectedFolder?.name ?? "folder" })}
               className="mt-1 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]"
             />
           </div>
@@ -444,7 +446,7 @@ export default function FolderTab({
 
               <TooltipContent side="top" align="center">
                 <Typography
-                  text="Create new folder"
+                  text={t("folder.createNewFolder")}
                   variant="p"
                   className="text-[14px]!"
                 />
@@ -487,7 +489,7 @@ export default function FolderTab({
                   }}
                 >
                   <File size={16} />
-                  <Typography text="Add from Files tab" variant="p" />
+                  <Typography text={t("folder.addFromFilesTab")} variant="p" />
                 </Button>
                 <Separator className="my-1" />
                 <Button
@@ -498,7 +500,7 @@ export default function FolderTab({
                   }}
                 >
                   <Laptop size={16} />
-                  <Typography text="Upload file" variant="p" />
+                  <Typography text={t("folder.uploadFile")} variant="p" />
                 </Button>
               </div>
             </PopoverContent>
@@ -519,7 +521,7 @@ export default function FolderTab({
                     selectedFolder && setRenameFolder(selectedFolder)
                   }
                 >
-                  <Typography text="Rename folder" variant="p" />
+                  <Typography text={t("folder.renameFolder")} variant="p" />
                 </button>
                 <Separator className="my-1" />
                 <button
@@ -529,7 +531,7 @@ export default function FolderTab({
                     selectedFolder && setDeleteFolder(selectedFolder)
                   }
                 >
-                  <Typography text="Delete folder" variant="p" />
+                  <Typography text={t("folder.deleteFolder")} variant="p" />
                 </button>
               </div>
             </PopoverContent>
@@ -557,7 +559,7 @@ export default function FolderTab({
         ) : items.length === 0 ? (
           <Typography
             variant="p"
-            text="This folder is empty."
+            text={t("folder.folderEmpty")}
             className="text-[#616061] dark:text-[#ababad] py-8 text-center px-4"
           />
         ) : (

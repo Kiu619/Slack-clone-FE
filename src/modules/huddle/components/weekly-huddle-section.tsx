@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { WeeklyHuddleItem } from "@/lib/huddle";
 import { useWeeklyHuddles } from "@/hooks/use-weekly-huddles";
 import { Button } from "@/components/ui/button";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type WeeklyHuddleSectionProps = {
   workspaceId: string;
@@ -15,9 +16,11 @@ type WeeklyHuddleSectionProps = {
 function WeeklyHuddleCard({
   item,
   workspaceId,
+  t,
 }: {
   item: WeeklyHuddleItem;
   workspaceId: string;
+  t: ReturnType<typeof useAppTranslation>;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -36,6 +39,8 @@ function WeeklyHuddleCard({
     });
   };
 
+  const timeText = item.huddleCount === 1 ? "time" : "times";
+
   return (
     <div
       className="group relative h-50 max-w-60 truncate flex flex-col cursor-pointer items-center justify-center gap-3 rounded-lg border border-[#797c814d] bg-white p-3 transition-all hover:border-[#797c81] dark:bg-[#1A1D21]"
@@ -45,10 +50,10 @@ function WeeklyHuddleCard({
     >
       <div className="flex flex-col  truncate">
         <span className="truncate text-sm font-semibold">
-          Start a huddle in {displayName}?
+          {t('weeklySection.startHuddleIn', { name: displayName })}
         </span>
         <span className="truncate text-xs text-gray-400">
-          You huddled here {item.huddleCount} {item.huddleCount === 1 ? "time" : "times"} in the last week
+          {t('youHuddledHere', { count: item.huddleCount }, { time: timeText })}
         </span>
         <Button
           variant="outline"
@@ -61,7 +66,7 @@ function WeeklyHuddleCard({
             handleStartHuddle();
           }}
         >
-          Start huddle
+          {t('weeklySection.startHuddle')}
         </Button>
       </div>
     </div>
@@ -69,6 +74,7 @@ function WeeklyHuddleCard({
 }
 
 export function WeeklyHuddleSection({ workspaceId }: WeeklyHuddleSectionProps) {
+  const t = useAppTranslation('huddle')
   const { data, isLoading, error } = useWeeklyHuddles(workspaceId);
 
 
@@ -84,6 +90,7 @@ export function WeeklyHuddleSection({ workspaceId }: WeeklyHuddleSectionProps) {
             key={`${item.entityType}:${item.entityId}`}
             item={item}
             workspaceId={workspaceId}
+            t={t}
           />
         ))}
       </div>

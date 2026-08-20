@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 import { FiCheck } from "react-icons/fi";
 import { Separator } from "@/components/ui/separator";
+import { useHuddle } from "@/hooks/use-translation";
 
 type MicDeviceSelectorPopoverProps = {
   children: React.ReactNode;
@@ -57,6 +58,7 @@ export function MicDeviceSelectorPopover({
   onSelectSpeaker,
   onRefresh,
 }: MicDeviceSelectorPopoverProps) {
+  const t = useHuddle()
   const [open, setOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -79,7 +81,7 @@ export function MicDeviceSelectorPopover({
                 className="text-neutral-500 dark:text-neutral-400"
               />
               <Typography
-                text="Microphone"
+                text={t("microphone")}
                 variant="p"
                 className="text-[11px]! font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
               />
@@ -87,7 +89,7 @@ export function MicDeviceSelectorPopover({
             <div className="flex flex-col ">
               {audioInputs.length === 0 ? (
                 <p className="px-3 py-2 text-sm text-neutral-500">
-                  No microphone found
+                  {t("noMicrophoneFound")}
                 </p>
               ) : (
                 audioInputs.map((device) => (
@@ -118,7 +120,7 @@ export function MicDeviceSelectorPopover({
                 className="text-neutral-500 dark:text-neutral-400"
               />
               <Typography
-                text="Speaker"
+                text={t("speaker")}
                 variant="p"
                 className="text-[11px]! font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
               />
@@ -126,7 +128,7 @@ export function MicDeviceSelectorPopover({
             <div className="flex flex-col">
               {audioOutputs.length === 0 ? (
                 <p className="px-3 py-2 text-sm text-neutral-500">
-                  No speaker found
+                  {t("noSpeakerFound")}
                 </p>
               ) : (
                 audioOutputs.map((device) => (
@@ -160,7 +162,7 @@ export function MicDeviceSelectorPopover({
                 size={13}
                 className={cn(refreshing && "animate-spin")}
               />
-              Refresh
+              {t("refresh")}
             </Button>
           </div>
         </div>

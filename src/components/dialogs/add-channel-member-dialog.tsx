@@ -39,6 +39,7 @@ import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { IoIosInformationCircleOutline } from "react-icons/io";
 import { LuMailPlus, LuSend, LuX } from "react-icons/lu";
 import { Form, FormControl, FormField } from "../ui/form";
+import { useDialogs } from "@/hooks/use-translation";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -86,6 +87,7 @@ export default function AddChannelMemberDialog({
   onOpenChange: (open: boolean) => void;
   currentChannelData: Channel;
 }) {
+  const t = useDialogs();
   const workspaceId = currentChannelData.workspaceId;
   const channelId = currentChannelData.id;
   const isDefaultChannel = currentChannelData.isDefaultChannel;
@@ -328,8 +330,8 @@ export default function AddChannelMemberDialog({
       if (nUser > 0) {
         toast.success(
           nUser === 1
-            ? "Added 1 person to the channel"
-            : `Added ${nUser} people to the channel`,
+            ? t('addChannelMember.addedPerson')
+            : t('addChannelMember.addedPeople', { count: nUser }),
         );
       }
       if (nMail > 0 && inviteResult) {
@@ -337,26 +339,26 @@ export default function AddChannelMemberDialog({
         if (sent > 0) {
           toast.success(
             sent === 1
-              ? "Sent 1 invitation email"
-              : `Sent ${sent} invitation emails`,
+              ? t('addChannelMember.sentInvitationEmail')
+              : t('addChannelMember.sentInvitationEmails', { count: sent }),
           );
         }
         if (skipped > 0) {
           toast.info(
-            `${skipped} address${skipped === 1 ? "" : "es"} already in the workspace (skipped).`,
+            t('addChannelMember.alreadyInWorkspaceSkipped', { count: skipped }),
           );
         }
         if (failed.length > 0) {
           toast.error(
-            `Some emails failed: ${failed.map((f) => f.email).join(", ")}`,
+            t('addChannelMember.someEmailsFailed', { emails: failed.map((f) => f.email).join(", ") }),
           );
         }
         if (sent === 0 && skipped === 0 && failed.length === 0) {
-          toast.info("No invitation emails sent.");
+          toast.info(t('addChannelMember.noInvitationEmailsSent'));
         }
       }
       if (nUser === 0 && nMail === 0) {
-        toast.success("Done");
+        toast.success(t('addChannelMember.done'));
       }
       form.reset(defaultFormValues);
       onOpenChange(false);
@@ -366,8 +368,8 @@ export default function AddChannelMemberDialog({
         ? ((e.response?.data as { message?: string })?.message ?? e.message)
         : e instanceof Error
           ? e.message
-          : "Could not complete";
-      toast.error(typeof msg === "string" ? msg : "Could not complete");
+          : t('addChannelMember.couldNotComplete');
+      toast.error(typeof msg === "string" ? msg : t('addChannelMember.couldNotComplete'));
     },
   });
 
@@ -392,8 +394,8 @@ export default function AddChannelMemberDialog({
     onError: (e: unknown) => {
       const msg = isAxiosError(e)
         ? ((e.response?.data as { message?: string })?.message ?? e.message)
-        : "Could not add members";
-      toast.error(typeof msg === "string" ? msg : "Could not add members");
+        : t('addChannelMember.couldNotAddMembers');
+      toast.error(typeof msg === "string" ? msg : t('addChannelMember.couldNotAddMembers'));
     },
   });
 
@@ -407,10 +409,10 @@ export default function AddChannelMemberDialog({
     (pendingInviteEmails?.length ?? 0) > 0;
 
   const headerDescription = isDefaultChannel
-    ? "When someone joins this workspace, they are added to this default channel automatically."
+    ? t('addChannelMember.defaultChannelInfo')
     : addMode === "all"
-      ? `Adds everyone in ${workspaceName} who is not in this channel yet.`
-      : `You can also add email addresses of people who aren't members of ${workspaceName}.`;
+      ? t('addChannelMember.addAllMembers', { count: workspaceMemberCount, name: workspaceName })
+      : t('addChannelMember.addSpecificPeople');
 
   const handlePrimaryAction = () => {
     if (!isDefaultChannel && addMode === "all") {
@@ -430,11 +432,11 @@ export default function AddChannelMemberDialog({
     wsLoading;
 
   const footerLabel = (() => {
-    if (addAllMutation.isPending) return "Adding…";
-    if (submitPendingMutation.isPending) return "Adding…";
-    if (!isDefaultChannel && addMode === "all") return "Done";
-    if (showSearchBlock && hasPendingSelection) return "Add";
-    return "Done";
+    if (addAllMutation.isPending) return t('addChannelMember.adding');
+    if (submitPendingMutation.isPending) return t('addChannelMember.adding');
+    if (!isDefaultChannel && addMode === "all") return t('addChannelMember.done');
+    if (showSearchBlock && hasPendingSelection) return t('addChannelMember.add');
+    return t('addChannelMember.done');
   })();
 
   /** Done/Add: vô hiệu khi đang ở flow “specific” (hoặc default channel) mà chưa có chip pending */
@@ -451,7 +453,7 @@ export default function AddChannelMemberDialog({
         <CustomDialogHeader onOpenChange={handleDialogOpenChange}>
           <div className="min-w-0 flex-1 pr-2">
             <CustomDialogTitle className="flex flex-wrap items-center gap-1 text-left text-xl">
-              <span>Add people to</span>
+              <span>{t('addChannelMember.titleAddPeopleTo')}</span>
               <span className="inline-flex items-center gap-0.5 font-bold">
                 <BiHash size={18} className="shrink-0 opacity-90" />
                 {currentChannelData.name}
@@ -480,8 +482,7 @@ export default function AddChannelMemberDialog({
                   }}
                 />
                 <span className="text-[14px] leading-snug text-[#1d1c1d] dark:text-[#f9f8f9]">
-                  Add all {workspaceMemberCount} members of your workspace{" "}
-                  {workspaceName}
+                  {t('addChannelMember.addAllMembers', { count: workspaceMemberCount, name: workspaceName })}
                 </span>
               </label>
               <label className="flex cursor-pointer items-center gap-3 rounded-md p-2">
@@ -496,7 +497,7 @@ export default function AddChannelMemberDialog({
                   }}
                 />
                 <span className="text-[14px] leading-snug text-[#1d1c1d] dark:text-[#f9f8f9]">
-                  Add specific people
+                  {t('addChannelMember.addSpecificPeople')}
                 </span>
               </label>
             </div>
@@ -577,7 +578,7 @@ export default function AddChannelMemberDialog({
                             (pendingInviteEmails?.length ?? 0) >
                           0
                             ? ""
-                            : "Find members"
+                            : t('addChannelMember.findMembers')
                         }
                         autoComplete="off"
                         disabled={busy}
@@ -595,7 +596,7 @@ export default function AddChannelMemberDialog({
                     size={16}
                   />
                   <Typography
-                    text="When new people join your workspace, they will be added to this default channel."
+                    text={t('addChannelMember.whenNewPeopleJoin')}
                     variant="p"
                     className="text-left text-[13px] leading-snug text-[#616061] dark:text-[#ababad]"
                   />
@@ -648,7 +649,7 @@ export default function AddChannelMemberDialog({
                         <span className="font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]">
                           {inviteEmailParsed}
                         </span>{" "}
-                        is already in this channel.
+                        {t('addChannelMember.alreadyInChannel', { email: inviteEmailParsed })}
                       </li>
                     ) : null}
 
@@ -672,8 +673,7 @@ export default function AddChannelMemberDialog({
                               <span className="break-all">{inviteEmailParsed}</span>
                             </div>
                             <div className="text-[13px] text-[#616061] dark:text-[#ababad]">
-                              Not in this workspace — will send invitation email
-                              when you click Add.
+                              {t('addChannelMember.inviteNotInWorkspace')}
                             </div>
                           </div>
                         </button>
@@ -685,7 +685,7 @@ export default function AddChannelMemberDialog({
 
               {showNoMatchesLine ? (
                 <p className="text-[13px] text-[#616061] dark:text-[#ababad]">
-                  No matching people.
+                  {t('addChannelMember.noMatchingPeople')}
                 </p>
               ) : null}
             </div>

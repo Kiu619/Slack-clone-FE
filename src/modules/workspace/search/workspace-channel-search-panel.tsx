@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 import { useChannels } from "@/hooks/use-channel"
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore"
 import { useMainPanelStore } from "@/stores/useMainPanelStore"
@@ -38,6 +39,8 @@ export function WorkspaceChannelSearchPanel({
   activeResultId?: string | null
   onSelectResult?: (id: string) => void
 }) {
+  const t = useAppTranslation("search")
+
   const currentUser = useUserStore((state) => state.user)
   const query = useGlobalSearchStore((state) => state.query)
   const withUserIds = useGlobalSearchStore((state) => state.withUserIds)
@@ -70,8 +73,8 @@ export function WorkspaceChannelSearchPanel({
   )
 
   const withButtonLabel = (() => {
-    if (selectedWithMembers.length === 0) return "With"
-    if (selectedWithMembers.length >= 2) return `${selectedWithMembers.length} teammates`
+    if (selectedWithMembers.length === 0) return t("filters.with")
+    if (selectedWithMembers.length >= 2) return t("filters.teammates", { count: selectedWithMembers.length })
     const display = displayMember(selectedWithMembers[0])
     return display.displayName || display.name || display.email || selectedWithMembers[0].id
   })()
@@ -175,12 +178,12 @@ export function WorkspaceChannelSearchPanel({
               onOpenAutoFocus={(event) => event.preventDefault()}
             >
               <div className="px-2 pb-2">
-                <Input
-                  value={withSearch}
-                  onChange={(event) => setWithSearch(event.target.value)}
-                  placeholder="Search people..."
-                  className="h-8 border-[#797c814d] text-sm"
-                />
+                    <Input
+                      value={withSearch}
+                      onChange={(event) => setWithSearch(event.target.value)}
+                      placeholder={t("searchPeople")}
+                      className="h-8 border-[#797c814d] text-sm"
+                    />
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {selectedWithMembers.length > 0 ? (
@@ -218,14 +221,14 @@ export function WorkspaceChannelSearchPanel({
                       className="px-3 py-2 text-sm hover:underline cursor-pointer text-muted-foreground"
                       onClick={() => setWithUserIds([])}
                     >
-                      Clear all
+                      {t("clearAll")}
                     </span>
                   </div>
                 ) : null}
 
-                <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
-                {suggestedWithMembers.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-neutral-400">No people found</div>
+                  <div className="px-3 py-2 text-sm text-neutral-400">{t("suggestions")}</div>
+                  {suggestedWithMembers.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-neutral-400">{t("noPeopleFound")}</div>
                 ) : (
                   suggestedWithMembers.slice(0, 8).map((member) => {
                     const display = displayMember(member)
@@ -312,7 +315,7 @@ export function WorkspaceChannelSearchPanel({
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold">{channel.name}</div>
                 <div className="mt-1 truncate text-xs text-neutral-400">
-                  {channel.topic || channel.description || "No topic"}
+                  {channel.topic || channel.description || t("noTopic")}
                 </div>
               </div>
             </div>

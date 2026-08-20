@@ -37,6 +37,7 @@ import {
 import ScheduleSendDialog from "../dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
 import { canUserPostInChannel, getRestrictedPostingLabel } from "@/lib/channel-posting-permissions";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 interface MainProps {
   currentChannelData?: Channel;
@@ -51,6 +52,7 @@ const MessageTab = ({
   isNewMessageMode = false,
   isMember,
 }: MainProps) => {
+  const t = useAppTranslation("headerTabs");
   const currentUser = useUserStore((state) => state.user);
   const postingPermission = useMemo(
     () =>
@@ -239,12 +241,12 @@ const MessageTab = ({
           <div className="max-w-[min(100%,18rem)] rounded-xl border-2 border-dashed border-[#1264a3] bg-white/95 px-5 py-5 dark:border-[#1d9bd1] dark:bg-[#1A1D21]/95 sm:max-w-none sm:px-8 sm:py-6">
             <Typography
               variant="p"
-              text="Drop to attach"
+              text={t("message.dropToAttach")}
               className="text-center text-base font-bold text-[#1264a3] dark:text-[#1d9bd1] sm:text-lg"
             />
             <Typography
               variant="p"
-              text="Files appear below before you send"
+              text={t("message.filesAppearBelow")}
               className="mt-1 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]"
             />
           </div>
@@ -278,7 +280,7 @@ const MessageTab = ({
           <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
             <Typography
               variant="p"
-              text="You are viewing the archives of a deactivated account."
+              text={t("message.viewingArchives")}
               className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
             />
           </div>
@@ -286,17 +288,17 @@ const MessageTab = ({
           <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
             <Typography
               variant="p"
-              text={`You are viewing #${currentChannelData.name}`}
+              text={t("message.viewingChannel", { channel: currentChannelData.name })}
               className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
             />
             <Typography
               variant="p"
-              text="You can view the message history, but you must join the channel to post messages."
+              text={t("message.viewingChannelDescription")}
               className="text-xs text-[#616061] dark:text-[#ababad] mb-1"
             />
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
-                Details
+                {t("message.details")}
               </Button>
               <Button
                 variant="success"
@@ -306,7 +308,7 @@ const MessageTab = ({
                   joinChannel(currentUser!.id);
                 }}
               >
-                {isJoining ? "Joining..." : "Join channel"}
+                {isJoining ? t("message.joining") : t("message.joinChannel")}
               </Button>
             </div>
           </div>
@@ -316,7 +318,7 @@ const MessageTab = ({
               <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
                 <Typography
                   variant="p"
-                  text={restrictedPostingLabel ?? "Only certain people can post in this channel"}
+                  text={restrictedPostingLabel ?? t("message.restrictedPosting")}
                   className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]"
                 />
               </div>
@@ -401,12 +403,11 @@ const MessageTab = ({
         onOpenChange={(open) => !open && setMessageToDelete(null)}
       >
         <CustomDialogHeader onOpenChange={() => setMessageToDelete(null)}>
-          <CustomDialogTitle>Delete message?</CustomDialogTitle>
+          <CustomDialogTitle>{t("message.deleteMessage")}</CustomDialogTitle>
         </CustomDialogHeader>
         <CustomDialogBody>
           <p className="text-[15px] dark:text-[#d1d2d3]">
-            Are you sure you want to delete this message? This action cannot be
-            undone.
+            {t("message.deleteMessageConfirmation")}
           </p>
         </CustomDialogBody>
         <CustomDialogFooter>
@@ -415,7 +416,7 @@ const MessageTab = ({
             className="dark:text-white"
             onClick={() => setMessageToDelete(null)}
           >
-            Cancel
+            {t("message.cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -426,7 +427,7 @@ const MessageTab = ({
               }
             }}
           >
-            Delete
+            {t("message.delete")}
           </Button>
         </CustomDialogFooter>
       </CustomDialog>

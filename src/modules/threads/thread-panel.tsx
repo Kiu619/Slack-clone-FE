@@ -15,6 +15,7 @@ import type { Message } from '@/lib/types'
 import { useMessageStore } from '@/stores/useMessageStore'
 import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
 import { useUserStore } from '@/stores/useUserStore'
+import { useAppTranslation } from '@/hooks/use-translation'
 import { useQuery } from '@tanstack/react-query'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
@@ -36,6 +37,7 @@ export default function ThreadPanel({
   onClose: onCloseProp,
   highlightedMessageId: highlightedMessageIdProp,
 }: ThreadPanelProps) {
+  const t = useAppTranslation("threads")
   const isEmbedded = parentMessageIdProp != null
   const {
     messageId: storeMessageId,
@@ -257,7 +259,7 @@ export default function ThreadPanel({
         {/* Replies Separator */}
         <div className="flex items-center gap-3 px-4 py-3">
           <span className="text-xs text-[#797c81] whitespace-nowrap">
-            {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+            {replies.length} {replies.length === 1 ? t("reply") : t("replies")}
           </span>
           <div className="w-full h-[0.5px] bg-[#797c814d]" />
         </div>
@@ -266,7 +268,7 @@ export default function ThreadPanel({
     Footer: () => (
       <>
         {isLoading && (
-          <div className="px-4 py-2 text-sm text-[#797c81] animate-pulse">Loading replies...</div>
+          <div className="px-4 py-2 text-sm text-[#797c81] animate-pulse">{t("loadingReplies")}</div>
         )}
         {hasNextPage && (
           <button
@@ -274,22 +276,22 @@ export default function ThreadPanel({
             disabled={isFetchingNextPage}
             className="mx-4 my-2 text-xs font-bold text-[#1d9bd1] hover:underline text-left"
           >
-            {isFetchingNextPage ? 'Loading more...' : 'View older replies'}
+            {isFetchingNextPage ? t("loadingMore") : t("viewOlderReplies")}
           </button>
         )}
         <div className="h-4" />
       </>
     )
-  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, togglePin, fetchNextPage, savedMessageIdSet, remindAtByMessageId, handleSaveForLater, postingPermission?.canReply])
+  }), [parentMessage, isLoading, hasNextPage, isFetchingNextPage, currentUser?.id, workspaceId, hoveredMessageId, emojiPickerMessageId, replies.length, addReaction, updateMessageAction, deleteMessageAction, togglePin, fetchNextPage, savedMessageIdSet, remindAtByMessageId, handleSaveForLater, postingPermission?.canReply, t])
 
   if (!resolvedMessageId) return null
 
   if (!parentMessage) {
     return (
       <div className="flex h-full flex-col bg-white dark:bg-[#1A1D21]">
-        <PanelHeader title="Thread" onClose={handleClose} />
+        <PanelHeader title={t("thread")} onClose={handleClose} />
         <div className="flex flex-1 items-center justify-center px-4 text-sm text-[#797c81]">
-          {isFetchingParent ? 'Loading thread...' : 'Thread unavailable'}
+          {isFetchingParent ? t("loadingThread") : t("threadUnavailable")}
         </div>
       </div>
     )
@@ -298,7 +300,7 @@ export default function ThreadPanel({
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21]">
       {/* Header (Toolbar) */}
-      <PanelHeader title="Thread" onClose={handleClose} />
+      <PanelHeader title={t("thread")} onClose={handleClose} />
 
       {/* Scrollable Content with Virtuoso */}
       <div className="flex-1 min-h-0">
@@ -365,7 +367,7 @@ export default function ThreadPanel({
         {postingPermission && !postingPermission.canReply ? (
           <div className="flex flex-col items-center justify-center gap-2 h-28 bg-[rgba(232,226,226,0.4)] dark:bg-[#222529] border-[#797c814d] border rounded-lg">
             <p className="text-sm font-medium text-[#1d1c1d] dark:text-[#f9f8f9]">
-              {restrictedPostingLabel ?? 'Only certain people can post in this channel'}
+              {restrictedPostingLabel ?? t("restrictedThread")}
             </p>
           </div>
         ) : (
@@ -410,7 +412,7 @@ export default function ThreadPanel({
                   htmlFor="also-send"
                   className="text-xs text-[#797c81] cursor-pointer select-none"
                 >
-                  Also send to channel
+                  {t("alsoSendToChannel")}
                 </label>
               </div>
             ) : null}

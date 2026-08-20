@@ -8,6 +8,7 @@ import {
   getServerWorkspaces,
   getServerChannels,
   getServerDirectMessages,
+  getServerMemberPreferences,
   prefetchWorkspaceData,
 } from '@/lib/server-fetch'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
@@ -29,7 +30,7 @@ export default async function WorkspaceLayout({
 }: WorkspaceLayoutProps) {
   const { workspaceId } = await params
 
-  const [account, workspaceProfile, currentWorkspace, allWorkspaces, channels, conversations] =
+  const [account, workspaceProfile, currentWorkspace, allWorkspaces, channels, conversations, memberPreferences] =
     await Promise.all([
       getServerUser(),
       getServerWorkspaceProfile(workspaceId),
@@ -37,6 +38,7 @@ export default async function WorkspaceLayout({
       getServerWorkspaces(),
       getServerChannels(workspaceId),
       getServerDirectMessages(workspaceId),
+      getServerMemberPreferences(workspaceId),
     ])
 
   if (!account) {
@@ -81,6 +83,7 @@ export default async function WorkspaceLayout({
     workspaces: allWorkspaces,
     channels,
     conversations,
+    memberPreferences,
   })
 
   const cookieStore = await cookies()

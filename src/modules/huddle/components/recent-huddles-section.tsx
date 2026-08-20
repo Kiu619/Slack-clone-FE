@@ -9,6 +9,7 @@ import { RecentHuddlesSkeleton } from "@/components/loading-skeletons";
 import { useRecentHuddles } from "@/hooks/use-recent-huddles";
 import { useLaterSavedMessageIds } from "@/hooks/use-saved-items";
 import { HuddleEmptyState } from "./huddle-empty-state";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type RecentHuddlesSectionProps = {
   workspaceId: string;
@@ -17,6 +18,7 @@ type RecentHuddlesSectionProps = {
 export function RecentHuddlesSection({
   workspaceId,
 }: RecentHuddlesSectionProps) {
+  const t = useAppTranslation('huddle.recentSection');
   const [filters, setFilters] = useState<RecentHuddlesFilters>({
     page: 1,
     pageSize: 20,
@@ -46,7 +48,7 @@ export function RecentHuddlesSection({
     return (
       <div className="flex items-center justify-center py-8">
         <div className="text-center text-sm text-gray-400">
-          Failed to load huddles
+          {t('failedToLoad')}
         </div>
       </div>
     );
@@ -61,7 +63,7 @@ export function RecentHuddlesSection({
       <div>
         <div className="px-4">
           <span className="text-[13px] font-semibold uppercase text-gray-400">
-            Recent Huddles
+            {t('recentHuddles')}
           </span>
         </div>
         <HuddleEmptyState />
@@ -73,7 +75,7 @@ export function RecentHuddlesSection({
     <div>
       <div className="px-4">
         <span className="text-[13px] font-semibold uppercase text-gray-400">
-          Recent Huddles ({totalRecent})
+          {t('recentHuddles')}
         </span>
       </div>
       <div className="flex flex-col">
@@ -105,6 +107,7 @@ export function RecentHuddlesSection({
 export function RecentHuddlesSectionWithFilters({
   workspaceId,
 }: RecentHuddlesSectionProps) {
+  const t = useAppTranslation('huddle.recentSection');
   const [filters, setFilters] = useState<RecentHuddlesFilters>({
     page: 1,
     pageSize: 20,
@@ -135,7 +138,7 @@ export function RecentHuddlesSectionWithFilters({
       <div className="flex flex-col gap-3">
         <div className="px-4">
           <span className="text-[13px] font-semibold uppercase text-gray-400">
-            Recent Huddles
+            {t('recentHuddles')}
           </span>
         </div>
         <div className="border-b border-white/10 px-4 py-2">
@@ -164,7 +167,7 @@ export function RecentHuddlesSectionWithFilters({
         </div>
         <div className="flex items-center justify-center py-8">
           <div className="text-center text-sm text-gray-400">
-            Failed to load huddles
+            {t('failedToLoad')}
           </div>
         </div>
       </div>
@@ -179,7 +182,7 @@ export function RecentHuddlesSectionWithFilters({
     <div className="flex flex-col overflow-y-scroll">
       <div className="px-4">
         <span className="text-[13px] font-semibold uppercase text-gray-400">
-          Recent Huddles
+          {t('recentHuddles')}
         </span>
       </div>
       <div className="border-b border-white/10 px-4 py-2">

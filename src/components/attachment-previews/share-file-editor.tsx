@@ -32,6 +32,7 @@ import {
   LuUnderline
 } from 'react-icons/lu'
 import { MdFormatColorText } from 'react-icons/md'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
@@ -40,6 +41,7 @@ const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 const ShareFileEditor = ({
 }) => {
+  const t = useAppTranslation("attachments")
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkDialogValue, setLinkDialogValue] = useState<LinkDialogValue>({
     text: '',
@@ -85,7 +87,7 @@ const ShareFileEditor = ({
         },
       }),
       Placeholder.configure({
-        placeholder: `Add a message, if you'd like.`,
+        placeholder: t("editor.addMessage"),
       }),
       createEditorLinkExtension(),
       Underline,

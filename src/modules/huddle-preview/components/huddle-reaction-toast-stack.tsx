@@ -1,5 +1,6 @@
 "use client"
 
+import { useHuddle } from "@/hooks/use-translation"
 import { cn } from "@/lib/utils"
 
 export type HuddleReactionToastItem = {
@@ -15,13 +16,14 @@ type HuddleReactionToastStackProps = {
 const MAX_VISIBLE_TOASTS = 4
 
 export function HuddleReactionToastStack({ items }: HuddleReactionToastStackProps) {
+  const t = useHuddle()
   const visibleItems = items.slice(0, MAX_VISIBLE_TOASTS)
   if (visibleItems.length === 0) return null
 
   return (
     <div className="pointer-events-none absolute bottom-3 right-3 z-30 flex max-w-[min(100%,280px)] flex-col items-end gap-2">
       {visibleItems.map((item) => {
-        const isSelf = item.displayName === "You"
+        const isSelf = item.displayName === t("you")
 
         return (
         <div

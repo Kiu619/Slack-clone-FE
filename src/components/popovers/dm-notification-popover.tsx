@@ -5,12 +5,13 @@ import {
   updateNotificationSettingApi,
 } from "@/apis";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { notificationKeys } from "@/lib/query-keys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { TbBell, TbBellOff } from "react-icons/tb";
 import { toast } from "sonner";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type Props = {
   workspaceId: string;
@@ -21,6 +22,7 @@ export default function DMsNotificationPopover({
   workspaceId,
   conversationId,
 }: Props) {
+  const t = useAppTranslation('notifications.dmPopover')
   const queryClient = useQueryClient();
   const queryKey = notificationKeys.setting(
     workspaceId,
@@ -49,12 +51,10 @@ export default function DMsNotificationPopover({
     onSuccess: async (updated, muted) => {
       queryClient.setQueryData(queryKey, updated);
       await queryClient.invalidateQueries({ queryKey });
-      toast.success(
-        muted ? "Conversation muted" : "Conversation notifications enabled",
-      );
+      toast.success(muted ? t('mutedSuccess') : t('enabledSuccess'));
     },
     onError: () => {
-      toast.error("Failed to update conversation notification setting");
+      toast.error(t('updateFailed'));
     },
   });
 
@@ -62,10 +62,10 @@ export default function DMsNotificationPopover({
   const isPending = mutation.isPending || isLoading;
   const TriggerIcon = isMuted ? TbBellOff : TbBell;
   const tooltipText = isPending
-    ? "Updating notification setting..."
+    ? t('updating')
     : isMuted
-      ? "Unmute conversation"
-      : "Mute conversation";
+      ? t('unmute')
+      : t('mute');
 
   return (
     <Tooltip>

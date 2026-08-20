@@ -2,6 +2,7 @@
 
 import { DirectMessageConversation } from "@/lib/types";
 import { useStarConversation } from "@/hooks/use-conversation";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { useState } from "react";
@@ -40,6 +41,7 @@ export default function DMDetailDialog({
     currentDmData.id,
   );
   const isStarred = Boolean(currentDmData.starredAt);
+  const t = useAppTranslation("directMessages");
 
   const isGroup = currentDmData.isGroup;
   const membersCount = currentDmData.members.length;
@@ -48,7 +50,7 @@ export default function DMDetailDialog({
     activeTab === "members" && !isGroup ? "about" : activeTab;
 
   const membersTabLabel =
-    !open || !isGroup ? "Members" : `Members ${membersCount}`;
+    !open || !isGroup ? t("members") : `${t("members")} ${membersCount}`;
 
   return (
     <CustomDialog
@@ -109,7 +111,7 @@ export default function DMDetailDialog({
                 : {}
             }
           >
-            <Typography text="About" variant="p" className="text-[13px]!" />
+            <Typography text={t("about")} variant="p" className="text-[13px]!" />
           </button>
 
           {isGroup ? (

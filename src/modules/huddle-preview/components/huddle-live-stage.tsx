@@ -38,6 +38,7 @@ import {
 import { CameraDeviceSelectorPopover } from "./camera-device-selector-popover";
 import { MicDeviceSelectorPopover } from "./mic-device-selector-popover";
 import { MoreActionsToolbarButton } from "./more-actions-popover";
+import { useHuddle } from "@/hooks/use-translation";
 
 type HuddleLiveStageProps = {
   workspaceId: string;
@@ -142,6 +143,7 @@ export function HuddleLiveStage({
   topic,
   onAddOrEditTopic,
 }: HuddleLiveStageProps) {
+  const t = useHuddle()
   const workspaceMembers = useWorkspaceMemberStore(
     (state) => state.byWorkspace[workspaceId],
   );
@@ -176,24 +178,24 @@ export function HuddleLiveStage({
         case "m":
           e.preventDefault();
           onToggleMic();
-          setAnnouncement(isMicEnabled ? "Microphone muted" : "Microphone unmuted");
+          setAnnouncement(isMicEnabled ? t("microphoneMuted") : t("microphoneUnmuted"));
           break;
         case "v":
           e.preventDefault();
           onToggleCamera();
-          setAnnouncement(isCameraEnabled ? "Camera off" : "Camera on");
+          setAnnouncement(isCameraEnabled ? t("cameraOff") : t("cameraOn"));
           break;
         case "s":
           if (!isScreenShareDisabled) {
             e.preventDefault();
             onToggleScreenShare();
-            setAnnouncement(isScreenSharing ? "Screen share stopped" : "Screen sharing");
+            setAnnouncement(isScreenSharing ? t("screenShareStopped") : t("screenSharing"));
           }
           break;
         case "r":
           e.preventDefault();
           onToggleRaiseHand();
-          setAnnouncement(isCurrentUserRaisedHand ? "Hand lowered" : "Hand raised");
+          setAnnouncement(isCurrentUserRaisedHand ? t("handLowered") : t("handRaised"));
           break;
       }
     };
@@ -204,7 +206,7 @@ export function HuddleLiveStage({
 
   const resolveParticipantLabel = useCallback(
     (participantId: string, isLocal = false) => {
-      if (isLocal || participantId === currentUserId) return "You";
+      if (isLocal || participantId === currentUserId) return t("you")
 
       const member = workspaceMembers?.[participantId];
       const snapshot = participantSnapshotMap[participantId];
@@ -224,10 +226,10 @@ export function HuddleLiveStage({
         participantMetadata?.name?.trim() ||
         liveParticipant?.name?.trim() ||
         participantId ||
-        "Participant"
+        t("participant")
       );
     },
-    [currentUserId, participantSnapshotMap, participants, workspaceMembers],
+    [currentUserId, participantSnapshotMap, participants, workspaceMembers, t],
   );
 
   const reactionToastItems = useMemo(
@@ -294,7 +296,7 @@ export function HuddleLiveStage({
         participantMetadata?.name?.trim() ||
         participant.name?.trim() ||
         identity ||
-        "Participant";
+        t("participant");
       const displayName = isLocal ? "You" : resolvedDisplayName;
       const avatarLabel =
         member?.displayName?.trim() ||
@@ -305,7 +307,7 @@ export function HuddleLiveStage({
         participantMetadata?.name?.trim() ||
         participant.name?.trim() ||
         identity ||
-        "Participant";
+        t("participant");
       const avatarSrc =
         member?.avatar?.trim() ||
         snapshot?.avatar?.trim() ||
@@ -446,12 +448,12 @@ export function HuddleLiveStage({
         {!isMicEnabled && isCameraEnabled && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-[13px] font-medium text-white shadow-lg animate-in fade-in slide-in-from-bottom-2">
             <LuMicOff size={16} />
-            <span>You're muted</span>
+            <span>{t("muteMicrophone")}</span>
             <button
               onClick={onToggleMic}
               className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-[12px] hover:bg-white/30"
             >
-              Unmute
+              {t("unmuteMicrophone")}
             </button>
           </div>
         )}
@@ -572,7 +574,7 @@ export function HuddleLiveStage({
             </div>
           ) : (
             <div className="flex h-full min-h-[280px] items-center justify-center rounded-[18px] border border-white/10 bg-black/20 text-center text-white/70">
-              Waiting for participants...
+              {t("waitingForParticipants")}
             </div>
           )}
         </div>
@@ -602,14 +604,14 @@ export function HuddleLiveStage({
                 )}
                 onClick={onToggleMic}
                 aria-label={
-                  isMicEnabled ? "Mute microphone" : "Unmute microphone"
+                  isMicEnabled ? t("muteMicrophone") : t("unmuteMicrophone")
                 }
               >
                 {isMicEnabled ? <LuMic size={20} /> : <LuMicOff size={20} />}
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {isMicEnabled ? "Mute microphone" : "Unmute microphone"}
+              {isMicEnabled ? t("muteMicrophone") : t("unmuteMicrophone")}
               <span className="ml-2 text-muted-foreground">(M)</span>
             </TooltipContent>
           </Tooltip>
@@ -656,7 +658,7 @@ export function HuddleLiveStage({
                 )}
                 onClick={onToggleCamera}
                 aria-label={
-                  isCameraEnabled ? "Turn camera off" : "Turn camera on"
+                  isCameraEnabled ? t("turnCameraOff") : t("turnCameraOn")
                 }
               >
                 {isCameraEnabled ? (
@@ -667,7 +669,7 @@ export function HuddleLiveStage({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {isCameraEnabled ? "Turn camera off" : "Turn camera on"}
+              {isCameraEnabled ? t("turnCameraOff") : t("turnCameraOn")}
               <span className="ml-2 text-muted-foreground">(V)</span>
             </TooltipContent>
           </Tooltip>
@@ -708,13 +710,13 @@ export function HuddleLiveStage({
                   : "bg-white/20 hover:bg-white/40",
               )}
               onClick={onToggleRaiseHand}
-              aria-label={isCurrentUserRaisedHand ? "Lower hand" : "Raise hand"}
+              aria-label={isCurrentUserRaisedHand ? t("lowerHand") : t("raiseHand")}
             >
               <LuHand size={20} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isCurrentUserRaisedHand ? "Lower hand" : "Raise hand"}
+            {isCurrentUserRaisedHand ? t("lowerHand") : t("raiseHand")}
             <span className="ml-2 text-muted-foreground">(R)</span>
           </TooltipContent>
         </Tooltip>
@@ -733,7 +735,7 @@ export function HuddleLiveStage({
                     : "bg-white/20 hover:bg-white/40",
               )}
               onClick={isScreenShareDisabled ? undefined : onToggleScreenShare}
-              aria-label={isScreenSharing ? "Stop sharing" : "Share screen"}
+              aria-label={isScreenSharing ? t("stopSharing") : t("shareScreen")}
               aria-disabled={isScreenShareDisabled}
             >
               {isScreenSharing ? (
@@ -744,12 +746,12 @@ export function HuddleLiveStage({
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isScreenSharing ? "Stop sharing" : "Share screen"}
+            {isScreenSharing ? t("stopSharing") : t("shareScreen")}
             {!isScreenSharing && !isScreenShareDisabled && (
               <span className="ml-2 text-muted-foreground">(S)</span>
             )}
             {isScreenShareDisabled &&
-              "Only 2 people can share screen at the same time"}
+              t("onlyTwoCanShareScreen")}
           </TooltipContent>
         </Tooltip>
 
@@ -770,7 +772,7 @@ export function HuddleLiveStage({
                   !isThreadAvailable && "cursor-not-allowed opacity-50",
                 )}
                 onClick={onToggleThread}
-                aria-label={isThreadOpen ? "Close thread" : "Open thread"}
+                aria-label={isThreadOpen ? t("closeThread") : t("openThread")}
               >
                 <LuMessageSquare size={20} />
               </Button>
@@ -780,8 +782,8 @@ export function HuddleLiveStage({
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            {isThreadOpen ? "Close thread" : "Open thread"}
-            {!isThreadAvailable && "Thread is not available"}
+            {isThreadOpen ? t("closeThread") : t("openThread")}
+            {!isThreadAvailable && t("threadNotAvailable")}
           </TooltipContent>
         </Tooltip>
 
@@ -795,7 +797,7 @@ export function HuddleLiveStage({
           className="flex h-11 min-w-[88px] items-center justify-center  bg-rose-500 px-4 text-[14px] font-semibold text-white hover:bg-rose-400"
           onClick={onLeave}
         >
-          Leave
+          {t("leave")}
         </Button>
       </div>
     </div>

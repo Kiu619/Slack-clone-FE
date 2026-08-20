@@ -26,6 +26,7 @@ import Typography from "@/components/ui/typography";
 import AboutTab from "./about-tab";
 import MembersTab from "./members-tab";
 import SettingsTab from "./settings-tab";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 interface Props {
   open: boolean;
@@ -42,6 +43,7 @@ export default function ChannelDetailDialog({
 }: Props) {
   const [activeTab, setActiveTab] = useState<string>("about");
   const { theme: storeTheme } = useThemeStore();
+  const t = useAppTranslation('channel.detail')
 
   const workspaceId = currentChannelData.workspaceId;
   const channelId = currentChannelData.id;
@@ -62,10 +64,10 @@ export default function ChannelDetailDialog({
   });
 
   const membersTabLabel = !open
-    ? "Members"
+    ? t('members')
     : membersCountPending
-      ? "Members"
-      : `Members ${membersForCount?.inChannel?.length ?? 0}`;
+      ? t('members')
+      : t('memberCount', { count: membersForCount?.inChannel?.length ?? 0 });
 
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="600px">
@@ -116,7 +118,7 @@ export default function ChannelDetailDialog({
               joinChannel(currentUser!.id);
             }}
           >
-            {isJoining ? "Joining..." : "Join channel"}
+            {isJoining ? t('joining') : t('joinChannel')}
           </Button>
         )}
 
@@ -140,7 +142,7 @@ export default function ChannelDetailDialog({
                 : {}
             }
           >
-            <Typography text="About" variant="p" className="text-[13px]!" />
+            <Typography text={t('about')} variant="p" className="text-[13px]!" />
           </button>
 
           <button
@@ -188,7 +190,7 @@ export default function ChannelDetailDialog({
                 : {}
             }
           >
-            <Typography text="Settings" variant="p" className="text-[13px]!" />
+            <Typography text={t('settings')} variant="p" className="text-[13px]!" />
           </button>
         </div>
       </div>

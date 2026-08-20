@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/pagination"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 import { useSearchAttachments, type SearchAttachmentsFilters } from "@/hooks/use-attachments"
 import { useChannels } from "@/hooks/use-channel"
 import { useConversations } from "@/hooks/use-conversations"
-import { useWorkspaceRecents } from "@/hooks/use-workspace-recents"
+import { useWorkspace{t("recent")}s } from "@/hooks/use-workspace-recents"
 import { fetchWorkspaceMembersApi } from "@/apis"
 import { FILE_TYPES } from "@/lib/file-filter-options"
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore"
@@ -42,22 +43,11 @@ import { WorkspaceMember } from "@/lib/types"
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles"
 import { Skeleton } from "@/components/ui/skeleton"
 
-const SORT_OPTIONS = [
-  { id: "newest", label: "Newest" },
-  { id: "last_updated", label: "Last updated" },
-  { id: "recent_viewed", label: "Recently viewed" },
-] as const
+const SORT_OPTIONS_IDS = ["newest", "last_updated", "recent_viewed"] as const
+type FileSort = (typeof SORT_OPTIONS_IDS)[number]
 
-const DATE_OPTIONS = [
-  { label: "Any time", value: "all-time" },
-  { label: "Today", value: "today" },
-  { label: "Yesterday", value: "yesterday" },
-  { label: "Last 7 days", value: "last-7-days" },
-  { label: "Last 30 days", value: "last-30-days" },
-  { label: "Last 90 days", value: "last-90-days" },
-  { label: "Last 180 days", value: "last-180-days" },
-  { label: "Last 365 days", value: "last-365-days" },
-] as const
+const DATE_OPTION_VALUES = ["all-time", "today", "yesterday", "last-7-days", "last-30-days", "last-90-days", "last-180-days", "last-365-days"] as const
+type DateOptionValue = (typeof DATE_OPTION_VALUES)[number]
 
 const GLOBAL_TO_FILE: Record<string, string> = {
   documents: "document",
@@ -83,7 +73,6 @@ const FILE_TO_GLOBAL: Record<string, string> = {
 
 const ALL_FILE_TYPE_IDS = FILE_TYPES.map((type) => type.id)
 
-type FileSort = (typeof SORT_OPTIONS)[number]["id"]
 type PaginationValue = number | "..."
 const PAGE_SIZE = 20
 const TOOLBAR_GAP_PX = 8
@@ -127,6 +116,8 @@ export function WorkspaceFilesSearchPanel({
   workspaceId: string
   typeSelect?: React.ReactNode
 }) {
+  const t = useAppTranslation("search")
+
   const currentUser = useUserStore((state) => state.user)
   const query = useGlobalSearchStore((state) => state.query)
   const fromUserIds = useGlobalSearchStore((state) => state.fromUserIds)
@@ -152,7 +143,7 @@ export function WorkspaceFilesSearchPanel({
   })
   const { data: channels = [] } = useChannels(workspaceId)
   const { data: conversations = [] } = useConversations(workspaceId)
-  const { data: recentsData } = useWorkspaceRecents(workspaceId)
+  const { data: recentsData } = useWorkspace{t("recent")}s(workspaceId)
   const memberOverlayMap = useWorkspaceMemberStore(
     useShallow((state) => state.byWorkspace[workspaceId] ?? {}),
   )
@@ -232,8 +223,8 @@ export function WorkspaceFilesSearchPanel({
     [fromUserIds, members],
   )
   const fromButtonLabel = (() => {
-    if (selectedFromMembers.length === 0) return "From"
-    if (selectedFromMembers.length >= 2) return `${selectedFromMembers.length} teammates`
+    if (selectedFromMembers.length === 0) return t("filters.from")
+    if (selectedFromMembers.length >= 2) return t("filters.teammates", { count: selectedFromMembers.length })
     const first = selectedFromMembers[0]
     const display = displayMember(first)
     return display.displayName || display.name || display.email || first.id
@@ -269,12 +260,12 @@ export function WorkspaceFilesSearchPanel({
   )
   const selectedInCount = selectedInChannels.length + selectedInConversations.length
   const selectedInLabel = (() => {
-    if (selectedInCount === 0) return "In"
-    if (selectedInCount >= 2) return `${selectedInCount} places`
+    if (selectedInCount === 0) return t("filters.in")
+    if (selectedInCount >= 2) return t("filters.places", { count: selectedInCount })
     const channel = selectedInChannels[0]
     if (channel) return channel.name
     const conversation = selectedInConversations[0]
-    if (!conversation) return "In"
+    if (!conversation) return t("filters.in")
     return getConversationSummary(
       conversation,
       currentUser?.id,
@@ -553,14 +544,14 @@ export function WorkspaceFilesSearchPanel({
     [typeFilterTypes],
   )
   const isAllTypesSelected = selectedTypes.length === FILE_TYPES.length
-  const typeLabel = isAllTypesSelected ? "All Types" : `${selectedTypes.length} Types`
+  const typeLabel = isAllTypesSelected ? t("allTypes") : t("types", { count: selectedTypes.length })
   const dateLabel = (() => {
-    if (!afterDate && !beforeDate) return "Date"
-    const matched = DATE_OPTIONS.find((option) => {
-      const range = getDateRangeForValue(option.value)
+    if (!afterDate && !beforeDate) return t("dateOptions.anyTime")
+    const matched = DATE_OPTION_VALUES.find((value) => {
+      const range = getDateRangeForValue(value)
       return range.afterDate === afterDate && range.beforeDate === beforeDate
     })
-    return matched?.label ?? "Date set"
+    return matched ? t(`dateOptions.${getDateOptionKey(matched)}` as never) : t("dateSet")
   })()
 
   const activeFilterCount =
@@ -656,8 +647,8 @@ export function WorkspaceFilesSearchPanel({
     useGlobalSearchStore.getState().setBeforeDate(range.beforeDate)
   }
   const resultCountLabel = useMemo(
-    () => `${totalResults} result${totalResults === 1 ? "" : "s"}`,
-    [totalResults],
+    () => t("results", { count: totalResults }),
+    [totalResults, t],
   )
   const visibility = useMemo(
     () => ({
@@ -745,7 +736,7 @@ export function WorkspaceFilesSearchPanel({
                     <Input
                       value={fromSearch}
                       onChange={(event) => setFromSearch(event.target.value)}
-                      placeholder="Search people..."
+                      placeholder={t("searchPeople")}
                       className="h-8 border-[#797c814d] text-sm"
                     />
                   </div>
@@ -782,13 +773,13 @@ export function WorkspaceFilesSearchPanel({
                           className="px-3 py-2 text-sm hover:underline cursor-pointer text-muted-foreground"
                           onClick={() => setFromUserIds([])}
                         >
-                          Clear all
+                          {t("clearAll")}
                         </span>
                       </div>
                     ) : null}
-                    <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
+                    <div className="px-3 py-2 text-sm text-neutral-400">{t("suggestions")}</div>
                     {displayedSuggestedFromMembers.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-neutral-400">No people found</div>
+                      <div className="px-4 py-3 text-sm text-neutral-400">{t("noPeopleFound")}</div>
                     ) : (
                       displayedSuggestedFromMembers.map((member) => {
                         const display = displayMember(member)
@@ -881,14 +872,14 @@ export function WorkspaceFilesSearchPanel({
                     <Input
                       value={inSearch}
                       onChange={(event) => setInSearch(event.target.value)}
-                      placeholder="Search channels or DMs..."
+                      placeholder={t("searchChannelsOrDMs")}
                       className="h-8 border-[#797c814d] text-sm"
                     />
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {recentInItems.length > 0 ? (
                       <div className="border-b border-[#797c814d] pb-2">
-                        <div className="px-3 py-2 text-sm text-neutral-400">Recent</div>
+                        <div className="px-3 py-2 text-sm text-neutral-400">{t("recent")}</div>
                         {recentInItems.map((item) =>
                           item.kind === "channel" && item.channel
                             ? renderInChannelRow(item.channel)
@@ -899,9 +890,9 @@ export function WorkspaceFilesSearchPanel({
                       </div>
                     ) : null}
                     <div className={recentInItems.length > 0 ? "pt-1" : ""}>
-                      <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
+                      <div className="px-3 py-2 text-sm text-neutral-400">{t("suggestions")}</div>
                       {filteredInChannels.length === 0 && filteredInConversations.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-neutral-400">No results found</div>
+                        <div className="px-4 py-3 text-sm text-neutral-400">{t("noResultsFound")}</div>
                       ) : (
                         <>
                           {filteredInChannels.map((channel) => renderInChannelRow(channel))}
@@ -973,13 +964,13 @@ export function WorkspaceFilesSearchPanel({
                     className="h-7 px-2 text-xs text-red-500 hover:text-red-500"
                     onClick={clearAllTypes}
                   >
-                    Clear all
+                    {t("clearAll")}
                   </Button> */}
                     <span
                       className="px-3 py-2 text-sm hover:underline cursor-pointer text-muted-foreground"
                       onClick={clearAllTypes}
                     >
-                      Clear all
+                      {t("clearAll")}
                     </span>
                   </div>
                 </PopoverContent>
@@ -1017,10 +1008,10 @@ export function WorkspaceFilesSearchPanel({
                   className="w-56 py-2"
                   onOpenAutoFocus={(event) => event.preventDefault()}
                 >
-                  {DATE_OPTIONS.map((option) => {
-                    const range = getDateRangeForValue(option.value)
+                  {DATE_OPTION_VALUES.map((value) => {
+                    const range = getDateRangeForValue(value)
                     const isSelected =
-                      (option.value === "all-time" && !afterDate && !beforeDate) ||
+                      (value === "all-time" && !afterDate && !beforeDate) ||
                       (range.afterDate === afterDate && range.beforeDate === beforeDate)
                     return (
                       // <div
@@ -1039,16 +1030,16 @@ export function WorkspaceFilesSearchPanel({
                       // </div>
                       <Button
                         variant="checkedMenu"
-                        key={option.value}
+                        key={value}
                         onClick={() => {
-                          applyDateOption(option.value)
+                          applyDateOption(value)
                           setOpenDateFilters(false)
                         }}
                         className={cn(
                           isSelected && ACTIVE_ITEM_STYLE,
                         )}
                       >
-                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="text-sm font-medium">{t(`dateOptions.${getDateOptionKey(value)}` as never)}</span>
                         {isSelected ? <FiCheck size={14} className="text-white" /> : null}
                       </Button>
                     )
@@ -1091,7 +1082,7 @@ export function WorkspaceFilesSearchPanel({
                   <Typography
                     variant="p"
                     className="text-[13px]"
-                    text={`Sort: ${SORT_OPTIONS.find((option) => option.id === sortBy)?.label || "Newest"}`}
+                    text={t("sortBy", { label: t(`sortOptions.${sortBy === "newest" ? "newest" : sortBy === "last_updated" ? "lastUpdated" : "recentlyViewed"}` as never) })}
                   />
                   <ChevronDown
                     size={13}
@@ -1110,25 +1101,28 @@ export function WorkspaceFilesSearchPanel({
                 className="py-2"
                 onOpenAutoFocus={(event) => event.preventDefault()}
               >
-                {SORT_OPTIONS.map((option) => (
-                  <Button
-                    variant="checkedMenu"
-                    key={option.id}
-                    onClick={() => {
-                      setSortBy(option.id)
-                      setPage(1)
-                      setOpenSortSearch(false)
-                    }}
-                    className={cn(
-                      sortBy === option.id && ACTIVE_ITEM_STYLE,
-                    )}
-                  >
-                    <span className="text-sm font-medium">{option.label}</span>
-                    {sortBy === option.id ? (
-                      <FiCheck size={14} className="text-white" />
-                    ) : null}
-                  </Button>
-                ))}
+                {SORT_OPTIONS_IDS.map((id) => {
+                  const labelKey = id === "newest" ? "newest" : id === "last_updated" ? "lastUpdated" : "recentlyViewed"
+                  return (
+                    <Button
+                      variant="checkedMenu"
+                      key={id}
+                      onClick={() => {
+                        setSortBy(id)
+                        setPage(1)
+                        setOpenSortSearch(false)
+                      }}
+                      className={cn(
+                        sortBy === id && ACTIVE_ITEM_STYLE,
+                      )}
+                    >
+                      <span className="text-sm font-medium">{t(`sortOptions.${labelKey}` as never)}</span>
+                      {sortBy === id ? (
+                        <FiCheck size={14} className="text-white" />
+                      ) : null}
+                    </Button>
+                  )
+                })}
               </PopoverContent>
             </Popover>
           </div>
@@ -1170,12 +1164,12 @@ export function WorkspaceFilesSearchPanel({
 
             {isError ? (
               <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
-                Failed to load files
+                {t("failedToLoadFiles")}
               </div>
             ) : null}
             {!isLoading && !isError && files.length === 0 ? (
               <div className="rounded-xl border border-[#35373B] p-6 text-sm text-neutral-400">
-                Nothing turned up
+                {t("noFilesFound")}
               </div>
             ) : null}
             {!isLoading && !isError
@@ -1193,7 +1187,7 @@ export function WorkspaceFilesSearchPanel({
             {!isLoading && !isError && totalResults > 0 ? (
               <div className="mt-2 flex flex-col gap-3 rounded-[4px] px-1 py-2 md:flex-row md:items-center md:justify-between">
                 <div className="text-[13px] text-neutral-400">
-                  Page {currentPage} of {totalPages} · {PAGE_SIZE} per page
+                  {t("pagination.pageOf", { current: currentPage, total: totalPages, pageSize: PAGE_SIZE })}
                 </div>
 
                 <Pagination className="mx-0 w-auto justify-end">

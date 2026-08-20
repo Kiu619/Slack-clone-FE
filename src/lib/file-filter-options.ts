@@ -10,6 +10,6 @@ export const FILE_TYPES = [
 ]
 
 export const SORT_OPTIONS = [
-  { id: 'recent_viewed', label: 'Recently viewed' },
-  { id: 'last_updated', label: 'Last updated' },
+  { id: 'recent_viewed', labelKey: 'recentViewed' },
+  { id: 'last_updated', labelKey: 'lastUpdated' },
 ] as const

@@ -1,15 +1,18 @@
-import { Button } from "@/components/ui/button"
+"use client";
+
+import { Button } from "@/components/ui/button";
 import {
   CustomDialog,
   CustomDialogHeader,
   CustomDialogTitle,
   CustomDialogBody,
   CustomDialogFooter
-} from "../custom-dialog"
-import { Field, FieldGroup } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { type FormEvent, useState } from "react"
+} from "../custom-dialog";
+import { FieldGroup } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { type FormEvent, useState } from "react";
+import { useDialogs } from "@/hooks/use-translation";
 
 type LinkInputDialogProps = {
   open: boolean
@@ -28,6 +31,7 @@ export function LinkInputDialog({
   onSave,
   onRemove,
 }: LinkInputDialogProps) {
+  const t = useDialogs();
   const [text, setText] = useState(initialText)
   const [url, setUrl] = useState(initialUrl)
 
@@ -45,7 +49,7 @@ export function LinkInputDialog({
     <CustomDialog open={open} onOpenChange={setOpen} maxWidth="400px">
       <form onSubmit={handleSubmit}>
         <CustomDialogHeader onOpenChange={setOpen}>
-          <CustomDialogTitle>Add link</CustomDialogTitle>
+          <CustomDialogTitle>{t('linkInput.title')}</CustomDialogTitle>
         </CustomDialogHeader>
 
         <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
@@ -61,13 +65,13 @@ export function LinkInputDialog({
               />
             </Field>
             <Field>
-              <Label htmlFor="username-1" className="">Link</Label>
+              <Label htmlFor="username-1" className="">{t('linkInput.link')}</Label>
               <Input
                 id="username-1"
                 name="username"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://example.com"
+                placeholder={t('linkInput.linkPlaceholder')}
                 className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
               />
             </Field>
@@ -86,18 +90,18 @@ export function LinkInputDialog({
                 }}
                 className="dark:hover:bg-[#2C2E33]"
               >
-                Remove link
+                {t('linkInput.removeLink')}
               </Button>
             ) : null}
           </div>
           <div>
-          <Button variant="outline" onClick={() => setOpen(false)} className="dark:hover:bg-[#2C2E33] mr-2">Cancel</Button>
+          <Button variant="outline" onClick={() => setOpen(false)} className="dark:hover:bg-[#2C2E33] mr-2">{t('common.cancel')}</Button>
           <Button
             type="submit"
             disabled={!url.trim()}
             variant="success"
           >
-            Save
+            {t('common.save')}
           </Button>
           </div>
         </CustomDialogFooter>

@@ -3,8 +3,11 @@
 import { FiSettings } from "react-icons/fi"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 const Setting = () => {
+  const t = useAppTranslation("workspaceSidePanel")
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -15,7 +18,7 @@ const Setting = () => {
       <TooltipContent
         side='bottom'
       >
-        <Typography text='Manage my sidebar' variant='p' className="text-[13px]!" />
+        <Typography text={t("manageMySidebar")} variant='p' className="text-[13px]!" />
       </TooltipContent>
     </Tooltip>
   )

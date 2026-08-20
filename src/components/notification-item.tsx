@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useMemo } from "react";
-import { format, isToday, isYesterday } from "date-fns";
 import DOMPurify from "dompurify";
 import { cn } from "@/lib/utils";
 import type { Notification, User } from "@/lib/types";
@@ -26,6 +25,9 @@ import {
 } from "react-icons/fa";
 import { Check, Eraser } from "lucide-react";
 import { FiHash } from "react-icons/fi";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { formatMessageTime } from "@/lib/format-message-time";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -45,6 +47,11 @@ export default function NotificationItem({
   onClear,
 }: NotificationItemProps) {
   const { id, type, actor, channel, message, createdAt, isRead } = notification;
+  const t = useAppTranslation("notification");
+  const commonT = useAppTranslation("common");
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
   const storeMessage = useMessageStore(
     useCallback(
       (state) =>
@@ -89,42 +96,45 @@ export default function NotificationItem({
 
   const getContextText = () => {
     if (type === "post") {
-      return channel ? `Post in #${channel.name}` : "Post in channel";
+      return channel ? t("postInChannel", { channel: channel.name }) : t("postInDm");
     }
 
     if (type === "channel_invite") {
-      return channel ? `Invited you to #${channel.name}` : "Invited you to a channel";
+      return channel ? t("invitedToChannel", { channel: channel.name }) : t("invitedToChannelFallback");
     }
 
     if (type === "reply") {
-      return channel ? `Thread in #${channel.name}` : "Thread in DM";
+      return channel ? t("threadInChannel", { channel: channel.name }) : t("threadInDm");
     }
 
     if (type === "mention") {
-      return channel ? `Mention in #${channel.name}` : "Mention in DM";
+      return channel ? t("mentionInChannel", { channel: channel.name }) : t("mentionInDm");
     }
 
     if (type === "reaction") {
-      return channel ? `Reacted in #${channel.name}` : "Reacted in DM";
+      return channel ? t("reactedInChannel", { channel: channel.name }) : t("reactedInDm");
     }
 
-    return "Notification";
+    return t("notification");
   };
 
   const getMetaText = () => {
-    if (type === "post") return channel ? `Post in #${channel.name}` : "Post in channel";
-    if (type === "reply") return channel ? `Thread in #${channel.name}` : "Thread in DM";
-    if (type === "mention") return channel ? `Mention in #${channel.name}` : "Mention in DM";
-    if (type === "reaction") return channel ? `Reacted in #${channel.name}` : "Reacted in DM";
-    if (type === "channel_invite") return channel ? `Invitation to #${channel.name}` : "Channel invitation";
+    if (type === "post") return channel ? t("postInChannel", { channel: channel.name }) : t("postInDm");
+    if (type === "reply") return channel ? t("threadInChannel", { channel: channel.name }) : t("threadInDm");
+    if (type === "mention") return channel ? t("mentionInChannel", { channel: channel.name }) : t("mentionInDm");
+    if (type === "reaction") return channel ? t("reactedInChannel", { channel: channel.name }) : t("reactedInDm");
+    if (type === "channel_invite") return channel ? t("invitationToChannel", { channel: channel.name }) : t("channelInvitation");
     return getContextText();
   };
 
   const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    if (isToday(date)) return format(date, "h:mm a");
-    if (isYesterday(date)) return "Yesterday";
-    return format(date, "MMM d");
+    return formatMessageTime(dateStr, {
+      t,
+      commonT,
+      language,
+      timeFormat,
+      dateFormat,
+    });
   };
 
   const sanitizedPreviewContent = useMemo(() => {
@@ -166,9 +176,9 @@ export default function NotificationItem({
     const previewNames = names.slice(0, 3);
     const moreCount = names.length - previewNames.length;
     return moreCount > 0
-      ? `${previewNames.join(", ")} +${moreCount} more`
+      ? t("attachmentPreviewMore", { names: previewNames.join(", "), count: moreCount })
       : previewNames.join(", ");
-  }, [resolvedMessage?.attachments, sanitizedPreviewContent]);
+  }, [resolvedMessage?.attachments, sanitizedPreviewContent, t]);
 
   return (
     <div
@@ -212,7 +222,7 @@ export default function NotificationItem({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1.5">
                 <Typography variant="p" className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
-                  {actorDisplay?.displayName || actorDisplay?.name || "Someone"}
+                  {actorDisplay?.displayName || actorDisplay?.name || t("someone")}
                 </Typography>
                 {actorDisplay ? (
                   <UserStatusEmojiInline
@@ -256,7 +266,7 @@ export default function NotificationItem({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">Mark as read</p>
+                      <p className="text-xs">{t("markAsRead")}</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -274,7 +284,7 @@ export default function NotificationItem({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">Clear</p>
+                      <p className="text-xs">{t("clear")}</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

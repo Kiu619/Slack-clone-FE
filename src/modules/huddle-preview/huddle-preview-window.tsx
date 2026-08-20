@@ -11,6 +11,7 @@ import { ConnectionState } from "livekit-client";
 import { LucideAlertCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Component, useEffect, type ReactNode } from "react";
+import { useAppTranslation, useHuddle } from "@/hooks/use-translation";
 
 const ThreadPanel = dynamic(() => import("@/modules/threads/thread-panel"), {
   ssr: false,
@@ -25,22 +26,23 @@ interface ErrorBoundaryState {
 }
 
 function HuddleErrorFallback({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
+  const t = useAppTranslation('huddlePreview')
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500/20">
         <LucideAlertCircle size={28} className="text-red-400" />
       </div>
       <div className="space-y-1">
-        <h3 className="text-[15px] font-semibold text-white">Something went wrong</h3>
+        <h3 className="text-[15px] font-semibold text-white">{t('somethingWentWrong')}</h3>
         <p className="text-[13px] text-white/60">
-          {error?.message || "An unexpected error occurred in the huddle."}
+          {error?.message || t('unexpectedError')}
         </p>
       </div>
       <button
         onClick={onRetry}
         className="rounded-lg bg-white/10 px-4 py-2 text-[14px] font-medium text-white hover:bg-white/20"
       >
-        Try again
+        {t('tryAgain')}
       </button>
     </div>
   );
@@ -74,11 +76,12 @@ class HuddleErrorBoundary extends Component<{ children: ReactNode; onError?: (er
 }
 
 function ConnectingOverlay() {
+  const t = useHuddle()
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center rounded-[20px] bg-black/60 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-3">
         <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
-        <span className="text-[14px] font-medium text-white">Joining huddle...</span>
+        <span className="text-[14px] font-medium text-white">{t("joining")}</span>
       </div>
     </div>
   );
@@ -118,6 +121,7 @@ type HuddlePreviewWindowProps = Parameters<typeof useHuddlePreviewWindow>[0];
 
 export function HuddlePreviewWindow(props: HuddlePreviewWindowProps) {
   const huddle = useHuddlePreviewWindow(props);
+  const t = useHuddle()
 
   return (
     <HuddleErrorBoundary>
@@ -143,8 +147,8 @@ export function HuddlePreviewWindow(props: HuddlePreviewWindowProps) {
                   liveTitle={huddle.liveTitle}
                   phaseLabel={
                     huddle.liveRoomState === ConnectionState.Connected
-                      ? "Live"
-                      : "Reconnecting"
+                      ? t("live")
+                      : t("reconnecting")
                   }
                   participantCount={huddle.liveParticipantCount}
                   liveError={huddle.liveError}

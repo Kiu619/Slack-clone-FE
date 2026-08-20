@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
 import { Calendar as CalendarIcon, ChevronDown } from "lucide-react"
+import { enUS, vi } from "date-fns/locale"
+import { format } from "date-fns"
+import type { Locale as DateFnsLocale } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -12,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useLanguage, useDateFormat } from "@/hooks/use-translation"
 
 interface DatePickerDropdownProps {
   date: Date | undefined
@@ -19,12 +22,33 @@ interface DatePickerDropdownProps {
   disabled?: boolean
 }
 
+const LOCALE_FOR_PICKER: Record<"en" | "vi", DateFnsLocale> = {
+  en: enUS,
+  vi: vi,
+}
+
+function formatLocalizedDate(date: Date, language: "en" | "vi", dateFormat: "en_US" | "vi_VN"): string {
+  const dateLocale = LOCALE_FOR_PICKER[language]
+  // Format based on dateFormat preference: en_US = "MMMM do, yyyy", vi_VN = "do MMMM yyyy"
+  if (dateFormat === 'vi_VN') {
+    return format(date, "do MMMM yyyy", { locale: dateLocale })
+  } else {
+    return format(date, "MMMM do, yyyy", { locale: dateLocale })
+  }
+}
+
 export function DatePickerDropdown({
   date,
   setDate,
   disabled,
 }: DatePickerDropdownProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const language = useLanguage()
+  const dateFormat = useDateFormat()
+  const [isOpen, setIsOpen] = React.useState(false)
+  const pickerLocale = LOCALE_FOR_PICKER[language]
+
+  const pickADateLabel = language === 'vi' ? 'Chọn ngày' : 'Pick a date'
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -39,7 +63,7 @@ export function DatePickerDropdown({
         >
           <div className="flex items-center">
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? format(date, "EEEE, MMMM d") : <span>Pick a date</span>}
+            {date ? formatLocalizedDate(date, language, dateFormat) : <span>{pickADateLabel}</span>}
           </div>
           <ChevronDown
             className={cn(
@@ -59,6 +83,7 @@ export function DatePickerDropdown({
           onSelect={setDate}
           disabled={{ before: new Date() }}
           autoFocus
+          locale={pickerLocale}
           className="bg-white dark:bg-[#1A1D21] border-none"
         />
       </PopoverContent>

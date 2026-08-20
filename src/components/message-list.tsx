@@ -15,7 +15,7 @@ import { useMessageFocusStore } from '@/stores/useMessageFocusStore'
 import type { DirectMessageConversation, Message, User } from '@/lib/types'
 import { openHuddlePreviewWindow } from '@/lib/open-huddle-preview-window'
 import { format, isSameDay, isThisYear, isToday, isYesterday, startOfDay, subWeeks, subMonths } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { enUS, vi } from 'date-fns/locale'
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { IoChevronDownOutline } from "react-icons/io5"
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -24,6 +24,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { messageKeys } from '@/lib/query-keys'
 import { toast } from 'sonner'
 import DMIntro from '@/modules/direct-messages/dm-intro'
+import { useLanguage, useMessageList, useDateFormat } from '@/hooks/use-translation'
+import type { Language } from '@/stores/useLanguageRegionStore'
 
 const TOP_LOAD_THRESHOLD_PX = 50
 const BOTTOM_LOAD_THRESHOLD_PX = 48
@@ -54,7 +56,7 @@ type ListItem =
   | { type: 'message'; message: Message; isCompact: boolean }
   | { type: 'date'; date: Date }
   | { type: 'new-divider'; anchorMessageId: string }
-  | { type: 'welcome'; members?: User[]; isGroup?: boolean; createdAt?: string; workspaceId?: string }
+  | { type: 'welcome'; members?: User[]; isGroup?: boolean; createdAt?: string; workspaceId?: string; channelName?: string }
 
 // Pagination states and Virtualizer types removed in favor of @tanstack/react-virtual
 
@@ -69,12 +71,28 @@ const getItemKey = (item: ListItem) => {
 
 function DateSeparator({ date, onJump, onJumpToMostRecent, onOpenJumpDialog, onJumpToBeginning, createdAt }: { date: Date, onJump: (date: Date) => void, onJumpToMostRecent: () => void, onOpenJumpDialog: () => void, onJumpToBeginning: () => void, createdAt?: string }) {
   const [open, setOpen] = useState(false)
+  const language = useLanguage()
+  const dateFormat = useDateFormat()
+  const t = useMessageList()
+
+  const dateLocale = language === 'vi' ? vi : enUS
 
   let label: string
-  if (isToday(date)) label = 'Today'
-  else if (isYesterday(date)) label = 'Yesterday'
-  else if (isThisYear(date)) label = format(date, 'MMMM do', { locale: enUS })
-  else label = format(date, 'MMMM do, yyyy', { locale: enUS })
+  const todayLabel = t("jumpTo.today") || t("common.today") || "Today"
+  const yesterdayLabel = t("jumpTo.yesterday") || t("common.yesterday") || "Yesterday"
+
+  if (isToday(date)) label = todayLabel
+  else if (isYesterday(date)) label = yesterdayLabel
+  else {
+    // Format based on dateFormat preference: en_US = MMMM do, vi_VN = do MMMM
+    if (dateFormat === 'vi_VN') {
+      if (isThisYear(date)) label = format(date, 'do MMMM', { locale: dateLocale })
+      else label = format(date, 'do MMMM, yyyy', { locale: dateLocale })
+    } else {
+      if (isThisYear(date)) label = format(date, 'MMMM do', { locale: dateLocale })
+      else label = format(date, 'MMMM do, yyyy', { locale: dateLocale })
+    }
+  }
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 my-2">
@@ -88,13 +106,13 @@ function DateSeparator({ date, onJump, onJumpToMostRecent, onOpenJumpDialog, onJ
           </PopoverTrigger>
           <PopoverContent withOverlay>
             <div className="flex flex-col py-2">
-              <span className="mx-4 text-[12px] text-[#8e9297]">Jump to...</span>
-              <div onClick={() => { setOpen(false); onJumpToMostRecent() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Most recent</div>
-              <div onClick={() => { setOpen(false); onJump(subWeeks(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Last week</div>
-              <div onClick={() => { setOpen(false); onJump(subMonths(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Last month</div>
-              {createdAt && <div onClick={() => { setOpen(false); onJumpToBeginning() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">The very beginning</div>}
+              <span className="mx-4 text-[12px] text-[#8e9297]">{t("jumpTo.title")}</span>
+              <div onClick={() => { setOpen(false); onJumpToMostRecent() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.mostRecent")}</div>
+              <div onClick={() => { setOpen(false); onJump(subWeeks(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.lastWeek")}</div>
+              <div onClick={() => { setOpen(false); onJump(subMonths(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.lastMonth")}</div>
+              {createdAt && <div onClick={() => { setOpen(false); onJumpToBeginning() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.theVeryBeginning")}</div>}
               <Separator className="my-2" />
-              <div onClick={() => { setOpen(false); onOpenJumpDialog() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">Jump to a specific date</div>
+              <div onClick={() => { setOpen(false); onOpenJumpDialog() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.specificDate")}</div>
             </div>
           </PopoverContent>
         </Popover>
@@ -139,12 +157,15 @@ function MessageSkeleton() {
   )
 }
 
-function ChannelWelcome({ members, isGroup, createdAt, workspaceId }: {
+function ChannelWelcome({ channelName, members, isGroup, createdAt, workspaceId }: {
+  channelName?: string
   members?: User[]
   isGroup?: boolean
   createdAt?: string
   workspaceId?: string
 }) {
+  const t = useMessageList()
+
   if (members?.length && typeof isGroup === 'boolean' && createdAt && workspaceId) {
     return <DMIntro members={members} isGroup={isGroup} createdAt={createdAt} workspaceId={workspaceId} />
   }
@@ -152,8 +173,8 @@ function ChannelWelcome({ members, isGroup, createdAt, workspaceId }: {
     <div className="px-4 pt-6 pb-4">
       <div className="text-center text-[#797c81]">
         <div className="text-4xl mb-3">#</div>
-        <h3 className="text-xl font-bold mb-1">Đây là đầu kênh</h3>
-        <p className="text-sm">Đây là khởi đầu của kênh này. Hãy gửi tin nhắn đầu tiên!</p>
+        <h3 className="text-xl font-bold mb-1">{t("welcome.channelTitle")}</h3>
+        <p className="text-sm">{t("welcome.channelDescription", { channelName: channelName || "" })}</p>
       </div>
     </div>
   )
@@ -196,6 +217,7 @@ function buildRenderedListItems({
   isGroup,
   createdAt,
   workspaceId,
+  channelName,
   unreadBoundaryAt,
   stickyUnreadBoundaryAt,
   unreadCount,
@@ -209,6 +231,7 @@ function buildRenderedListItems({
   isGroup?: boolean
   createdAt?: string
   workspaceId?: string
+  channelName?: string
   unreadBoundaryAt?: string | null
   stickyUnreadBoundaryAt: string | null
   unreadCount?: number
@@ -252,20 +275,22 @@ function buildRenderedListItems({
     }
   }
   if (!hasOlder && isInitialized) {
-    items.unshift({ type: 'welcome' as const, members, isGroup, createdAt, workspaceId })
+    items.unshift({ type: 'welcome' as const, members, isGroup, createdAt, workspaceId, channelName })
   }
 
   return items
 }
 
 function NewDivider() {
+  const t = useMessageList()
+
   return (
     <div
       className="flex w-full items-center justify-end gap-2 border-t-2 border-[#ff5a2b] px-0 py-1"
       aria-label="New unread messages"
     >
-      <span className="bg-[#1A1D21] px-2 text-sm font-bold leading-none text-[#ff5a2b]">
-        New
+      <span className="px-2 text-sm font-bold leading-none text-[#ff5a2b]">
+        {t("newDivider.label")}
       </span>
     </div>
   )
@@ -289,7 +314,7 @@ export default function MessageList({
   channelPostingSettings,
   unreadBoundaryAt,
   unreadCount,
-}: MessageListProps & { members?: User[]; isGroup?: boolean; createdAt?: string }) {
+}: MessageListProps & { members?: User[]; isGroup?: boolean; createdAt?: string; channelName?: string }) {
   const [openJumpToSpecificDateDialog, setOpenJumpToSpecificDateDialog] = useState(false)
   const [stickyUnreadBoundaryAt, setStickyUnreadBoundaryAt] = useState<string | null>(null)
   const [stickyUnreadCountSnapshot, setStickyUnreadCountSnapshot] = useState<number>(0)
@@ -375,6 +400,7 @@ export default function MessageList({
   const { mutate: addReaction } = useAddReaction(targetId)
   const { mutate: togglePin } = useTogglePin(targetId)
   const openThread = useThreadPanelStore((s) => s.open)
+  const t = useMessageList()
 
   const lastTargetIdRef = useRef(targetId)
   const hasRenderedTimelineRef = useRef(false)
@@ -1029,7 +1055,7 @@ export default function MessageList({
     <div className="flex-1 overflow-hidden flex flex-col relative">
       {isLoadingOlder && (
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex h-8 items-center justify-center" aria-live="polite">
-          <span className="text-[12px] text-[#797c81] animate-pulse">Loading older messages...</span>
+          <span className="text-[12px] text-[#797c81] animate-pulse">{t("loadingOlderMessages")}</span>
         </div>
       )}
 
@@ -1048,6 +1074,7 @@ export default function MessageList({
             if (item.type === 'welcome') {
               content = (
                 <ChannelWelcome
+                  channelName={item.channelName}
                   members={item.members}
                   isGroup={item.isGroup}
                   createdAt={item.createdAt}
@@ -1126,17 +1153,17 @@ export default function MessageList({
 
       {isLoadingNewer && (
         <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-10 flex h-8 items-center justify-center" aria-live="polite">
-          <span className="text-[12px] text-[#797c81] animate-pulse">Loading newer messages...</span>
+          <span className="text-[12px] text-[#797c81] animate-pulse">{t("loadingNewerMessages")}</span>
         </div>
       )}
 
       {newMessageCount > 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-           <button 
-             onClick={scrollToBottom} 
+           <button
+             onClick={scrollToBottom}
              className="px-4 py-1.5 bg-[#1d9bd1] text-white rounded-full text-[13px] font-bold shadow-lg flex items-center gap-1.5 hover:bg-[#1A8BBF] transition"
            >
-             {newMessageCount} new message{newMessageCount > 1 ? 's' : ''}
+             {t("newMessage", { count: newMessageCount })}
              <IoChevronDownOutline size={14} />
            </button>
         </div>

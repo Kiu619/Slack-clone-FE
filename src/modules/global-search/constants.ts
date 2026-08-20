@@ -14,38 +14,50 @@ export const HAS_TOKEN_PREFIX = "has:";
 export const IS_TOKEN_PREFIX = "is:";
 export const TYPE_TOKEN_PREFIX = "type:";
 
+export type HasFilterLabelKey = "link" | "reaction" | "file";
+export type IsFilterLabelKey = "saved" | "thread" | "dm" | "pinned";
+export type TypeFilterLabelKey =
+  | "documents"
+  | "spreadsheets"
+  | "presentations"
+  | "pdfs"
+  | "audio"
+  | "images"
+  | "videos"
+  | "snippets";
+
 export const HAS_FILTER_OPTIONS: Array<{
   id: HasFilterType;
-  label: string;
+  labelKey: HasFilterLabelKey;
   icon: IconType;
 }> = [
-  { id: "link", label: "Link", icon: LuLink },
-  { id: "reaction", label: "Reaction", icon: HiOutlineFaceSmile },
-  { id: "file", label: "File", icon: ImFilesEmpty },
+  { id: "link", labelKey: "link", icon: LuLink },
+  { id: "reaction", labelKey: "reaction", icon: HiOutlineFaceSmile },
+  { id: "file", labelKey: "file", icon: ImFilesEmpty },
 ];
 
 export const IS_FILTER_OPTIONS: Array<{
   id: IsFilterType;
-  label: string;
+  labelKey: IsFilterLabelKey;
   icon: IconType;
 }> = [
-  { id: "saved", label: "Saved", icon: LuPin },
-  { id: "thread", label: "Thread", icon: BiMessageRoundedDetail },
-  { id: "dm", label: "DM", icon: BiMessageRounded },
-  { id: "pinned", label: "Pinned", icon: LuPin },
+  { id: "saved", labelKey: "saved", icon: LuPin },
+  { id: "thread", labelKey: "thread", icon: BiMessageRoundedDetail },
+  { id: "dm", labelKey: "dm", icon: BiMessageRounded },
+  { id: "pinned", labelKey: "pinned", icon: LuPin },
 ];
 
 export const TYPE_FILTER_OPTIONS: Array<{
   id: TypeFilterType;
-  label: string;
+  labelKey: TypeFilterLabelKey;
   icon: IconType;
 }> = [
-  { id: "documents", label: "Documents", icon: ImFilesEmpty },
-  { id: "spreadsheets", label: "Spreadsheets", icon: ImFilesEmpty },
-  { id: "presentations", label: "Presentations", icon: ImFilesEmpty },
-  { id: "pdfs", label: "PDFs", icon: ImFilesEmpty },
-  { id: "audio", label: "Audio", icon: ImFilesEmpty },
-  { id: "images", label: "Images", icon: ImFilesEmpty },
-  { id: "videos", label: "Videos", icon: ImFilesEmpty },
-  { id: "snippets", label: "Snippets", icon: ImFilesEmpty },
+  { id: "documents", labelKey: "documents", icon: ImFilesEmpty },
+  { id: "spreadsheets", labelKey: "spreadsheets", icon: ImFilesEmpty },
+  { id: "presentations", labelKey: "presentations", icon: ImFilesEmpty },
+  { id: "pdfs", labelKey: "pdfs", icon: ImFilesEmpty },
+  { id: "audio", labelKey: "audio", icon: ImFilesEmpty },
+  { id: "images", labelKey: "images", icon: ImFilesEmpty },
+  { id: "videos", labelKey: "videos", icon: ImFilesEmpty },
+  { id: "snippets", labelKey: "snippets", icon: ImFilesEmpty },
 ];

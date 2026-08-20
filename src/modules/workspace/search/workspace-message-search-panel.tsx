@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/pagination"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 import { useChannels } from "@/hooks/use-channel"
 import { useConversations } from "@/hooks/use-conversations"
 import { useWorkspaceMessageSearch } from "@/hooks/use-workspace-message-search"
@@ -51,13 +52,6 @@ import MessageSearchResult from "./message-search-result"
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles"
 import { Skeleton } from "@/components/ui/skeleton"
 
-const SORT_SEARCH_OPTIONS = [
-  { id: "relevance", label: "Relevance" },
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
-]
-
-type PaginationValue = number | "..."
 const PAGE_SIZE = 20
 const TOOLBAR_GAP_PX = 8
 const DEFAULT_COLLAPSE_WIDTHS = {
@@ -69,6 +63,30 @@ const DEFAULT_COLLAPSE_WIDTHS = {
 function getPaginationRange(currentPage: number, totalPages: number) {
   const pages: PaginationValue[] = []
   const push = (value: PaginationValue) => {
+    if (pages[pages.length - 1] !== value) pages.push(value)
+  }
+
+  if (totalPages <= 7) {
+    for (let page = 1; page <= totalPages; page += 1) push(page)
+    return pages
+  }
+
+  push(1)
+  if (currentPage > 3) push("...")
+
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+  for (let page = start; page <= end; page += 1) push(page)
+
+  if (currentPage < totalPages - 2) push("...")
+  push(totalPages)
+
+  return pages
+}
+
+function getPaginationRange(currentPage: number, totalPages: number) {
+  const pages: (number | "...")[] = []
+  const push = (value: number | "...") => {
     if (pages[pages.length - 1] !== value) pages.push(value)
   }
 
@@ -103,6 +121,8 @@ export function WorkspaceMessageSearchPanel({
   onSelectMainResult?: (id: string) => void
   onSelectThreadResult?: (id: string) => void
 }) {
+  const t = useAppTranslation("search")
+
   const { data: members = [] } = useQuery({
     queryKey: ["workspace-members", workspaceId],
     queryFn: () => fetchWorkspaceMembersApi(workspaceId),
@@ -158,7 +178,7 @@ export function WorkspaceMessageSearchPanel({
   const [openFromSearch, setOpenFromSearch] = useState(false)
   const [openSortSearch, setOpenSortSearch] = useState(false)
   const [openInSearch, setOpenInSearch] = useState(false)
-  const [sortBy, setSortBy] = useState<string>("relevance")
+  const [sortBy, setSortBy] = useState<"relevance" | "newest" | "oldest">("relevance")
   const [messageFilterDialogOpen, setMessageFilterDialogOpen] = useState(false)
   const [fromSearch, setFromSearch] = useState("")
   const [inSearch, setInSearch] = useState("")
@@ -274,9 +294,8 @@ export function WorkspaceMessageSearchPanel({
     selectedInChannels.length + selectedInConversations.length
 
   const fromButtonLabel = (() => {
-    if (selectedFromMembers.length === 0) return "From"
-    if (selectedFromMembers.length >= 2)
-      return `${selectedFromMembers.length} teammates`
+    if (selectedFromMembers.length === 0) return t("filters.from")
+    if (selectedFromMembers.length >= 2) return t("filters.teammates", { count: selectedFromMembers.length })
 
     const [firstMember, ...rest] = selectedFromMembers
     const display = displayMember(firstMember)
@@ -294,14 +313,14 @@ export function WorkspaceMessageSearchPanel({
     : null
 
   const selectedInLabel = (() => {
-    if (selectedInCount === 0) return "In"
-    if (selectedInCount >= 2) return `${selectedInCount} places`
+    if (selectedInCount === 0) return t("filters.in")
+    if (selectedInCount >= 2) return t("filters.places", { count: selectedInCount })
 
     const channel = selectedInChannels[0]
     if (channel) return channel.name
 
     const conversation = selectedInConversations[0]
-    if (!conversation) return "In"
+    if (!conversation) return t("filters.in")
     return getConversationSummary(
       conversation,
       currentUser?.id,
@@ -776,7 +795,7 @@ export function WorkspaceMessageSearchPanel({
                     <Input
                       value={fromSearch}
                       onChange={(event) => setFromSearch(event.target.value)}
-                      placeholder="Search people..."
+                      placeholder={t("searchPeople")}
                       className="h-8 border-[#797c814d] text-sm"
                     />
                   </div>
@@ -821,18 +840,18 @@ export function WorkspaceMessageSearchPanel({
                           className="px-3 py-2 text-sm hover:underline cursor-pointer text-muted-foreground"
                           onClick={() => setFromUserIds([])}
                         >
-                          Clear all
+                          {t("clearAll")}
                         </span>
                       </div>
                     ) : null}
 
                     <div className="px-3 py-2 text-sm text-neutral-400">
-                      Suggestions
+                      {t("suggestions")}
                     </div>
 
                     {displayedSuggestedFromMembers.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-neutral-400">
-                        No people found
+                        {t("noPeopleFound")}
                       </div>
                     ) : (
                       displayedSuggestedFromMembers.map((member) => {
@@ -948,7 +967,7 @@ export function WorkspaceMessageSearchPanel({
                     <Input
                       value={inSearch}
                       onChange={(event) => setInSearch(event.target.value)}
-                      placeholder="Search channels or DMs..."
+                      placeholder={t("searchChannelsOrDMs")}
                       className="h-8 border-[#797c814d] text-sm"
                     />
                   </div>
@@ -956,7 +975,7 @@ export function WorkspaceMessageSearchPanel({
                     {recentInItems.length > 0 ? (
                       <div className="border-b border-[#797c814d] pb-2">
                         <div className="px-3 py-2 text-sm text-neutral-400">
-                          Recent
+                          {t("recent")}
                         </div>
                         {recentInItems.map((item) =>
                           item.kind === "channel" && item.channel
@@ -970,12 +989,12 @@ export function WorkspaceMessageSearchPanel({
 
                     <div className={recentInItems.length > 0 ? "pt-1" : ""}>
                       <div className="px-3 py-2 text-sm text-neutral-400">
-                        Suggestions
+                        {t("suggestions")}
                       </div>
                       {filteredInChannels.length === 0 &&
                         filteredInConversations.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-neutral-400">
-                          No results found
+                          {t("noResultsFound")}
                         </div>
                       ) : (
                         <>
@@ -1024,9 +1043,7 @@ export function WorkspaceMessageSearchPanel({
                   <Typography
                     variant="p"
                     className="text-[13px]"
-                    text={`Sort: ${SORT_SEARCH_OPTIONS.find((option) => option.id === sortBy)
-                      ?.label || "Relevance"
-                      }`}
+                    text={t("sortBy", { label: t(`sortOptions.${sortBy}` as never) })}
                   />
                   <ChevronDown
                     size={13}
@@ -1045,21 +1062,21 @@ export function WorkspaceMessageSearchPanel({
                 className="py-2"
                 onOpenAutoFocus={(event) => event.preventDefault()}
               >
-                {SORT_SEARCH_OPTIONS.map((option) => (
+                {(["relevance", "newest", "oldest"] as const).map((option) => (
                   <Button
                     variant="checkedMenu"
-                    key={option.id}
+                    key={option}
                     onClick={() => {
-                      setSortBy(option.id)
+                      setSortBy(option)
                       setPage(1)
                       setOpenSortSearch(false)
                     }}
                     className={cn(
-                      sortBy === option.id && ACTIVE_ITEM_STYLE,
+                      sortBy === option && ACTIVE_ITEM_STYLE,
                     )}
                   >
-                    <span className="text-sm font-medium">{option.label}</span>
-                    {sortBy === option.id ? (
+                    <span className="text-sm font-medium">{t(`sortOptions.${option}` as never)}</span>
+                    {sortBy === option ? (
                       <FiCheck size={14} className="text-white" />
                     ) : null}
                   </Button>
@@ -1076,8 +1093,8 @@ export function WorkspaceMessageSearchPanel({
             ) : (
               <span>
                 {isSearchFetching && !isSearchLoading
-                  ? "Refreshing..."
-                  : resultCountLabel}
+                  ? t("refreshing")
+                  : t("results", { count: totalResults })}
               </span>
             )}
           </div>
@@ -1110,7 +1127,7 @@ export function WorkspaceMessageSearchPanel({
               <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
                 {searchError instanceof Error
                   ? searchError.message
-                  : "Search failed"}
+                  : t("searchFailed")}
               </div>
             ) : null}
 
@@ -1118,7 +1135,7 @@ export function WorkspaceMessageSearchPanel({
               !isSearchError &&
               (searchResults?.items.length ?? 0) === 0 ? (
               <div className="rounded-xl border border-[#35373B] p-6 text-sm text-neutral-400">
-                No messages matched the current search.
+                {t("noMessagesMatched")}
               </div>
             ) : null}
 
@@ -1140,7 +1157,7 @@ export function WorkspaceMessageSearchPanel({
             {!isSearchLoading && !isSearchError && totalResults > 0 ? (
               <div className="mt-2 flex flex-col gap-3 rounded-[4px] px-1 py-2 md:flex-row md:items-center md:justify-between">
                 <div className="text-[13px] text-neutral-400">
-                  Page {currentPage} of {totalPages} · {PAGE_SIZE} per page
+                  {t("pagination.pageOf", { current: currentPage, total: totalPages, pageSize: PAGE_SIZE })}
                 </div>
 
                 <Pagination className="mx-0 w-auto justify-end">

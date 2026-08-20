@@ -16,6 +16,7 @@ import { ChannelFolderActionsProvider } from "@/contexts/channel-folder-actions"
 import PinsTab from "@/components/header-tabs/pins-tab";
 import { getChannelMemberStatusApi } from "@/apis";
 import { useQuery } from "@tanstack/react-query";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 function ChannelThreadDeepLink({ enabled }: { enabled: boolean }) {
   useOpenThreadFromSearchParams(enabled);
@@ -31,6 +32,7 @@ function ChannelWorkspaceBody({
   isMember: boolean;
   fromChannelPage: boolean;
 }) {
+  const t = useAppTranslation('channel.detail')
   const [activeTab, setActiveTab] = useState<ChannelViewTab>("messages");
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
@@ -118,6 +120,7 @@ export default function ChannelView({ channelId, workspaceId, fromChannelPage = 
   }, [channel?.id, workspaceId, memberStatus?.isMember, recordRecent.recordVisit]);
 
   const isForbidden = isAxiosError(error) && error.response?.status === 403;
+  const t = useAppTranslation('channel.detail')
 
   if (isLoading) {
     return (
@@ -141,10 +144,6 @@ export default function ChannelView({ channelId, workspaceId, fromChannelPage = 
             <p className="text-gray-200 text-lg font-semibold">
               You haven&apos;t joined this channel yet
             </p>
-            {/* <p className="text-gray-500 text-sm max-w-md">
-              Bạn có thể mở đúng URL channel nhưng cần được thêm hoặc tự tham
-              gia (Join) trước khi xem nội dung.
-            </p> */}
           </>
         ) : (
           <>

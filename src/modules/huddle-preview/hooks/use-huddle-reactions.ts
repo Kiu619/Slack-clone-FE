@@ -15,6 +15,7 @@ import {
 import { Room, RoomEvent, type Participant } from "livekit-client"
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { toast } from "sonner"
+import { useHuddle } from "@/hooks/use-translation"
 
 type UseHuddleReactionsOptions = {
   enabled: boolean
@@ -23,6 +24,7 @@ type UseHuddleReactionsOptions = {
 }
 
 export function useHuddleReactions({ enabled, roomRef, roomVersion }: UseHuddleReactionsOptions) {
+  const t = useHuddle()
   const room = roomRef.current
   const [reactions, setReactions] = useState<ActiveHuddleReaction[]>([])
   const [reactionClock, setReactionClock] = useState(() => Date.now())
@@ -152,7 +154,7 @@ export function useHuddleReactions({ enabled, roomRef, roomVersion }: UseHuddleR
       } catch (error) {
         removeReaction(message.id)
         toast.error(
-          error instanceof Error ? error.message : "Could not send reaction.",
+          error instanceof Error ? error.message : t("couldNotSendReaction"),
         )
       }
     },

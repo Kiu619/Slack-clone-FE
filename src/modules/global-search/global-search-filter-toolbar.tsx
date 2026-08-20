@@ -11,6 +11,7 @@ import { FiHash } from "react-icons/fi";
 import { MdOutlineCalendarMonth, MdOutlinePerson } from "react-icons/md";
 import { ImFilesEmpty } from "react-icons/im";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type Props = {
   fromMeActive: boolean;
@@ -47,6 +48,8 @@ export function GlobalSearchFilterToolbar({
   onToggleLast7Days,
   onOpenTypePicker,
 }: Props) {
+  const t = useAppTranslation("globalSearch");
+
   return (
     <div className="flex items-center gap-2 px-4 mb-2">
       <Button
@@ -56,7 +59,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onToggleFromMe}
       >
         <MdOutlinePerson size={16} />
-        <Typography text="From me" className="text-xs" />
+        <Typography text={t("toolbar.fromMe")} className="text-xs" />
       </Button>
       <Button
         size="custom"
@@ -65,7 +68,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onToggleIncludeMe}
       >
         <MdOutlinePerson size={16} />
-        <Typography text="Include me" className="text-xs" />
+        <Typography text={t("toolbar.includeMe")} className="text-xs" />
       </Button>
       <Button
         size="custom"
@@ -74,7 +77,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onOpenInPicker}
       >
         <FiHash size={16} />
-        <Typography text="In" className="text-xs" />
+        <Typography text={t("toolbar.in")} className="text-xs" />
       </Button>
       <Button
         size="custom"
@@ -83,7 +86,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onOpenHasPicker}
       >
         <BiMessageRounded size={16} />
-        <Typography text="Message has" className="text-xs" />
+        <Typography text={t("toolbar.messageHas")} className="text-xs" />
       </Button>
       <Button
         size="custom"
@@ -92,7 +95,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onOpenIsPicker}
       >
         <BiMessageRoundedDetail size={16} />
-        <Typography text="Message is" className="text-xs" />
+        <Typography text={t("toolbar.messageIs")} className="text-xs" />
       </Button>
       <Button
         size="custom"
@@ -101,7 +104,7 @@ export function GlobalSearchFilterToolbar({
         onClick={onToggleLast7Days}
       >
         <MdOutlineCalendarMonth size={16} />
-        <Typography text="Last 7 days" className="text-xs" />
+        <Typography text={t("toolbar.last7Days")} className="text-xs" />
       </Button>
 
       <Popover>
@@ -117,44 +120,44 @@ export function GlobalSearchFilterToolbar({
             <Button type="button" variant="submenu" onClick={onOpenFromPicker}>
               <div className="flex items-center gap-2">
                 <MdOutlinePerson size={16} />
-                <Typography text="From someone" />
+                <Typography text={t("toolbar.fromSomeone")} />
               </div>
-              <Typography text="from:" className="text-xs" />
+              <Typography text={t("tokens.from")} className="text-xs" />
             </Button>
             <Button type="button" variant="submenu" onClick={onOpenWithPicker}>
               <div className="flex items-center gap-2">
                 <MdOutlinePerson size={16} />
-                <Typography text="Includes someone" />
+                <Typography text={t("toolbar.includesSomeone")} />
               </div>
-              <Typography text="with:" className="text-xs" />
+              <Typography text={t("tokens.with")} className="text-xs" />
             </Button>
             <Button type="button" variant="submenu" onClick={onOpenInPicker}>
               <div className="flex items-center gap-2">
                 <FiHash size={16} />
-                <Typography text="In channel or DM" />
+                <Typography text={t("toolbar.inChannelOrDM")} />
               </div>
-              <Typography text="in:" className="text-xs" />
+              <Typography text={t("tokens.in")} className="text-xs" />
             </Button>
             <Button type="button" variant="submenu" onClick={onOpenHasPicker}>
               <div className="flex items-center gap-2">
                 <BiMessageRounded size={16} />
-                <Typography text="Message has" />
+                <Typography text={t("toolbar.messageHas")} />
               </div>
-              <Typography text="has:" className="text-xs" />
+              <Typography text={t("tokens.has")} className="text-xs" />
             </Button>
             <Button type="button" variant="submenu" onClick={onOpenIsPicker}>
               <div className="flex items-center gap-2">
                 <BiMessageRounded size={16} />
-                <Typography text="Message is" />
+                <Typography text={t("toolbar.messageIs")} />
               </div>
-              <Typography text="is:" className="text-xs" />
+              <Typography text={t("tokens.is")} className="text-xs" />
             </Button>
             <Button type="button" variant="submenu" onClick={onOpenTypePicker}>
               <div className="flex items-center gap-2">
                 <ImFilesEmpty size={16} />
-                <Typography text="File type" />
+                <Typography text={t("toolbar.fileType")} />
               </div>
-              <Typography text="type:" className="text-xs" />
+              <Typography text={t("tokens.type")} className="text-xs" />
             </Button>
           </div>
         </PopoverContent>

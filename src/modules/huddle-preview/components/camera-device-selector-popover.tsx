@@ -8,6 +8,7 @@ import Typography from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import { LuRefreshCw, LuVideo } from "react-icons/lu";
+import { useHuddle } from "@/hooks/use-translation";
 
 type CameraDeviceSelectorPopoverProps = {
   children: React.ReactNode // chevron trigger
@@ -28,6 +29,7 @@ export function CameraDeviceSelectorPopover({
   onToggleCamera,
   onRefresh,
 }: CameraDeviceSelectorPopoverProps) {
+  const t = useHuddle()
   const [open, setOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [pendingCameraId, setPendingCameraId] = useState(selectedCameraId)
@@ -151,7 +153,7 @@ export function CameraDeviceSelectorPopover({
           <div className="flex items-center gap-2 px-1">
             <LuVideo size={14} className="text-neutral-500 dark:text-neutral-400" />
             <Typography
-              text="Camera"
+              text={t("camera")}
               variant="p"
               className="text-[11px]! font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
             />
@@ -160,7 +162,7 @@ export function CameraDeviceSelectorPopover({
             options={cameraOptions}
             value={pendingCameraId}
             onChange={(id) => setPendingCameraId(id)}
-            placeholder="Select camera..."
+            placeholder={t("selectCamera")}
           />
         </div>
 
@@ -175,7 +177,7 @@ export function CameraDeviceSelectorPopover({
             className="h-7 gap-1.5 text-xs text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
           >
             <LuRefreshCw size={13} className={cn(refreshing && "animate-spin")} />
-            Refresh
+            {t("refresh")}
           </Button>
           <Button
             type="button"
@@ -184,7 +186,7 @@ export function CameraDeviceSelectorPopover({
             onClick={handleConfirm}
             className="h-7 gap-1.5 text-xs"
           >
-            {isCameraEnabled ? "Switch" : "Turn On"}
+            {isCameraEnabled ? t("switch") : t("turnOn")}
           </Button>
         </div>
       </PopoverContent>

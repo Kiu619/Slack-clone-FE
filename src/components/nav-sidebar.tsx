@@ -3,35 +3,32 @@
 import Avatar from "@/components/avatar";
 import { PiChatsTeardrop, PiChatsTeardropFill } from "react-icons/pi";
 import { RiHome2Fill, RiHome2Line } from "react-icons/ri";
-import { TfiBell } from "react-icons/tfi";
 
 // import CreateWorkspace from '@/components/create-workspace'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import Typography from "@/components/ui/typography";
-import { BsThreeDots } from "react-icons/bs";
-import { ImFilesEmpty } from "react-icons/im";
 import { useRef, useState } from "react";
+import { ImFilesEmpty } from "react-icons/im";
 // import ProgressBar from './progress-bar'
 import { Workspace } from "@/lib/types";
 // import { useRouter } from 'next/navigation'
-import ProgressBar from "./progress-bar";
-import { FaPlus } from "react-icons/fa";
-import Link from "next/link";
-import { MdBookmark, MdBookmarkBorder } from "react-icons/md";
-import { useThemeStore } from "@/stores/useThemeStore";
-import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { TbBell, TbBellFilled } from "react-icons/tb";
-import { useLaterOverdueSummary } from "@/hooks/use-saved-items";
-import { useUnreadNotificationsCount } from "@/hooks/use-notification-summary";
 import { useDmUnreadSummary } from "@/hooks/use-conversations";
+import { useUnreadNotificationsCount } from "@/hooks/use-notification-summary";
+import { useLaterOverdueSummary } from "@/hooks/use-saved-items";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { FaPlus } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
+import { MdBookmark, MdBookmarkBorder } from "react-icons/md";
+import { TbBell, TbBellFilled } from "react-icons/tb";
+import ProgressBar from "./progress-bar";
 
 interface WorkspaceSidebarProps {
   currentWorkspaceData: Workspace;
@@ -42,6 +39,7 @@ const WorkspaceSidebar = ({
   currentWorkspaceData,
   userWorkspacesData,
 }: WorkspaceSidebarProps) => {
+  const t = useAppTranslation("navSidebar");
   const router = useRouter();
   const pathname = usePathname();
 
@@ -59,7 +57,6 @@ const WorkspaceSidebar = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
 
-  const { theme } = useThemeStore();
   const { overdueCount } = useLaterOverdueSummary();
   const { unreadCount } = useUnreadNotificationsCount();
   const { count: dmUnreadCount } = useDmUnreadSummary(currentWorkspaceData.id);
@@ -141,7 +138,7 @@ const WorkspaceSidebar = ({
                 </PopoverTrigger>
 
                 <PopoverContent
-                  className="p-0 ml-1 w-[350px]"
+                  className="p-0 ml-1 w-87.5"
                   side="bottom"
                   sideOffset={5}
                   align="end"
@@ -177,7 +174,7 @@ const WorkspaceSidebar = ({
                               <div
                                 key={workspace.id}
                                 className={
-                                  "flex items-center cursor-pointer px-2 py-1 flex gap-2 hover:bg-gray-200 dark:hover:bg-[#2b2e35] group transition-colors"
+                                  "items-center cursor-pointer px-2 py-1 flex gap-2 hover:bg-gray-200 dark:hover:bg-[#2b2e35] group transition-colors"
                                 }
                                 onClick={() =>
                                   !isActive && switchWorkspace(workspace.id)
@@ -214,7 +211,7 @@ const WorkspaceSidebar = ({
                       <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-200 dark:bg-[#2b2e35] transition-colors group-hover:outline-2 dark:group-hover:outline-white group-hover:outline-offset-2">
                           <FaPlus />
                         </span>
-                        <Typography variant="p" text="Add a Workspace" />
+                        <Typography variant="p" text={t("addWorkspace")} />
                       </Link>
 
                       {/* <CreateWorkspace /> */}
@@ -243,7 +240,7 @@ const WorkspaceSidebar = ({
                   />
                 )}
               </div>
-              <Typography variant="p" text="Home" className="text-[11px]!" />
+              <Typography variant="p" text={t("home")} className="text-[11px]!" />
             </div>
           </div>
         </li>
@@ -271,7 +268,7 @@ const WorkspaceSidebar = ({
                   />
                 )}
               </div>
-              <Typography variant="p" text="Dms" className="text-[11px]!" />
+              <Typography variant="p" text={t("directMessages")} className="text-[11px]! text-center" />
             </div>
           </div>
         </li>
@@ -301,7 +298,7 @@ const WorkspaceSidebar = ({
               </div>
               <Typography
                 variant="p"
-                text="Activity"
+                text={t("activity")}
                 className="text-[11px]!"
               />
             </div>
@@ -319,7 +316,7 @@ const WorkspaceSidebar = ({
                   className="group-hover:scale-125 transition-all duration-300"
                 />
               </div>
-              <Typography variant="p" text="Files" className="text-[11px]!" />
+              <Typography variant="p" text={t("files")} className="text-[11px]!" />
             </div>
           </div>
         </li>
@@ -347,7 +344,7 @@ const WorkspaceSidebar = ({
                   />
                 )}
               </div>
-              <Typography variant="p" text="Later" className="text-[11px]!" />
+              <Typography variant="p" text={t("later")} className="text-[11px]!" />
             </div>
           </div>
         </li>
@@ -365,7 +362,7 @@ const WorkspaceSidebar = ({
                   className="group-hover:scale-125 transition-all duration-300"
                 />
               </div>
-              <Typography variant="p" text="Settings" className="text-[11px]!" />
+              <Typography variant="p" text={t("settings")} className="text-[11px]!" />
             </div>
           </div>
         </li>

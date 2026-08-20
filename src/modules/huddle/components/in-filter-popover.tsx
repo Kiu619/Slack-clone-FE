@@ -16,6 +16,7 @@ import { FiHash } from "react-icons/fi";
 import { MdOutlineLock } from "react-icons/md";
 import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type InFilterPopoverProps = {
   workspaceId: string;
@@ -71,6 +72,7 @@ export function InFilterPopover({
   selectedConversationIds,
   onSelectionChange,
 }: InFilterPopoverProps) {
+  const t = useAppTranslation('huddle.filter.inFilter')
   const { user: currentUser } = useAuth();
   const { data: channelsData } = useChannels(workspaceId);
   const { data: conversationsData } = useConversations(workspaceId);
@@ -158,16 +160,16 @@ export function InFilterPopover({
   );
 
   const selectedInLabel = useMemo(() => {
-    if (selectedInCount === 0) return "In";
-    if (selectedInCount >= 2) return `${selectedInCount} places`;
+    if (selectedInCount === 0) return t('in');
+    if (selectedInCount >= 2) return t('places', { count: selectedInCount });
 
     const channel = selectedChannels[0];
     if (channel) return channel.name;
 
     const conversation = selectedConversations[0];
-    if (!conversation) return "In";
+    if (!conversation) return t('in');
     return getConversationLabel(conversation);
-  }, [selectedInCount, selectedChannels, selectedConversations, getConversationLabel]);
+  }, [selectedInCount, selectedChannels, selectedConversations, getConversationLabel, t]);
 
   const selectedInChannel = selectedChannels[0];
   const selectedInConversation = selectedConversations[0];
@@ -246,7 +248,7 @@ export function InFilterPopover({
             selectedInCount > 0 && ACTIVE_ITEM_STYLE,
           )}
         >
-          <Typography variant="p" className="text-[13px]" text="In" />
+          <Typography variant="p" className="text-[13px]" text={t('in')} />
           {selectedInCount === 1 ? (
             <span className="flex max-w-[260px] items-center gap-1 rounded-md text-sm font-medium text-white">
               {selectedInChannel ? (
@@ -295,14 +297,14 @@ export function InFilterPopover({
           <Input
             value={inSearch}
             onChange={(event) => setInSearch(event.target.value)}
-            placeholder="Search channels or DMs..."
+            placeholder={t('searchChannelsOrDMs')}
             className="h-8 border-[#797c814d] text-sm"
           />
         </div>
         <div className="max-h-64 overflow-y-auto">
           {selectedInCount > 0 ? (
             <div className="border-b border-[#797c814d] pb-2">
-              <div className="px-3 py-2 text-sm text-neutral-400">Selected</div>
+              <div className="px-3 py-2 text-sm text-neutral-400">{t('selected')}</div>
               {selectedChannels.map((channel: Channel) => renderChannelRow(channel))}
               {selectedConversations.map((conversation: DirectMessageConversation) =>
                 renderConversationRow(conversation),
@@ -311,15 +313,15 @@ export function InFilterPopover({
                 className="cursor-pointer px-3 py-2 text-sm text-muted-foreground hover:underline"
                 onClick={clearAll}
               >
-                Clear all
+                {t('clearAll')}
               </span>
             </div>
           ) : null}
 
           <div className={selectedInCount > 0 ? "pt-1" : ""}>
-            <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
+            <div className="px-3 py-2 text-sm text-neutral-400">{t('suggestions')}</div>
             {filteredInChannels.length === 0 && filteredInConversations.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-neutral-400">No results found</div>
+              <div className="px-4 py-3 text-sm text-neutral-400">{t('noResultsFound')}</div>
             ) : (
               <>
                 {filteredInChannels.map((channel: Channel) => renderChannelRow(channel))}

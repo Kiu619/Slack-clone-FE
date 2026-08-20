@@ -1,38 +1,40 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { CustomDialog, CustomDialogBody, CustomDialogHeader, CustomDialogFooter, CustomDialogTitle } from "../custom-dialog"
-import { CustomSelect } from "../custom-select"
-import { Button } from "../ui/button"
-import { useQuery } from "@tanstack/react-query";
 import { fetchDirectMessagesApi, fetchWorkspaceMembersApi } from "@/apis";
-import { useChannels } from "@/hooks/use-channel";
-import { useAuth } from "@/hooks/use-auth";
-import { useDebouncedValue } from "@/hooks/use-debounce";
-import { useShallow } from "zustand/react/shallow";
-import type { Channel, DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
-import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 import {
-  MESSAGE_TARGET_DROPDOWN_CLASS,
-  MessageTargetChip,
-  MessageTargetConversationChip,
-  MessageTargetConversationRow,
-  MessageTargetSearchRow,
+    MessageTargetChip,
+    MessageTargetConversationChip,
+    MessageTargetConversationRow,
+    MessageTargetSearchRow
 } from "@/components/message-target-picker";
 import { TargetPickerField } from "@/components/target-picker-field";
+import { useAuth } from "@/hooks/use-auth";
+import { useChannels } from "@/hooks/use-channel";
+import { useDebouncedValue } from "@/hooks/use-debounce";
+import { useDialogs } from "@/hooks/use-translation";
+import type { Channel, DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
+import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { CustomDialog, CustomDialogBody, CustomDialogFooter, CustomDialogHeader, CustomDialogTitle } from "../custom-dialog";
+import { CustomSelect } from "../custom-select";
+import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Spinner } from "../ui/spinner";
 
-const dateOptions = [
-  { label: 'Any time', value: 'all-time' },
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'Last 7 days', value: 'last-7-days' },
-  { label: 'Last 30 days', value: 'last-30-days' },
-  { label: 'Last 90 days', value: 'last-90-days' },
-  { label: 'Last 180 days', value: 'last-180-days' },
-  { label: 'Last 365 days', value: 'last-365-days' },
-]
+function getDateOptions(t: ReturnType<typeof useDialogs>) {
+  return [
+  { label: t('filterFilesSearch.anyTime'), value: 'all-time' },
+  { label: t('filterFilesSearch.today'), value: 'today' },
+  { label: t('filterFilesSearch.yesterday'), value: 'yesterday' },
+  { label: t('filterFilesSearch.last7Days'), value: 'last-7-days' },
+  { label: t('filterFilesSearch.last30Days'), value: 'last-30-days' },
+  { label: t('filterFilesSearch.last90Days'), value: 'last-90-days' },
+  { label: t('filterFilesSearch.last180Days'), value: 'last-180-days' },
+  { label: t('filterFilesSearch.last365Days'), value: 'last-365-days' },
+]}
 
 export interface FilterValues {
   userIds: string[];
@@ -56,6 +58,7 @@ export default function FilterFilesSearchDialog({
   initialFilters,
   onApply 
 }: FilterFilesSearchDialogProps) {
+  const t = useDialogs();
   const { user: currentUser } = useAuth();
   const [fromSearch, setFromSearch] = useState("");
   const [inSearch, setInSearch] = useState("");
@@ -180,13 +183,13 @@ export default function FilterFilesSearchDialog({
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange}>
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Filter by</CustomDialogTitle>
+        <CustomDialogTitle>{t('filterFilesSearch.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody>
         <div className="flex flex-col gap-4 py-2">
           {/* FROM FILTER */}
           <TargetPickerField
-            label="From"
+            label={t('filterFilesSearch.from')}
             fieldRef={fromRef}
             chips={
               <>
@@ -214,7 +217,7 @@ export default function FilterFilesSearchDialog({
             input={
               <input 
                 className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm px-1 py-0.5"
-                placeholder="ex. Zoe Maxwell"
+                placeholder={t('filterFilesSearch.fromPlaceholder')}
                 value={fromSearch}
                 onChange={(e) => {
                   setFromSearch(e.target.value);
@@ -262,7 +265,7 @@ export default function FilterFilesSearchDialog({
 
           {/* IN FILTER */}
           <TargetPickerField
-            label="In"
+            label={t('filterFilesSearch.in')}
             fieldRef={inRef}
             chips={
               <>
@@ -323,8 +326,8 @@ export default function FilterFilesSearchDialog({
             }
             input={
               <input 
-                className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm px-1 py-0.5"
-                placeholder="ex. #project-unicorn"
+                className="flex-1 min-w-30 bg-transparent border-none outline-none text-sm px-1 py-0.5"
+                placeholder={t('filterFilesSearch.inPlaceholder')}
                 value={inSearch}
                 onChange={(e) => {
                   setInSearch(e.target.value);
@@ -405,9 +408,9 @@ export default function FilterFilesSearchDialog({
 
           {/* DATE FILTER */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px] font-bold">Date</Label>
+            <Label className="text-[13px] font-bold">{t('filterFilesSearch.date')}</Label>
             <CustomSelect 
-              options={dateOptions} 
+              options={getDateOptions(t)} 
               value={dateRange}
               onChange={(val) => setDateRange(val)}
             />

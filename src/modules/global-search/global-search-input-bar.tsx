@@ -16,6 +16,7 @@ import type { HasFilterType, IsFilterType, TypeFilterType } from "./types";
 import { getConversationSummary, getMemberLabel } from "./utils";
 import { X } from "lucide-react";
 import { IoFilter } from "react-icons/io5";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type Props = {
   openFilters: boolean;
@@ -82,6 +83,8 @@ export function GlobalSearchInputBar({
   onRemoveAfterDate,
   onRemoveBeforeDate,
 }: Props) {
+  const t = useAppTranslation("globalSearch");
+
   return (
     <div className="flex items-center justify-between p-2">
       <div className="flex flex-1 items-center gap-2">
@@ -326,7 +329,7 @@ export function GlobalSearchInputBar({
             }}
             onFocus={onInputFocus}
             onBlur={onInputBlur}
-            placeholder="Search across people, channel, files and more"
+            placeholder={t("placeholder")}
             className="min-w-[180px] flex-1 border-0 bg-transparent outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0"
           />
         </div>
@@ -344,7 +347,7 @@ export function GlobalSearchInputBar({
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            {openFilters ? <Typography text="Hide filters" /> : <Typography text="Show filters" />}
+            {openFilters ? <Typography text={t("filters.hide")} /> : <Typography text={t("filters.show")} />}
           </TooltipContent>
         </Tooltip>
         <button

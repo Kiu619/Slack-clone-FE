@@ -14,12 +14,13 @@ import Typography from "@/components/ui/typography";
 import { useUpdateChannel } from "@/hooks/use-channel";
 import type { Channel } from "@/lib/types";
 import { format } from "date-fns";
-import { enUS } from "date-fns/locale";
 import { isAxiosError } from "axios";
 import { Copy } from "lucide-react";
 import { useCallback, useState } from "react";
 import { BiHash } from "react-icons/bi";
 import { toast } from "sonner";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 
 const NAME_PATTERN = /^[a-z0-9-_]+$/;
 
@@ -38,6 +39,8 @@ export default function AboutTab({
     workspaceId,
     channelId,
   );
+  const t = useAppTranslation('channel.about')
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat)
 
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
@@ -61,49 +64,47 @@ export default function AboutTab({
     if (!editField) return;
     try {
       if (editField === "name") {
-        const t = draft.trim();
-        if (t.length < 2 || t.length > 80) {
-          toast.error("Name must be 2–80 characters");
+        const trimmedDraft = draft.trim();
+        if (trimmedDraft.length < 2 || trimmedDraft.length > 80) {
+          toast.error(t('nameMustBe2to80'));
           return;
         }
-        if (!NAME_PATTERN.test(t)) {
-          toast.error(
-            "Only lowercase letters, numbers, hyphens and underscores",
-          );
+        if (!NAME_PATTERN.test(trimmedDraft)) {
+          toast.error(t('nameOnlyLowercase'));
           return;
         }
-        await updateChannel({ name: t });
-        toast.success("Channel name updated");
+        await updateChannel({ name: trimmedDraft });
+        toast.success(t('channelNameUpdated'));
       } else if (editField === "topic") {
         const v = draft.trim();
         await updateChannel({ topic: v.length ? v : null });
-        toast.success("Topic updated");
+        toast.success(t('topicUpdated'));
       } else {
         const v = draft.trim();
         await updateChannel({ description: v.length ? v : null });
-        toast.success("Description updated");
+        toast.success(t('descriptionUpdated'));
       }
       closeEdit();
     } catch (e: unknown) {
       const msg = isAxiosError(e)
         ? (e.response?.data as { message?: string })?.message ?? e.message
-        : "Update failed";
-      toast.error(typeof msg === "string" ? msg : "Update failed");
+        : t('updateFailed');
+      toast.error(typeof msg === "string" ? msg : t('updateFailed'));
     }
-  }, [editField, draft, updateChannel, closeEdit]);
+  }, [editField, draft, updateChannel, closeEdit, t]);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-md border border-[#797c814d] bg-white p-4 dark:bg-[#1A1D21]">
         <div className="flex items-center justify-between gap-2">
-          <Typography text="Channel name" className="font-bold" />
+          <Typography text={t('channelName')} className="font-bold" />
             {isMember ? (
               <button
                 type="button"
                 onClick={() => openEdit("name")}
                 className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
               >
-                Edit
+                {t('edit')}
               </button>
             ) : null}
         </div>
@@ -118,7 +119,7 @@ export default function AboutTab({
         {currentChannelData.isDefaultChannel ? (
           <Typography
             variant="p"
-            text="This is the default channel for the workspace — new members land here."
+            text={t('defaultChannelNote')}
             className="mt-2 text-[12px] text-[#616061] dark:text-[#ababad]"
           />
         ) : null}
@@ -127,14 +128,14 @@ export default function AboutTab({
       <div className="rounded-md border border-[#797c814d] bg-white dark:bg-[#1A1D21]">
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
-            <Typography text="Topic" className="font-bold" />
+            <Typography text={t('topic')} className="font-bold" />
             {isMember ? (
               <button
                 type="button"
                 onClick={() => openEdit("topic")}
                 className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
               >
-                Edit
+                {t('edit')}
               </button>
             ) : null}
           </div>
@@ -142,7 +143,7 @@ export default function AboutTab({
             text={
               currentChannelData.topic?.trim()
                 ? currentChannelData.topic
-                : "Add a topic to the channel"
+                : t('addTopic')
             }
             variant="p"
             className="text-[14px] text-[#8e9297]"
@@ -150,14 +151,14 @@ export default function AboutTab({
         </div>
         <div className="border-b border-[#797c814d] p-4">
           <div className="flex items-center justify-between gap-2">
-            <Typography text="Description" className="font-bold" />
+            <Typography text={t('description')} className="font-bold" />
             {isMember ? (
               <button
                 type="button"
                 onClick={() => openEdit("description")}
                 className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
               >
-                Edit
+                {t('edit')}
               </button>
             ) : null}
           </div>
@@ -165,18 +166,19 @@ export default function AboutTab({
             text={
               currentChannelData.description?.trim()
                 ? currentChannelData.description
-                : "Add a description to the channel"
+                : t('addDescription')
             }
             variant="p"
             className="text-[14px] text-[#8e9297]"
           />
         </div>
         <div className="p-4">
-          <Typography text="Created on" className="font-bold" />
+          <Typography text={t('createdOn')} className="font-bold" />
           <Typography
-            text={format(currentChannelData.createdAt, "EEEE, MMMM d, yyyy", {
-              locale: enUS,
-            })}
+            text={format(
+              currentChannelData.createdAt,
+              dateFormat === "vi_VN" ? "dd/MM/yyyy" : "MM/dd/yyyy"
+            )}
             variant="p"
             className="text-[14px] text-[#8e9297]"
           />
@@ -185,7 +187,7 @@ export default function AboutTab({
 
       <div className="flex items-center gap-2 text-[#8e9297]">
         <Typography
-          text={`Channel ID: ${currentChannelData.id}`}
+          text={`${t('channelId')}: ${currentChannelData.id}`}
           className="text-xs"
         />
         <Copy
@@ -193,7 +195,7 @@ export default function AboutTab({
           className="cursor-pointer"
           onClick={() => {
             void navigator.clipboard.writeText(currentChannelData.id);
-            toast.success("Channel ID copied to clipboard");
+            toast.success(t('channelIdCopied'));
           }}
         />
       </div>
@@ -208,10 +210,10 @@ export default function AboutTab({
             <Typography
               text={
                 editField === "name"
-                  ? "Edit channel name"
+                  ? t('editChannelName')
                   : editField === "topic"
-                    ? "Edit topic"
-                    : "Edit description"
+                    ? t('editTopic')
+                    : t('editDescription')
               }
               className="text-[17px] font-bold"
             />
@@ -223,13 +225,13 @@ export default function AboutTab({
               <Input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder="channel-name"
+                placeholder={t('namePlaceholder')}
                 className="font-mono text-[14px]"
                 autoFocus
               />
               <Typography
                 variant="p"
-                text="Lowercase letters, numbers, hyphens and underscores only."
+                text={t('nameHint')}
                 className="text-[12px] text-[#616061] dark:text-[#ababad]"
               />
             </>
@@ -240,7 +242,7 @@ export default function AboutTab({
               rows={editField === "topic" ? 3 : 5}
               className="min-h-0 resize-y text-[14px]"
               placeholder={
-                editField === "topic" ? "What is this channel about?" : "Add a description to the channel"
+                editField === "topic" ? t('topicPlaceholder') : t('descriptionPlaceholder')
               }
               autoFocus
             />

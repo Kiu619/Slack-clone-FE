@@ -13,6 +13,7 @@ import { buildCustomEmojiLookup, formatCustomEmojiShortcode, normalizeCustomEmoj
 import type { WorkspaceCustomEmoji } from "@/lib/types";
 import { useTheme } from "next-themes";
 import { useWorkspaceCustomEmojis } from "@/hooks/use-workspace-custom-emojis";
+import { useDialogs } from "@/hooks/use-translation";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -31,6 +32,7 @@ export function AddEmojiAliasDialog({
   existingNames: Set<string>;
   onSubmit: (payload: { sourceEmojiId?: string; sourceDefaultEmoji?: string; alias: string }) => Promise<void>;
 }) {
+  const t = useDialogs();
   const { theme } = useTheme();
   const [aliasName, setAliasName] = useState("");
   const [sourceEmojiId, setSourceEmojiId] = useState<string | null>(null);
@@ -74,10 +76,10 @@ export function AddEmojiAliasDialog({
     const validation = validateCustomEmojiName(aliasName);
     if (validation) return validation;
     if (existingNames.has(normalizeCustomEmojiName(aliasName))) {
-      return "This emoji name already exists in the workspace";
+      return t('addEmojiAlias.aliasNameExists');
     }
     return null;
-  }, [aliasName, existingNames]);
+  }, [aliasName, existingNames, t]);
 
   const canSave = Boolean(
     (sourceEmojiId || sourceDefaultEmoji) &&
@@ -104,7 +106,7 @@ export function AddEmojiAliasDialog({
 
   const handleSubmit = async () => {
     if (!sourceEmojiId && !sourceDefaultEmoji) {
-      setError("Please choose an existing emoji");
+      setError(t('addEmojiAlias.chooseExistingEmoji'));
       return;
     }
     if (aliasError) {
@@ -120,7 +122,7 @@ export function AddEmojiAliasDialog({
       });
       onOpenChange(false);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to create alias");
+      setError(submitError instanceof Error ? submitError.message : t('addEmojiAlias.failedToCreate'));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,18 +131,18 @@ export function AddEmojiAliasDialog({
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="680px">
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Add alias for an existing emoji</CustomDialogTitle>
+        <CustomDialogTitle>{t('addEmojiAlias.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody className="space-y-6">
         <Typography
           className="text-[15px] leading-6 text-[#1d1c1d] dark:text-[#d1d2d3]"
-          text="Choose a standard emoji or a custom emoji, then give the alias a name."
+          text={t('addEmojiAlias.description')}
         />
 
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[15px] font-semibold text-[#1d1c1d] dark:text-[#f2f2f2]">
             <span>1.</span>
-            <span>Choose an existing emoji</span>
+            <span>{t('addEmojiAlias.step1Choose')}</span>
           </div>
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
@@ -167,7 +169,7 @@ export function AddEmojiAliasDialog({
                     ? sourceDefaultEmoji
                     : sourceEmoji
                       ? formatCustomEmojiShortcode(sourceEmoji.name)
-                      : "Choose Emoji"}
+                      : t('addEmojiAlias.chooseEmoji')}
                 </span>
               </button>
             </PopoverTrigger>
@@ -213,7 +215,7 @@ export function AddEmojiAliasDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[15px] font-semibold text-[#1d1c1d] dark:text-[#f2f2f2]">
             <span>2.</span>
-            <span>Enter an alias</span>
+            <span>{t('addEmojiAlias.step2Alias')}</span>
           </div>
           <Input
             ref={aliasInputRef}
@@ -227,7 +229,7 @@ export function AddEmojiAliasDialog({
             onFocus={() => requestAnimationFrame(clampAliasCaret)}
             onClick={() => requestAnimationFrame(clampAliasCaret)}
             onKeyUp={() => requestAnimationFrame(clampAliasCaret)}
-            placeholder=":avocado:"
+            placeholder={t('addEmojiAlias.aliasPlaceholder')}
             className="h-10"
           />
           {aliasError ? <p className="text-[12px] text-red-600">{aliasError}</p> : null}
@@ -236,10 +238,10 @@ export function AddEmojiAliasDialog({
       </CustomDialogBody>
       <CustomDialogFooter className="justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="button" variant="success" onClick={() => void handleSubmit()} disabled={!canSave}>
-          {isSubmitting ? "Saving..." : "Save"}
+          {isSubmitting ? t('addEmojiAlias.saving') : t('addEmojiAlias.save')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

@@ -6,8 +6,9 @@ import {
   CustomDialogBody,
   CustomDialogFooter,
   CustomDialogHeader,
-  CustomDialogTitle,
+  CustomDialogTitle
 } from "../custom-dialog";
+import { useDialogs } from "@/hooks/use-translation";
 
 export function ConfirmDeleteFolderDialog({
   open,
@@ -20,20 +21,21 @@ export function ConfirmDeleteFolderDialog({
   folderName: string;
   onConfirm: () => void;
 }) {
+  const t = useDialogs();
+
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange}>
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Delete folder</CustomDialogTitle>
+        <CustomDialogTitle>{t('confirmDeleteFolder.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody>
         <p className="text-sm text-[#616061] dark:text-[#ababad]">
-          Delete &quot;{folderName}&quot;? Files in the channel are not deleted;
-          only this folder and its shortcuts are removed.
+          {t('confirmDeleteFolder.description', { name: folderName })}
         </p>
       </CustomDialogBody>
       <CustomDialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="button"
@@ -43,7 +45,7 @@ export function ConfirmDeleteFolderDialog({
             onOpenChange(false);
           }}
         >
-          Delete folder
+          {t('common.delete')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

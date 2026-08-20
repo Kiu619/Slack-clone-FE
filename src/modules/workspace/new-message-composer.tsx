@@ -14,6 +14,7 @@ import {
 import { useChannels } from "@/hooks/use-channel";
 import { useAuth } from "@/hooks/use-auth";
 import { useDebouncedValue } from "@/hooks/use-debounce";
+import { useAppTranslation } from "@/hooks/use-translation";
 import MessageTab from "@/components/header-tabs/message-tab";
 import {
   MESSAGE_TARGET_DROPDOWN_CLASS,
@@ -45,6 +46,8 @@ interface NewMessageComposerProps {
 }
 
 export default function NewMessageComposer({ workspaceId }: NewMessageComposerProps) {
+  const t = useAppTranslation("newMessage")
+
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const closeNewMessage = useNewMessageStore(s => s.closeNewMessage);
@@ -227,7 +230,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
           (err as { response?: { data?: { message?: string } } }).response?.data?.message
             ? String((err as { response: { data?: { message?: string } } }).response.data?.message)
             : "";
-        toast.error(msg || "Không thể tạo cuộc trò chuyện");
+        toast.error(msg || t("cannotOpenConversation"));
         setEnsureError(msg || "ensure_failed");
       } finally {
         if (!cancelled) setIsEnsuringDm(false);
@@ -388,7 +391,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
       {/* Header / Search Area */}
       <div className="px-4 py-3 border-b border-[#797c814d] flex flex-col gap-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-bold">New message</span>
+          <span className="text-lg font-bold">{t("title")}</span>
           <button 
             onClick={closeNewMessage}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -398,7 +401,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
         </div>
         
         <div className="flex items-center gap-x-2 relative" ref={searchRef}>
-          <span className="text-sm text-gray-400 shrink-0">To:</span>
+          <span className="text-sm text-gray-400 shrink-0">{t("to")}</span>
           
           <div className={MESSAGE_TARGET_INPUT_WRAP_CLASS}>
             {selectedTargets.map(target => {
@@ -438,7 +441,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
             
             <input
               className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm px-2 py-1 placeholder:text-gray-500"
-              placeholder="#a-channel, @somebody, or somebody@example.com"
+              placeholder={t("placeholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
@@ -452,7 +455,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
               {filteredResults.channels.length === 0 && 
                filteredResults.members.length === 0 && 
                filteredResults.conversations.length === 0 && (
-                <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                <div className="px-4 py-2 text-sm text-gray-400">{t("noResultsFound")}</div>
               )}
 
               {filteredResults.conversations.map((conv) => (
@@ -518,7 +521,7 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
         {showDmEnsureError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-4 text-center">
             <p className="text-sm text-[#616061] dark:text-[#ababad]">
-              Không thể mở cuộc trò chuyện. Kiểm tra kết nối hoặc thử lại.
+              {t("cannotOpenConversation")}
             </p>
             <Button
               type="button"
@@ -526,13 +529,13 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
               size="sm"
               onClick={() => setEnsureRetryNonce(n => n + 1)}
             >
-              Thử lại
+              {t("retry")}
             </Button>
           </div>
         ) : showDmEnsureLoading ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-4">
             <div className="size-8 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-            <p className="text-sm text-[#616061] dark:text-[#ababad]">Đang mở cuộc trò chuyện…</p>
+            <p className="text-sm text-[#616061] dark:text-[#ababad]">{t("searchingConversation")}</p>
           </div>
         ) : displayChannel || displayConversation ? (
           <MessageTab
@@ -545,9 +548,9 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
             <div className="size-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
               <FiSearch size={32} className="text-gray-400" />
             </div>
-            <h3 className="text-xl font-bold mb-2">New message</h3>
+            <h3 className="text-xl font-bold mb-2">{t("title")}</h3>
             <p className="text-gray-500 max-w-sm">
-              Search for a person or channel to start a conversation.
+              {t("searchHint")}
             </p>
           </div>
         )}

@@ -5,6 +5,7 @@
 import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
 import { formatTimestamp } from "@/helpers/format-time-stamp"
 import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages"
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore"
 import { openSafeUrl } from "@/lib/open-safe-url"
 import { messageKeys } from "@/lib/query-keys"
 import { cn } from "@/lib/utils"
@@ -32,6 +33,7 @@ import { getAttachmentPreviewKind } from "./file-utils"
 import ImagePreview from "./image-preview"
 import OfficeFilePreview from "./office-file-preview"
 import VideoPreview from "./video-preview"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
@@ -39,6 +41,10 @@ export default function FileDetailPanel() {
   const currentUser = useUserStore((state) => state.user)
   const { requestNewFolder } = useChannelFolderActions()
   const { attachment, message, close } = useFileDetailStore()
+  const t = useAppTranslation("attachments")
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat)
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat)
+  const language = useLanguageRegionStore((s) => s.language)
   console.log("message, attachment: ", message, attachment);
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState(false)
   const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState(false);
@@ -137,7 +143,7 @@ export default function FileDetailPanel() {
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21] dark:text-[#d1d2d3] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#797c814d] shrink-0">
-        <span className="font-semibold text-[15px]">File</span>
+        <span className="font-semibold text-[15px]">{t("toolbar.shareFile")}</span>
         <button
           onClick={close}
           className="p-1 rounded text-[#797c81] transition-colors"
@@ -160,12 +166,12 @@ export default function FileDetailPanel() {
         <div className="">
           <Typography
             variant="p"
-            text={`Owned by ${message?.user?.name}`}
+            text={t("file.ownedBy", { name: message?.user?.name || t("file.someone") })}
             className="font-semibold"
           />
           <Typography
             variant="p"
-            text={`Uploaded on ${formatTimestamp(message?.createdAt ?? "")}`}
+            text={t("file.uploadedOn", { date: formatTimestamp(message?.createdAt ?? "", { dateFormat, timeFormat, language }) })}
             className="font-semibold"
           />
         </div>
@@ -232,9 +238,9 @@ export default function FileDetailPanel() {
       </div>
       ) : (
         <div className="flex flex-col w-full justify-center items-center gap-2 mt-2">
-          <Typography variant="h3" className="font-bold text-lg" text="Attachment was deleted" />
+          <Typography variant="h3" className="font-bold text-lg" text={t("deleted.title")} />
           <Typography variant="p" className="text-sm text-[#797c81] text-center px-8"
-            text="This file is no longer available because it has been deleted." />
+            text={t("deleted.description")} />
         </div>
       )}
 
@@ -247,7 +253,7 @@ export default function FileDetailPanel() {
           <RiShareForwardLine size={20} />
           <Typography
             variant="p"
-            text="Share file"
+            text={t("toolbar.shareFile")}
             className="text-sm"
           />
         </button>
@@ -265,7 +271,7 @@ export default function FileDetailPanel() {
             </p>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p className="text-xs">Download</p>
+            <p className="text-xs">{t("toolbar.download")}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -282,7 +288,7 @@ export default function FileDetailPanel() {
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs">More actions</p>
+              <p className="text-xs">{t("toolbar.moreActions")}</p>
             </TooltipContent>
           </Tooltip>
           <PopoverContent
@@ -296,14 +302,14 @@ export default function FileDetailPanel() {
             <div className="py-2">
               <div className="flex flex-col space-y-1">
                 <Button variant="submenu" onClick={handleOpenInNewTab}>
-                  <Typography variant="p" text="Open in new tab" />
+                  <Typography variant="p" text={t("toolbar.openInNewTab")} />
                 </Button>
                 <Button variant="submenu"
                   onClick={() => {
                     handleSaveForLater(attachment.id)
                   }}
                 >
-                  <Typography variant="p" text="Save for later" />
+                  <Typography variant="p" text={t("toolbar.saveForLater")} />
                 </Button>
 
                 <Separator className="bg-[#797c814d]" />
@@ -314,7 +320,7 @@ export default function FileDetailPanel() {
                   onMouseLeave={() => setIsAddToFolderOpen(false)}
                 >
                   <Button variant="checkedMenu" className={cn("relative")}>
-                    <Typography variant="p" text="Add to folder" />
+                    <Typography variant="p" text={t("toolbar.addToFolder")} />
                     <MdOutlineKeyboardArrowRight size={13} />
                   </Button>
                   {isAddToFolderOpen && message && targetId && (
@@ -334,7 +340,7 @@ export default function FileDetailPanel() {
                     className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 rounded cursor-pointer transition-colors"
                     onClick={handleDelete}
                   >
-                    <Typography variant="p" text="Delete file" />
+                    <Typography variant="p" text={t("toolbar.deleteFile")} />
                   </div>
                 )}
               </div>

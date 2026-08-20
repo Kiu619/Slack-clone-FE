@@ -40,6 +40,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // i18n: forward NEXT_LOCALE cookie to Accept-Language for server-side locale detection
+  const locale = request.cookies.get('NEXT_LOCALE')?.value
+  if (locale && ['en', 'vi'].includes(locale)) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('Accept-Language', locale)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   return NextResponse.next()
 }
 

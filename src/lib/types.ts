@@ -370,6 +370,7 @@ export type CreateWorkspacePayload = {
   inviteCode: string;
   imageUrl?: string;
   memberEmails?: string[];
+  timeZone?: string;
 };
 
 export type Channel = ChannelsRow & {

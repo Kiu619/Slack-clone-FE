@@ -7,6 +7,7 @@ import type { WorkspaceMessageSearchItem } from "@/lib/types";
 import { useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type MessageSearchResultProps = {
   item: WorkspaceMessageSearchItem;
@@ -27,6 +28,8 @@ export default function MessageSearchResult({
   onOpen,
   onOpenThread,
 }: MessageSearchResultProps) {
+  const t = useAppTranslation("message")
+
   const { data: conversations = [] } = useConversations(workspaceId);
   const memberOverlayMap = useWorkspaceMemberStore(
     useShallow((state) => state.byWorkspace[workspaceId] ?? {}),
@@ -65,7 +68,7 @@ export default function MessageSearchResult({
       searchQuery={query}
       searchExcerpt={item.excerpt}
       searchLocation={item.location}
-      searchLocationPrefix={item.message.parentId ? "Thread in" : undefined}
+      searchLocationPrefix={item.message.parentId ? t("threadIn") : undefined}
       searchLocationLabel={resolvedLocationLabel}
       onSearchOpen={(nextMessage) =>
         void onOpen({

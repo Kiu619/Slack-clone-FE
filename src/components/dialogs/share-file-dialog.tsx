@@ -23,6 +23,7 @@ import { attachmentToOutgoingSendPayload } from "@/lib/outgoing-attachment";
 import type { Channel, Message, MessageAttachment, WorkspaceMember } from "@/lib/types";
 import { useMessageStore } from "@/stores/useMessageStore";
 import PillowFile from "../attachment-previews/pillow-file";
+import { useDialogs } from "@/hooks/use-translation";
 
 function commentaryPayload(html: string): string | undefined {
   const plain = html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
@@ -39,6 +40,7 @@ function ShareFileDialogContent({
   workspaceId: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useDialogs();
   const searchRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [commentaryHtml, setCommentaryHtml] = useState("");
@@ -163,7 +165,7 @@ function ShareFileDialogContent({
   return (
     <>
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Share this file</CustomDialogTitle>
+        <CustomDialogTitle>{t('shareFile.title')}</CustomDialogTitle>
       </CustomDialogHeader>
 
       <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6 space-y-4">

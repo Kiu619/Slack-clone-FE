@@ -32,6 +32,7 @@ import { IoMdMore } from "react-icons/io";
 import { IoPersonOutline } from "react-icons/io5";
 import { SlStar } from "react-icons/sl";
 import { toast } from "sonner";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 export type ChannelViewTab = "messages" | "files" | "folders" | "pins";
 
@@ -52,6 +53,7 @@ const Header = ({
   const workspaceId = params.workspaceId ?? "";
   const starMutation = useStarChannel(workspaceId, currentChannelData.id);
   const isStarred = Boolean(currentChannelData.starredAt);
+  const t = useAppTranslation('channel.header')
 
   const { reset } = useMainPanelStore();
   const openGlobalSearch = useGlobalSearchStore((state) => state.openSearch);
@@ -64,7 +66,7 @@ const Header = ({
 
   const toggleChannelStar = () => {
     if (!isMember) {
-      toast.message("Tham gia channel để gắn sao.");
+      toast.message(t('joinChannelToStar'));
       return;
     }
     starMutation.mutate(!isStarred);
@@ -92,7 +94,7 @@ const Header = ({
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <Typography
-                text={isStarred ? "Unstar channel" : "Star channel"}
+                text={isStarred ? t('unstarChannel') : t('starChannel')}
                 variant="p"
                 className="text-[14px]!"
               />
@@ -116,7 +118,7 @@ const Header = ({
 
             <TooltipContent side="bottom">
               <Typography
-                text="Get channel details"
+                text={t('getChannelDetails')}
                 variant="p"
                 className="text-[14px]!"
               />
@@ -130,7 +132,7 @@ const Header = ({
               <button className="flex items-center gap-1 cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-0.5 rounded-md border border-[#797c814d]">
                 <IoPersonOutline size={18} />
                 <Typography
-                  text="Members"
+                  text={t('members')}
                   variant="p"
                   className="text-[13px]!"
                 />
@@ -138,7 +140,7 @@ const Header = ({
             </TooltipTrigger>
             <TooltipContent side="bottom" align="center">
               <Typography
-                text="View all members of this channel"
+                text={t('viewAllMembers')}
                 variant="p"
                 className="text-[14px]!"
               />
@@ -151,7 +153,7 @@ const Header = ({
             entityId={currentChannelData.id}
             label={currentChannelData.name}
             canInteract={isMember}
-            blockedJoinMessage="Tham gia channel để mở huddle preview."
+            blockedJoinMessage={t('joinChannelToStar')}
           />
 
           <ChannelNotificationPopover
@@ -170,7 +172,7 @@ const Header = ({
               </TooltipTrigger>
               <TooltipContent side="bottom" align="center">
                 <Typography
-                  text="More actions"
+                  text={t('moreActions')}
                   variant="p"
                   className="text-[14px]!"
                 />
@@ -194,7 +196,7 @@ const Header = ({
                 >
                   <Typography
                     variant="p"
-                    text="Open channel details"
+                    text={t('openChannelDetails')}
                     className="text-[15px]"
                   />
                 </Button>
@@ -210,7 +212,7 @@ const Header = ({
                   <div className="flex items-center gap-2">
                     <Typography
                       variant="p"
-                      text={isStarred ? "Unstar channel" : "Star channel"}
+                      text={isStarred ? t('unstarChannel') : t('starChannel')}
                     />
                   </div>
                 </Button>
@@ -222,19 +224,19 @@ const Header = ({
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(window.location.href)
-                    toast.success("Link copied to clipboard")
+                    toast.success(t('linkCopied'))
                   }}
                 >
-                  <Typography variant="p" text="Copy link" />
+                  <Typography variant="p" text={t('copyLink')} />
                 </Button>
                 <Button variant="submenu"
                   onClick={(e) => {
                     e.stopPropagation()
                     navigator.clipboard.writeText(currentChannelData.name)
-                    toast.success("Name copied to clipboard")
+                    toast.success(t('nameCopied'))
                   }}
                 >
-                  <Typography variant="p" text="Copy name" />
+                  <Typography variant="p" text={t('copyName')} />
                 </Button>
 
                 <Separator />
@@ -254,7 +256,7 @@ const Header = ({
                   }}
                 >
                   <div className="flex items-center gap-2">
-                    <Typography variant="p" text="Search in channel" />
+                    <Typography variant="p" text={t('searchInChannel')} />
                   </div>
                 </Button>
 
@@ -271,7 +273,7 @@ const Header = ({
                 >
                   <Typography
                     variant="p"
-                    text="Leave channel"
+                    text={t('leaveChannel')}
                     className="mt-0.5 "
                   />
                 </Button>
@@ -314,7 +316,7 @@ const Header = ({
               activeTab === "messages" ? { fill: storeTheme.selectedItems } : {}
             }
           />
-          <Typography text="Messages" variant="p" className="text-[13px]!" />
+          <Typography text={t('messages')} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -337,7 +339,7 @@ const Header = ({
           }
         >
           <ImFilesEmpty size={16} />
-          <Typography text="Files" variant="p" className="text-[13px]!" />
+          <Typography text={t('files')} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -364,7 +366,7 @@ const Header = ({
           ) : (
             <FaRegFolderClosed size={16} />
           )}
-          <Typography text="Folders" variant="p" className="text-[13px]!" />
+          <Typography text={t('folders')} variant="p" className="text-[13px]!" />
         </button>
 
         <button
@@ -387,7 +389,7 @@ const Header = ({
           }
         >
           <RiPushpinLine size={16} />
-          <Typography text="Pins" variant="p" className="text-[13px]!" />
+          <Typography text={t('pins')} variant="p" className="text-[13px]!" />
         </button>
       </div>
 

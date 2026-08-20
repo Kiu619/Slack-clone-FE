@@ -10,6 +10,7 @@ import {
 import { Button } from "../ui/button";
 import Typography from "../ui/typography";
 import type { WorkspaceMember } from "@/lib/types";
+import { useDialogs } from "@/hooks/use-translation";
 
 interface Props {
   open: boolean;
@@ -26,20 +27,21 @@ export default function ActivateUserDialog({
   saving = false,
   onActivate,
 }: Props) {
+  const t = useDialogs();
   const memberName = member.name?.trim() || member.displayName?.trim() || member.email;
 
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="620px">
       <CustomDialogHeader onOpenChange={onOpenChange} className="px-7 py-6">
         <CustomDialogTitle className="text-[28px] font-bold tracking-[-0.03em]">
-          Activate user
+          {t('activateUser.title')}
         </CustomDialogTitle>
       </CustomDialogHeader>
 
       <CustomDialogBody className="px-7 py-5">
         <div className="flex flex-col gap-5">
           <Typography className="text-[18px] leading-7">
-            <strong>{memberName}</strong>&apos;s account is deactivated for this workspace. Do you want to reactivate it?
+            {t('activateUser.description', { name: memberName })}
           </Typography>
         </div>
       </CustomDialogBody>
@@ -51,7 +53,7 @@ export default function ActivateUserDialog({
           onClick={() => onOpenChange(false)}
           className="h-10 rounded-[6px] border-[#cfcacf] px-5 text-[14px] font-semibold"
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="button"
@@ -63,10 +65,10 @@ export default function ActivateUserDialog({
           {saving ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Reactivating
+              {t('activateUser.reactivating')}
             </span>
           ) : (
-            "Reactivate"
+            t('activateUser.reactivate')
           )}
         </Button>
       </CustomDialogFooter>

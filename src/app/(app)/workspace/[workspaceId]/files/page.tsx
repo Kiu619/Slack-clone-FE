@@ -20,6 +20,7 @@ import { FiCheck, FiSearch } from 'react-icons/fi'
 import { IoFilter } from "react-icons/io5"
 import { LiaSlidersHSolid } from "react-icons/lia"
 import { Virtuoso } from "react-virtuoso"
+import { useAppTranslation } from '@/hooks/use-translation'
 
 const DROPDOWN_MAX_ITEMS = 10;
 
@@ -28,6 +29,7 @@ const ALL_FILE_TYPE_IDS = FILE_TYPES.map((type) => type.id)
 export default function AllFilesPage() {
   const params = useParams()
   const workspaceId = params.workspaceId as string
+  const t = useAppTranslation('files')
 
   const [inputValue, setInputValue] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -152,14 +154,14 @@ export default function AllFilesPage() {
         <div className="shrink-0 border-b border-[#dddddd] px-3 py-3 sm:px-4 sm:py-4 dark:border-[#35373B]">
           <Typography
             variant="h4"
-            text="All files"
+            text={t('allFiles')}
             className="mb-3 text-[22px] font-bold sm:mb-4 sm:text-[28px]"
           />
 
           <div className="relative mb-4 z-20">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#616061] dark:text-[#ababad]" size={18} />
             <Input
-              placeholder="Search files"
+              placeholder={t('searchFiles')}
               value={inputValue}
               onChange={(e) => {
                 setInputValue(e.target.value);
@@ -174,7 +176,7 @@ export default function AllFilesPage() {
                   blurDismissRef.current = null;
                 }, 180);
               }}
-              onKeyDown={(e) => {
+                  onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   commitSearch(inputValue);
@@ -200,7 +202,7 @@ export default function AllFilesPage() {
                   setSearchFocused(false);
                 }}
               >
-                Clear
+                {t('clear')}
               </button>
             )}
 
@@ -220,7 +222,7 @@ export default function AllFilesPage() {
                   <span className="flex min-w-0 items-center gap-2">
                     <FiSearch className="shrink-0 text-[#616061] dark:text-[#ababad]" size={16} />
                     <span className="min-w-0 truncate">
-                      Show results for: <strong className="font-semibold">{debouncedInput.trim()}</strong>
+                      {t('showResultsFor')} <strong className="font-semibold">{debouncedInput.trim()}</strong>
                     </span>
                   </span>
                   <kbd className="shrink-0 rounded border border-[#c4c4c4] bg-[#f0f0f0] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#555] dark:border-[#555] dark:bg-[#2a2d31] dark:text-[#d1d2d3]">
@@ -230,7 +232,7 @@ export default function AllFilesPage() {
 
                 {previewMatches.length === 0 ? (
                   <div className="px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-                    No files match this name.
+                    {t('noFilesMatch')}
                   </div>
                 ) : (
                   <ul className="max-h-[300px] overflow-y-auto py-1">
@@ -259,18 +261,18 @@ export default function AllFilesPage() {
           <div className="flex flex-col gap-3 min-[905px]:flex-row min-[905px]:items-center min-[905px]:justify-between">
             <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
               <div className="flex min-w-max items-center gap-1">
-                {['all', 'created_by_me', 'shared_with_me'].map((s) => (
+                {(['all', 'created_by_me', 'shared_with_me'] as const).map((s) => (
                   <Button
                     key={s}
                     variant={scope === s ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setScope(s as 'all' | 'created_by_me' | 'shared_with_me')}
+                    onClick={() => setScope(s)}
                     className={cn(
                       "h-8 whitespace-nowrap px-3 text-[13px] font-semibold",
                       scope === s && "bg-selection-hover! text-white",
                     )}
                   >
-                    {s === 'all' ? 'All' : s === 'created_by_me' ? 'Created by you' : 'Shared with you'}
+                    {s === 'all' ? t('all') : s === 'created_by_me' ? t('createdByYou') : t('sharedWithYou')}
                   </Button>
                 ))}
               </div>
@@ -291,7 +293,7 @@ export default function AllFilesPage() {
                   >
                     <IoFilter size={14} />
                     <span className="truncate">
-                      {isAllTypesSelected ? 'All Types' : `${selectedTypes.length} Types`}
+                      {isAllTypesSelected ? t('allTypes') : t('types', { count: selectedTypes.length })}
                     </span>
                     <ChevronDown
                       size={14}
@@ -338,7 +340,7 @@ export default function AllFilesPage() {
                       className="h-7 px-2 text-xs text-red-500 hover:text-red-500"
                       onClick={clearAllTypes}
                     >
-                      Clear all
+                      {t('clearAll')}
                     </Button>
                   </div>
                 </PopoverContent>
@@ -351,7 +353,7 @@ export default function AllFilesPage() {
                     size="sm"
                     className="h-8 justify-center gap-2 bg-selection-hover font-semibold text-white hover:bg-selection-hover! hover:text-white! sm:justify-between sm:px-3"
                   >
-                    <span className="truncate">{SORT_OPTIONS.find(s => s.id === sortBy)?.label}</span>
+                    <span className="truncate">{t(SORT_OPTIONS.find(s => s.id === sortBy)?.labelKey ?? 'recentViewed')}</span>
                     <ChevronDown
                       size={14}
                       className={cn(
@@ -381,7 +383,7 @@ export default function AllFilesPage() {
                         sortBy === option.id && "bg-selection-hover text-white",
                       )}
                     >
-                      <span className="text-sm font-medium">{option.label}</span>
+                      <span className="text-sm font-medium">{t(option.labelKey)}</span>
                       {sortBy === option.id && <FiCheck size={14} className="text-white" />}
                     </div>
                   ))}
@@ -423,8 +425,8 @@ export default function AllFilesPage() {
             </div>
           ) : !files || files.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
-              <Typography variant="p" text="No files found" className="text-lg font-medium" />
-              <Typography variant="p" text="Try adjusting your filters or search terms" />
+              <Typography variant="p" text={t('noFilesFound')} className="text-lg font-medium" />
+              <Typography variant="p" text={t('adjustFilters')} />
             </div>
           ) : (
             <div className="flex h-full flex-col">

@@ -7,8 +7,10 @@ import { Track } from "livekit-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getUserInitials } from "@/modules/huddle-preview/huddle-preview.utils"
 import { LuMaximize2, LuMinimize2 } from "react-icons/lu"
+import { useHuddle } from "@/hooks/use-translation"
 
 export default function HuddleFullscreenPortal() {
+  const t = useHuddle()
   const [mounted, setMounted] = useState(false)
   const payload = useHuddleFullscreenStore((s) => s.payload)
   const close = useHuddleFullscreenStore((s) => s.close)
@@ -142,7 +144,7 @@ export default function HuddleFullscreenPortal() {
           </AvatarFallback>
         </Avatar>
         <span className="text-[14px] font-medium text-white">{payload.displayName}</span>
-        <span className="text-[14px] text-white/60">Screen share</span>
+        <span className="text-[14px] text-white/60">{t("screenShare")}</span>
         <div className="flex-1" />
         <button
           onClick={handleFullscreenToggle}

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import type { Channel, DirectMessageConversation } from "@/lib/types"
 import { useState } from "react"
 import { useUserStore } from "@/stores/useUserStore"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 /** Đồng bộ style shell với files-tab và folder-tab */
 const PINS_TAB_SHELL = "w-full min-w-0 max-w-[1050px] mx-auto px-3 sm:px-4 md:px-5"
@@ -27,6 +28,7 @@ export default function PinsTab({
   onGoToMessagesTab,
   isMember,
 }: PinsTabProps) {
+  const t = useAppTranslation("headerTabs");
   const currentUser = useUserStore((s) => s.user)
   
   const channelId = currentChannelData?.id
@@ -61,14 +63,14 @@ export default function PinsTab({
     return (
       <div className={cn(PINS_TAB_SHELL, "flex flex-1 flex-col items-center justify-center py-12 text-center")}>
         <p className="text-sm font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]">
-          Could not load pinned messages
+          {t("pins.couldNotLoad")}
         </p>
         <button
           type="button"
           onClick={() => void refetch()}
           className="mt-2 text-sm text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
-          Try again
+          {t("pins.tryAgain")}
         </button>
       </div>
     )
@@ -91,14 +93,15 @@ export default function PinsTab({
   }
 
   if (!pinnedMessages?.length) {
+    const targetType = channelId ? t("pins.channel") : t("pins.conversation");
     return (
       <div className={cn(PINS_TAB_SHELL, "flex flex-1 flex-col items-center justify-center py-20 text-center")}>
         <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-[#222529] flex items-center justify-center mb-4 text-[#797c81]">
           <RiPushpinLine size={32} />
         </div>
-        <h3 className="text-lg font-bold mb-2">No pinned messages</h3>
+        <h3 className="text-lg font-bold mb-2">{t("pins.noPinnedMessages")}</h3>
         <p className="text-sm text-[#797c81] max-w-[320px]">
-          Keep important messages handy by pinning them to this {channelId ? 'channel' : 'conversation'}.
+          {t("pins.noPinnedMessagesDescription", { target: targetType })}
         </p>
       </div>
     )

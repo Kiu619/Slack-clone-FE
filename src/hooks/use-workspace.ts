@@ -52,9 +52,16 @@ export function useJoinWorkspace() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (inviteCode: string) => {
+    mutationFn: async ({
+      inviteCode,
+      timeZone,
+    }: {
+      inviteCode: string
+      timeZone?: string
+    }) => {
       const res = await apiClient.post<Workspace>('/workspaces/join', {
         inviteCode,
+        timeZone,
       })
       return res.data
     },

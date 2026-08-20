@@ -19,6 +19,7 @@ import { Form, FormControl, FormField } from "@/components/ui/form";
 import Typography from "@/components/ui/typography";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useDebouncedValue } from "@/hooks/use-debounce";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { messageKeys, workspaceKeys } from "@/lib/query-keys";
 import type { DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
 import { isActiveWorkspaceMember } from "@/lib/dm-members";
@@ -99,6 +100,7 @@ export default function AddDmPeopleDialog({
 
   const { data: workspaceMeta } = useWorkspace(workspaceId);
   const workspaceName = workspaceMeta?.name ?? "this workspace";
+  const t = useAppTranslation("directMessages");
 
   const form = useForm<AddDmPeopleFormValues>({
     defaultValues: defaultFormValues,
@@ -228,7 +230,7 @@ export default function AddDmPeopleDialog({
       if (prev.includes(userId)) return;
       if (prev.length >= slotsRemaining) {
         toast.error(
-          `This conversation can have up to 9 people. You can add ${slotsRemaining} more.`,
+          t("thisConversationCanHaveUpTo9People", { count: slotsRemaining }),
         );
         return;
       }
@@ -238,7 +240,7 @@ export default function AddDmPeopleDialog({
       form.setValue("search", "");
       queueMicrotask(() => void form.setFocus("search"));
     },
-    [form, slotsRemaining],
+    [form, slotsRemaining, t],
   );
 
   const removePendingUser = useCallback(
@@ -413,10 +415,10 @@ export default function AddDmPeopleDialog({
       if (nUser > 0) {
         toast.success(
           updated && updated.id !== conversationId
-            ? "Merged with an existing group conversation"
+            ? t("conversationUpdatedMerged")
             : nUser === 1
-              ? "Added 1 person to the conversation"
-              : `Added ${nUser} people to the conversation`,
+              ? t("added1PersonToConversation")
+              : t("addedPeopleToConversation", { count: nUser }),
         );
       }
       if (nMail > 0 && inviteResult) {
@@ -424,8 +426,8 @@ export default function AddDmPeopleDialog({
         if (sent > 0) {
           toast.success(
             sent === 1
-              ? "Sent 1 invitation email"
-              : `Sent ${sent} invitation emails`,
+              ? t("sent1InvitationEmail")
+              : t("sentInvitationEmails", { count: sent }),
           );
         }
         if (skipped > 0) {
@@ -435,15 +437,15 @@ export default function AddDmPeopleDialog({
         }
         if (failed.length > 0) {
           toast.error(
-            `Some emails failed: ${failed.map((f) => f.email).join(", ")}`,
+            t("someEmailsFailed", { emails: failed.map((f) => f.email).join(", ") }),
           );
         }
         if (sent === 0 && skipped === 0 && failed.length === 0) {
-          toast.info("No invitation emails sent.");
+          toast.info(t("noInvitationEmailsSent"));
         }
       }
       if (nUser === 0 && nMail === 0) {
-        toast.success("Done");
+        toast.success(t("done"));
       }
       form.reset(defaultFormValues);
       onOpenChange(false);
@@ -453,8 +455,8 @@ export default function AddDmPeopleDialog({
         ? ((e.response?.data as { message?: string })?.message ?? e.message)
         : e instanceof Error
           ? e.message
-          : "Could not complete";
-      toast.error(typeof msg === "string" ? msg : "Could not complete");
+          : t("couldNotComplete");
+      toast.error(typeof msg === "string" ? msg : t("couldNotComplete"));
     },
   });
 
@@ -462,7 +464,7 @@ export default function AddDmPeopleDialog({
     (pendingUserIds?.length ?? 0) > 0 ||
     (pendingInviteEmails?.length ?? 0) > 0;
 
-  const headerDescription = `You can also add email addresses of people who aren't members of ${workspaceName}.`;
+  const headerDescription = t("headerDescription", { workspace: workspaceName });
 
   const handlePrimaryAction = () => {
     if (!hasPendingSelection) return;
@@ -472,9 +474,9 @@ export default function AddDmPeopleDialog({
   const busy = submitPendingMutation.isPending || wsLoading;
 
   const footerLabel = (() => {
-    if (submitPendingMutation.isPending) return "Adding…";
-    if (hasPendingSelection) return "Add";
-    return "Done";
+    if (submitPendingMutation.isPending) return t("adding");
+    if (hasPendingSelection) return t("add");
+    return t("done");
   })();
 
   const primaryDisabled =
@@ -486,7 +488,7 @@ export default function AddDmPeopleDialog({
         <CustomDialogHeader onOpenChange={handleDialogOpenChange}>
           <div className="min-w-0 flex-1 pr-2">
             <CustomDialogTitle className="text-left text-xl font-bold">
-              Add people to this conversation
+              {t("addPeopleToConversation")}
             </CustomDialogTitle>
             <Typography
               text={headerDescription}
@@ -572,7 +574,7 @@ export default function AddDmPeopleDialog({
                             (pendingInviteEmails?.length ?? 0) >
                           0
                             ? ""
-                            : "Find members"
+                            : t("findMembers2")
                         }
                         autoComplete="off"
                         disabled={busy}
@@ -589,7 +591,7 @@ export default function AddDmPeopleDialog({
                   size={16}
                 />
                 <Typography
-                  text="DMs can have up to 9 people (including you)."
+                  text={t("dmCanHaveUpTo9People")}
                   variant="p"
                   className="text-left text-[13px] leading-snug text-[#616061] dark:text-[#ababad]"
                 />
@@ -660,7 +662,7 @@ export default function AddDmPeopleDialog({
                             </div>
                           </div>
                           <span className="shrink-0 text-right text-[12px] text-[#616061] dark:text-[#ababad]">
-                            Already in this conversation
+                            {t("alreadyInThisConversation")}
                           </span>
                         </div>
                       </li>
@@ -693,14 +695,13 @@ export default function AddDmPeopleDialog({
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="text-[15px] font-bold text-[#1264a3] dark:text-[#1d9bd1]">
-                              Invite{" "}
+                              {t("invite")}{" "}
                               <span className="break-all">
                                 {inviteEmailParsed}
                               </span>
                             </div>
                             <div className="text-[13px] text-[#616061] dark:text-[#ababad]">
-                              Not in this workspace — will send invitation
-                              email when you click Add.
+                              {t("notInThisWorkspace")}
                             </div>
                           </div>
                         </button>
@@ -712,7 +713,7 @@ export default function AddDmPeopleDialog({
 
               {showNoMatchesLine ? (
                 <p className="text-[13px] text-[#616061] dark:text-[#ababad]">
-                  No matching people.
+                  {t("noMatchingPeople")}
                 </p>
               ) : null}
             </div>

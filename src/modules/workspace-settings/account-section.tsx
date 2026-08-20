@@ -11,6 +11,7 @@ import type { User } from "@/lib/types";
 import { accountSections, footerLinks } from "./constants";
 import { getDisplayName } from "./helpers";
 import { SettingsRow } from "./settings-row";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 export function AccountSection({
   greetingName,
@@ -19,6 +20,7 @@ export function AccountSection({
   greetingName: string;
   displayUser: User | null;
 }) {
+  const t = useAppTranslation("workspaceSettings");
   const currentUserInitial = getDisplayName(
     displayUser?.displayName ?? displayUser?.name,
     displayUser?.email,
@@ -35,7 +37,7 @@ export function AccountSection({
           variant="h3"
           className="text-[28px] font-bold tracking-[-0.03em] text-[#1d1c1d] md:text-[36px]"
         >
-          Hello {greetingName}!
+          {t("accountSection.helloName", { name: greetingName })}
         </Typography>
       </div>
 
@@ -52,13 +54,13 @@ export function AccountSection({
                   variant="h6"
                   className="text-[18px] leading-none tracking-[-0.02em] text-[#1d1c1d] md:text-[20px]"
                 >
-                  Account Settings
+                  {t("accountSection.accountSettings")}
                 </Typography>
                 <Typography
                   variant="muted"
                   className="mt-1.5 max-w-[780px] text-[13px] leading-5 text-[#616061] md:text-[14px]"
                 >
-                  Edit your profile, update your username and password, and manage other account settings.
+                  {t("accountSection.accountSettingsDescription")}
                 </Typography>
               </div>
               <ChevronRight className="hidden h-5 w-5 shrink-0 text-[#d8d3d8] sm:mt-2.5 sm:block" />
@@ -80,8 +82,8 @@ export function AccountSection({
 
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-8 pt-6 text-[13px] text-[#616061] md:gap-x-6">
           {footerLinks.map((link) => (
-            <a key={link} href="#" className="hover:text-[#1d1c1d] hover:underline">
-              {link}
+            <a key={link.key} href="#" className="hover:text-[#1d1c1d] hover:underline">
+              {t(`accountSection.${link.key}`)}
             </a>
           ))}
         </div>

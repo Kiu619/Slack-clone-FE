@@ -12,6 +12,7 @@ import { Separator } from "../../components/ui/separator";
 import Typography from "../../components/ui/typography";
 import { getConversationSummary, getMemberLabel } from "./utils";
 import type { HasFilterType, IsFilterType, TypeFilterType } from "./types";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type Props = {
   selectedFromMembers: WorkspaceMember[];
@@ -42,6 +43,7 @@ export function GlobalSearchSelectedSummary({
   currentUserId,
   memberOverlayMap,
 }: Props) {
+  const t = useAppTranslation("globalSearch");
   const trimmedQuery = query.trim();
 
   return (
@@ -50,7 +52,7 @@ export function GlobalSearchSelectedSummary({
       <div className="flex flex-col">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex flex-1 flex-wrap items-center gap-1">
-            <Typography text="Show results for:" />
+            <Typography text={t("selectedSummary.showResultsFor")} />
 
             {selectedFromMembers.map((member) => {
               const label = getMemberLabel(member);
@@ -198,7 +200,7 @@ export function GlobalSearchSelectedSummary({
           </div>
 
           <kbd className="shrink-0 rounded border border-[#c4c4c4] bg-[#f0f0f0] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#555] dark:border-[#555] dark:bg-[#2a2d31] dark:text-[#d1d2d3]">
-            Enter
+            {t("selectedSummary.enter")}
           </kbd>
         </div>
       </div>

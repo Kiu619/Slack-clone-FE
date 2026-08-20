@@ -36,6 +36,8 @@ import * as z from "zod";
 import { CustomSelect } from "../custom-select";
 import { DatePickerDropdown } from "../date-picker-dropdown";
 import Typography from "../ui/typography";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { useDialogs } from "@/hooks/use-translation";
 
 const formSchema = z.object({
   status: z.string().max(100),
@@ -466,6 +468,8 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
       toast.error("Failed to update status. Please try again.");
     }
   }
+  const t = useDialogs();
+  const language = useLanguageRegionStore((s) => s.language);
 
   return (
     <CustomDialog open={open} onOpenChange={setOpen}>
@@ -476,7 +480,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
         >
           <CustomDialogHeader onOpenChange={setOpen}>
             <CustomDialogTitle>
-              Set a status
+              {t('reminder.title')}
             </CustomDialogTitle>
           </CustomDialogHeader>
 

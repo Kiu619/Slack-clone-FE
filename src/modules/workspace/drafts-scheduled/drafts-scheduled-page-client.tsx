@@ -54,12 +54,14 @@ import {
   rollbackDraftsOutboundOptimistic,
   type OutboundSendRow,
 } from './drafts-outbound-optimistic'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 type ScheduleTarget =
   | { kind: 'draft'; row: MessageDraftSummary }
   | { kind: 'reschedule'; row: ScheduledMessageRow }
 
 export const DraftsScheduledPageClient = () => {
+  const t = useAppTranslation('draftsScheduled')
   const params = useParams<{ workspaceId: string | string[] }>()
   const workspaceId =
     typeof params.workspaceId === 'string'
@@ -141,10 +143,10 @@ export const DraftsScheduledPageClient = () => {
       void queryClient.invalidateQueries({
         queryKey: scheduledMessageKeys.all(workspaceId),
       })
-      toast.success('Đã hủy lịch gửi.')
+      toast.success(t('toast.scheduleCancelled'))
     },
     onError: () => {
-      toast.error('Không hủy được lịch gửi.')
+      toast.error(t('toast.scheduleCancelFailed'))
     },
   })
 
@@ -271,12 +273,12 @@ export const DraftsScheduledPageClient = () => {
           row.contextKey,
           null,
         )
-        toast.success('Đã xóa draft.')
+        toast.success(t('toast.draftDeleted'))
       } catch {
-        toast.error('Không xóa được draft.')
+        toast.error(t('toast.draftDeleteFailed'))
       }
     },
-    [queryClient, workspaceId],
+    [queryClient, workspaceId, t],
   )
 
   const handleScheduleDraft = useCallback((row: MessageDraftSummary) => {
@@ -286,12 +288,12 @@ export const DraftsScheduledPageClient = () => {
         new Date(Date.now() + 120_000).toISOString(),
       )
     } catch {
-      toast.error('Draft không gắn kênh hoặc DM — không thể lên lịch.')
+      toast.error(t('toast.draftNoChannelOrDM'))
       return
     }
     setScheduleTarget({ kind: 'draft', row })
     setScheduleOpen(true)
-  }, [])
+  }, [t])
 
   const handleReschedule = useCallback((row: ScheduledMessageRow) => {
     setScheduleTarget({ kind: 'reschedule', row })
@@ -319,14 +321,14 @@ export const DraftsScheduledPageClient = () => {
             scheduleTarget.row.contextKey,
             null,
           )
-          toast.success('Đã lên lịch gửi tin.')
+          toast.success(t('toast.messageScheduled'))
         } else {
           await updateScheduledMessageApi(
             workspaceId,
             scheduleTarget.row.id,
             { scheduledAt: scheduledAtIso },
           )
-          toast.success('Đã đổi lịch gửi.')
+          toast.success(t('toast.scheduleRescheduled'))
         }
         invalidateScheduledMessageQueries(queryClient, workspaceId)
         void queryClient.invalidateQueries({
@@ -335,15 +337,15 @@ export const DraftsScheduledPageClient = () => {
       } catch {
         toast.error(
           scheduleTarget.kind === 'draft'
-            ? 'Không lên lịch được.'
-            : 'Không đổi lịch được.',
+            ? t('toast.scheduleFailed')
+            : t('toast.rescheduleFailed'),
         )
         throw new Error('schedule failed')
       } finally {
         setScheduleSubmitting(false)
       }
     },
-    [scheduleTarget, queryClient, workspaceId],
+    [scheduleTarget, queryClient, workspaceId, t],
   )
 
   const postMessagePayload = useCallback(async (row: OutboundSendRow) => {
@@ -407,7 +409,7 @@ export const DraftsScheduledPageClient = () => {
         void queryClient.invalidateQueries({
           queryKey: draftKeys.list(workspaceId),
         })
-        toast.success('Đã gửi tin nhắn.')
+        toast.success(t('toast.messageSent'))
       } catch (e: unknown) {
         rollbackDraftsOutboundOptimistic(
           queryClient,
@@ -417,9 +419,9 @@ export const DraftsScheduledPageClient = () => {
         )
         const err = e as { message?: string }
         if (err?.message === 'no_target') {
-          toast.error('Draft không gắn kênh hoặc DM — không thể gửi.')
+          toast.error(t('toast.draftNoTarget'))
         } else {
-          toast.error('Không gửi được tin nhắn.')
+          toast.error(t('toast.messageSendFailed'))
         }
       }
     },
@@ -429,6 +431,7 @@ export const DraftsScheduledPageClient = () => {
       queryClient,
       invalidateMessageCachesForRow,
       user,
+      t,
     ],
   )
 
@@ -462,11 +465,11 @@ export const DraftsScheduledPageClient = () => {
         try {
           await cancelScheduledMessageApi(workspaceId, row.id)
         } catch {
-          toast.warning('Đã gửi tin nhưng chưa hủy lịch — vui lòng làm mới hoặc hủy thủ công.')
+          toast.warning(t('toast.messageSentScheduleNotCancelled'))
         }
         invalidateScheduledMessageQueries(queryClient, workspaceId)
         invalidateMessageCachesForRow(row)
-        toast.success('Đã gửi tin nhắn.')
+        toast.success(t('toast.messageSent'))
       } catch (e: unknown) {
         rollbackDraftsOutboundOptimistic(
           queryClient,
@@ -476,13 +479,13 @@ export const DraftsScheduledPageClient = () => {
         )
         const err = e as { message?: string }
         if (err?.message === 'no_target') {
-          toast.error('Tin lên lịch không gắn kênh hoặc DM.')
+          toast.error(t('toast.scheduledNoChannelOrDM'))
         } else {
-          toast.error('Không gửi được tin nhắn.')
+          toast.error(t('toast.messageSendFailed'))
         }
       }
     },
-    [postMessagePayload, workspaceId, queryClient, invalidateMessageCachesForRow, user],
+    [postMessagePayload, workspaceId, queryClient, invalidateMessageCachesForRow, user, t],
   )
 
   const handleCancelScheduleToDraft = useCallback(
@@ -501,12 +504,12 @@ export const DraftsScheduledPageClient = () => {
         void queryClient.invalidateQueries({
           queryKey: draftKeys.current(workspaceId, contextKey),
         })
-        toast.success('Đã chuyển vào draft.')
+        toast.success(t('toast.convertedToDraft'))
       } catch {
-        toast.error('Không lưu draft được.')
+        toast.error(t('toast.draftSaveFailed'))
       }
     },
-    [workspaceId, queryClient],
+    [workspaceId, queryClient, t],
   )
 
   const scheduleDialogDefaults =
@@ -518,13 +521,14 @@ export const DraftsScheduledPageClient = () => {
     <div className="flex min-h-0 flex-1 flex-col bg-white dark:bg-[#1A1D21]">
       <div className="border-b border-[#797c814d]">
         <div className="flex items-center justify-between gap-4 px-4">
-          <Typography text="Drafts & scheduled" variant="h5" />
+          <Typography text={t('title')} variant="h5" />
         </div>
         <DraftsScheduledTabBar
           tab={tab}
           onTabChange={handleTabChange}
           draftsCount={summaries.length}
           scheduledCount={pendingScheduled.length}
+          t={t}
         />
       </div>
 
@@ -540,6 +544,7 @@ export const DraftsScheduledPageClient = () => {
             onScheduleDraft={handleScheduleDraft}
             onSendDraft={handleSendDraft}
             onNewMessage={openNewMessage}
+            t={t}
           />
         )}
         {tab === 'scheduled' && (
@@ -555,6 +560,7 @@ export const DraftsScheduledPageClient = () => {
             onCancelToDraft={handleCancelScheduleToDraft}
             onDeleteScheduled={(row) => cancelScheduled(row.id)}
             onNewMessage={openNewMessage}
+            t={t}
           />
         )}
       </div>

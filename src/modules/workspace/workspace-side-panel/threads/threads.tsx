@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils";
 import { Theme } from "@/stores/useThemeStore";
 import { redirect, usePathname } from "next/navigation";
 import { BiMessageSquareDetail } from "react-icons/bi";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const Threads = ({ theme, workspaceId }: { theme: Theme, workspaceId: string }) => {
   const pathname = usePathname();
+  const t = useAppTranslation("workspaceSidePanel")
   const isActive = pathname === `/workspace/${workspaceId}/threads`;
   return (
     <div
@@ -20,7 +22,7 @@ const Threads = ({ theme, workspaceId }: { theme: Theme, workspaceId: string }) 
         className={cn("text-workspace-side-panel-text", isActive ? "text-workspace-text-active" : "")}
       />
       <Typography
-        text="Threads"
+        text={t("threads")}
         variant="p"
         className={cn("text-[15px]! text-workspace-side-panel-text ", isActive ? "text-workspace-text-active" : "")}
       />

@@ -1,14 +1,14 @@
-import { useDeleteAttachment } from "@/hooks/use-messages";
+"use client"
+
+import { useDialogs } from "@/hooks/use-translation";
 import {
-  CustomDialog,
-  CustomDialogHeader,
-  CustomDialogTitle,
-  CustomDialogBody,
-  CustomDialogFooter
-} from "../custom-dialog"
-import { Button } from "../ui/button"
-import { Message, MessageAttachment } from "@/lib/types";
-import { toast } from "sonner";
+    CustomDialog,
+    CustomDialogBody,
+    CustomDialogFooter,
+    CustomDialogHeader,
+    CustomDialogTitle
+} from "../custom-dialog";
+import { Button } from "../ui/button";
 
 interface Props {
   open: boolean;
@@ -17,20 +17,22 @@ interface Props {
 }
 
 export default function ConfirmDeleteFileDialog({ open, onOpenChange, onConfirm}: Props) {
+  const t = useDialogs();
+
   return (
     <CustomDialog open={open}  onOpenChange={onOpenChange}>
       <CustomDialogHeader  onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Confirm Delete File</CustomDialogTitle>
+        <CustomDialogTitle>{t('confirmDeleteFile.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody>
-        <p>Are you sure you want to delete this file?</p>
+        <p>{t('confirmDeleteFile.description')}</p>
       </CustomDialogBody>
         <CustomDialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="error" onClick={onConfirm}>
-            Delete
+            {t('common.delete')}
           </Button>
         </CustomDialogFooter>
     </CustomDialog>

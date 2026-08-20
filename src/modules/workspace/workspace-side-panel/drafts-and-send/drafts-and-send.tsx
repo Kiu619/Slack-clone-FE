@@ -11,6 +11,7 @@ import { LuPencil } from "react-icons/lu"
 import { MdOutlineScheduleSend } from "react-icons/md"
 import { usePathname } from "next/navigation";
 import { Theme } from "@/stores/useThemeStore";
+import { useAppTranslation } from "@/hooks/use-translation"
 
 type DraftsAndSendProps = {
   theme: Theme
@@ -37,6 +38,7 @@ const DraftsAndSend = ({ theme, workspaceId }: DraftsAndSendProps) => {
   const scheduledCount = pendingScheduled.length
 
   const pathname = usePathname();
+  const t = useAppTranslation("workspaceSidePanel")
   const isActive = pathname === `/workspace/${workspaceId}/drafts`;
 
   return (
@@ -47,23 +49,23 @@ const DraftsAndSend = ({ theme, workspaceId }: DraftsAndSendProps) => {
     >
       <VscSend size={20} className={isActive ? "shrink-0 text-workspace-text-active" : "shrink-0 text-workspace-side-panel-text"} />
       <Typography
-        text="Drafts & scheduled"
+        text={t("draftsScheduled")}
         variant="p"
         className={`min-w-0 flex-1 text-[15px]! ${isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text"}`}
       />
       {(draftCount > 0 || scheduledCount > 0) ? (
         <div
           className={`flex shrink-0 items-center gap-2.5 text-[12px] font-semibold tabular-nums ${isActive ? "text-workspace-text-active/80" : "text-workspace-side-panel-text/80"}`}
-          aria-label={`${draftCount} drafts, ${scheduledCount} scheduled`}
+          aria-label={t("draftsAndScheduledCount", { draftCount, scheduledCount })}
         >
           {draftCount > 0 ? (
-            <span className="flex items-center gap-0.5" title="Drafts">
+            <span className="flex items-center gap-0.5" title={t("drafts")}>
               <LuPencil size={14} className="opacity-90" aria-hidden />
               <span>{capCount(draftCount)}</span>
             </span>
           ) : null}
           {scheduledCount > 0 ? (
-            <span className="flex items-center gap-0.5" title="Scheduled">
+            <span className="flex items-center gap-0.5" title={t("scheduled")}>
               <MdOutlineScheduleSend size={16} className="opacity-90" aria-hidden />
               <span>{capCount(scheduledCount)}</span>
             </span>

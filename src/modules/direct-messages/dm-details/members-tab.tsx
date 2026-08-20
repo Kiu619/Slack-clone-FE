@@ -4,6 +4,7 @@ import Avatar from "@/components/avatar";
 import { Input } from "@/components/ui/input";
 import Typography from "@/components/ui/typography";
 import { useDebouncedValue } from "@/hooks/use-debounce";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { cn } from "@/lib/utils";
 import { getMemberBaseDisplayName, isDeactivatedUser } from "@/lib/dm-members";
 import type { DirectMessageConversation, User } from "@/lib/types";
@@ -39,19 +40,21 @@ function MemberRow({
   currentUserId,
   onOpenProfile,
   onCloseDialog,
+  t,
 }: {
   m: User;
   workspaceId: string;
   currentUserId: string | undefined;
   onOpenProfile: (m: User) => void;
   onCloseDialog: () => void;
+  t: ReturnType<typeof useAppTranslation>;
 }) {
   const overlay = useWorkspaceMemberOverlay(workspaceId, m.id);
   const row = useMemo(() => mergeUserForDisplay(m, overlay), [m, overlay]);
   const isYou = currentUserId === row.id;
   const isDeactivated = isDeactivatedUser(row);
   const primary = displayLabel(row);
-  const secondary = isDeactivated ? "Deactivated account" : secondaryLine(row);
+  const secondary = isDeactivated ? t("deactivatedAccount") : secondaryLine(row);
 
   return (
     <li className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
@@ -71,11 +74,11 @@ function MemberRow({
           alt={primary}
           className="h-10! w-10! shrink-0 rounded-md"
         />
-        <div className="min-w-0 flex-1 text-left">
+            <div className="min-w-0 flex-1 text-left">
           <div className="flex min-w-0 items-center gap-1">
             <div className="min-w-0 flex-1">
               <Typography
-                text={isYou ? `${primary} (you)` : primary}
+                text={isYou ? `${primary} ${t("you2")}` : primary}
                 className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
               />
             </div>
@@ -117,6 +120,7 @@ export default function MembersTab({
   const conversationId = currentDmData.id;
   const members = currentDmData.members;
   const slotsRemaining = Math.max(0, 9 - members.length);
+  const t = useAppTranslation("directMessages");
 
   const { user: currentUser } = useUserStore();
   const openProfile = useProfilePanelStore((s) => s.open);
@@ -156,7 +160,7 @@ export default function MembersTab({
         <Input
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Find members"
+          placeholder={t("findMembers")}
           autoComplete="off"
           className={cn(
             "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
@@ -169,7 +173,7 @@ export default function MembersTab({
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
             onClick={() => setInputValue("")}
           >
-            Clear
+            {t("clear")}
           </button>
         ) : null}
       </div>
@@ -184,7 +188,7 @@ export default function MembersTab({
             <LuUserPlus className="size-5" aria-hidden />
           </span>
           <Typography
-            text="Add people"
+            text={t("addPeople")}
             className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
           />
         </button>
@@ -194,13 +198,13 @@ export default function MembersTab({
         {filtered.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
             {searchKey
-              ? "No members match your search."
-              : "No members in this conversation."}
+              ? t("noMembersMatchSearch")
+              : t("noMembersInThisConversation")}
           </p>
         ) : (
           <section>
             <Typography
-              text="Members"
+              text={t("members2")}
               className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
             />
             <ul className="flex flex-col gap-1">
@@ -212,6 +216,7 @@ export default function MembersTab({
                   currentUserId={currentUser?.id}
                   onOpenProfile={openMemberProfile}
                   onCloseDialog={() => onOpenChange(false)}
+                  t={t}
                 />
               ))}
             </ul>

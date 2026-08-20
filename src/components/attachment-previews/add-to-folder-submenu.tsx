@@ -9,6 +9,7 @@ import { Separator } from "../ui/separator";
 import Typography from "../ui/typography";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const ITEM =
   "px-5 py-1.5 cursor-pointer text-sm hover:text-white hover:bg-selection-hover";
@@ -29,6 +30,7 @@ export function AddToFolderSubmenu({
   onRequestCreateFolder,
   effectiveFolderId,
 }: Props) {
+  const t = useAppTranslation("attachments")
   const queryClient = useQueryClient();
   const { data, isPending } = useQuery({
     queryKey: folderKeys.list(targetId),
@@ -39,7 +41,7 @@ export function AddToFolderSubmenu({
     mutationFn: (folderId: string) =>
       addAttachmentToFolderApi(targetId, folderId, attachmentId),
     onSuccess: () => {
-      toast.success("Added to folder");
+      toast.success(t("folder.addedToFolder"));
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(targetId),
       });
@@ -56,8 +58,8 @@ export function AddToFolderSubmenu({
     onError: (err: unknown) => {
       const msg = isAxiosError(err)
         ? ((err.response?.data as { message?: string })?.message ?? err.message)
-        : "Could not add to folder";
-      toast.error(typeof msg === "string" ? msg : "Could not add to folder");
+        : t("folder.couldNotAdd");
+      toast.error(typeof msg === "string" ? msg : t("folder.couldNotAdd"));
     },
   });
 
@@ -66,7 +68,7 @@ export function AddToFolderSubmenu({
   if (isPending) {
     return (
       <div className={cn("py-2 px-3 text-[13px] text-[#797c81]", className)}>
-        Loading folders…
+        {t("folder.loading")}
       </div>
     );
   }
@@ -75,7 +77,7 @@ export function AddToFolderSubmenu({
     return (
       <div className={cn("py-2 min-w-[200px]", className)}>
         <p className="px-3 text-[13px] text-[#616061] dark:text-[#ababad] mb-2">
-          No folders yet.
+          {t("folder.noFolders")}
         </p>
         {onRequestCreateFolder ? (
           <button
@@ -86,7 +88,7 @@ export function AddToFolderSubmenu({
               onRequestCreateFolder();
             }}
           >
-            <Typography variant="p" text="Create folder" />
+            <Typography variant="p" text={t("folder.createFolder")} />
           </button>
         ) : null}
       </div>
@@ -129,7 +131,7 @@ export function AddToFolderSubmenu({
               onRequestCreateFolder();
             }}
           >
-            <Typography variant="p" text="New folder…" />
+            <Typography variant="p" text={t("folder.newFolder")} />
           </Button>
         </>
       ) : null}

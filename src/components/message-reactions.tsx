@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Typography from "./ui/typography";
 import { extractCustomEmojiName } from "@/lib/custom-emojis";
+import { useTranslations } from "next-intl";
 
 type MessageReactionsProps = {
   reactions: Reaction[];
@@ -29,10 +30,12 @@ export function MessageReactions({
     [currentUserId],
   );
 
-  const getReactionTooltipText = useCallback(
+  const t = useTranslations();
+
+  const getReactionTooltipText = (
     (reaction: Reaction) => {
       const names = reaction.userIds.map((userId) => {
-        if (userId === currentUserId) return "You";
+        if (userId === currentUserId) return `${t('common.you')}`
         const snapshotUser = reaction.users?.find((u) => u.id === userId);
         const member = memberOverlayMap[userId];
         return (
@@ -49,8 +52,7 @@ export function MessageReactions({
       const hiddenCount = uniqueNames.length - visibleNames.length;
       const base = visibleNames.join(", ");
       return hiddenCount > 0 ? `${base} and more` : base;
-    },
-    [currentUserId, memberOverlayMap],
+  }
   );
 
   if (reactions.length === 0) return null;
@@ -97,7 +99,7 @@ export function MessageReactions({
                 {getReactionTooltipText(reaction)}
               </Typography>
               <div className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                <span>reacted with</span>
+                <span>{t('common.reactedWith')}</span>
                 <span className="inline-flex items-center justify-center">
                   {renderReactionEmoji(reaction.emoji)}
                 </span>

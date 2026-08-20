@@ -7,6 +7,7 @@ import {
   PreviewAvatar,
 } from "@/modules/huddle-preview/huddle-preview.media"
 import { PREVIEW_STAGE_SIZE_CLASSES } from "@/modules/huddle-preview/huddle-preview.utils"
+import { useHuddle } from "@/hooks/use-translation"
 import { cn } from "@/lib/utils"
 import { RiCloseLine, RiHeadphoneLine, RiMicLine, RiVolumeUpLine, RiVideoLine } from "react-icons/ri"
 import { LuMic, LuMicOff, LuVideo, LuVideoOff } from "react-icons/lu"
@@ -66,13 +67,14 @@ export function HuddlePreviewStage({
   onStart,
   startButtonLabel,
 }: HuddlePreviewStageProps) {
+  const t = useHuddle()
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
   const phaseLabel =
-    phase === "connecting" ? "Connecting" : "Preview"
+    phase === "connecting" ? t("connecting") : t("preview")
   const subLabel =
     phase === "connecting"
-      ? "Preparing your huddle..."
-      : "Check audio and camera before joining"
+      ? t("preparingYourHuddle")
+      : t("checkAudioAndCamera")
 
   useEffect(() => {
     const element = previewVideoRef.current
@@ -158,7 +160,7 @@ export function HuddlePreviewStage({
                 size="custom"
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#7b6847] text-white shadow-[0_10px_18px_rgba(0,0,0,0.18)] hover:bg-[#8a764b]"
                 onClick={onToggleMic}
-                aria-label={isMicEnabled ? "Mute microphone" : "Unmute microphone"}
+                aria-label={isMicEnabled ? t("muteMicrophone") : t("unmuteMicrophone")}
               >
                 {isMicEnabled ? <LuMic size={20} /> : <LuMicOff size={20} />}
               </Button>
@@ -167,7 +169,7 @@ export function HuddlePreviewStage({
                 size="custom"
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#7b6847] text-white shadow-[0_10px_18px_rgba(0,0,0,0.18)] hover:bg-[#8a764b]"
                 onClick={onToggleCamera}
-                aria-label={isCameraEnabled ? "Turn camera off" : "Turn camera on"}
+                aria-label={isCameraEnabled ? t("turnCameraOff") : t("turnCameraOn")}
               >
                 {isCameraEnabled ? <LuVideo size={20} /> : <LuVideoOff size={20} />}
               </Button>
@@ -178,21 +180,21 @@ export function HuddlePreviewStage({
         <div className="mt-3 grid w-full grid-cols-1 gap-2.5 md:grid-cols-3">
           <DeviceSelect
             icon={<RiMicLine size={16} />}
-            label="Microphone"
+            label={t("microphone")}
             value={selectedMicId}
             onChange={onSelectMic}
             options={micOptions}
           />
           <DeviceSelect
             icon={<RiVolumeUpLine size={16} />}
-            label="Speaker"
+            label={t("speaker")}
             value={selectedSpeakerId}
             onChange={onSelectSpeaker}
             options={speakerOptions}
           />
           <DeviceSelect
             icon={<RiVideoLine size={16} />}
-            label="Camera"
+            label={t("camera")}
             value={selectedCameraId}
             onChange={onSelectCamera}
             options={cameraOptions}
@@ -203,7 +205,7 @@ export function HuddlePreviewStage({
           {previewStatus === "blocked" || previewStatus === "error" ? (
             <div className="rounded-[14px] border border-red-400/25 bg-red-500/12 px-3.5 py-2 text-sm text-red-100">
               {previewError ??
-                "Could not load preview. Check your camera and microphone permissions."}
+                t("cameraAndMicPermission")}
             </div>
           ) : null}
           {liveError ? (
@@ -222,7 +224,7 @@ export function HuddlePreviewStage({
             onClick={onCancel}
           >
             <RiCloseLine size={18} />
-            <Typography text="Cancel" variant="p" className="text-[14px]! text-white" />
+            <Typography text={t("cancel")} variant="p" className="text-[14px]! text-white" />
           </Button>
 
           <Button

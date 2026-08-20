@@ -27,12 +27,13 @@ import {
   CustomDialogHeader,
   CustomDialogTitle,
 } from "../custom-dialog";
+import { useDialogs } from "@/hooks/use-translation";
 
 const formSchema = z.object({
   name: z
     .string()
-    .min(2, "Folder name must be at least 2 characters")
-    .max(80, "Folder name must be at most 80 characters")
+    .min(2)
+    .max(80),
 });
 
 export function CreateFolderDialog({
@@ -48,6 +49,7 @@ export function CreateFolderDialog({
   isDM?: boolean;
   onCreated?: (folder: ChannelFolder) => void;
 }) {
+  const t = useDialogs();
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -58,7 +60,7 @@ export function CreateFolderDialog({
     mutationFn: (name: string) =>
       createChannelFolderApi(targetId, name.trim(), isDM),
     onSuccess: (data) => {
-      toast.success("Folder created");
+      toast.success(t('createFolder.createdSuccess'));
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(targetId),
       });
@@ -70,8 +72,8 @@ export function CreateFolderDialog({
       const msg = isAxiosError(err)
         ? (err.response?.data as { message?: string })?.message ??
           err.message
-        : "Failed to create folder";
-      toast.error(typeof msg === "string" ? msg : "Failed to create folder");
+        : t('createFolder.failedToCreate');
+      toast.error(typeof msg === "string" ? msg : t('createFolder.failedToCreate'));
     },
   });
 
@@ -89,7 +91,7 @@ export function CreateFolderDialog({
           className="flex flex-col h-full"
         >
           <CustomDialogHeader onOpenChange={onOpenChange}>
-            <CustomDialogTitle>Create a folder</CustomDialogTitle>
+            <CustomDialogTitle>{t('createFolder.title')}</CustomDialogTitle>
           </CustomDialogHeader>
 
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
@@ -100,11 +102,11 @@ export function CreateFolderDialog({
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-bold">Name</FormLabel>
+                      <FormLabel className="font-bold">{t('createFolder.name')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Ex. project-tracker"
+                          placeholder={t('createFolder.namePlaceholder')}
                           className="bg-transparent border-[#565856] focus:border-selection-hover transition-all"
                         />
                       </FormControl>
@@ -122,7 +124,7 @@ export function CreateFolderDialog({
               type="button"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               disabled={
@@ -133,7 +135,7 @@ export function CreateFolderDialog({
               type="submit"
               variant="success"
             >
-              {isPending ? "Saving…" : "Create folder"}
+              {isPending ? t('createFolder.creating') : t('createFolder.create')}
             </Button>
           </CustomDialogFooter>
         </form>

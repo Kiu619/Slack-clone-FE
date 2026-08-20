@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import Typography from "@/components/ui/typography";
 
 import type { SectionItem } from "./types";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 export function SettingsRow({
   item,
@@ -12,6 +13,7 @@ export function SettingsRow({
   item: SectionItem;
   withChevron?: boolean;
 }) {
+  const t = useAppTranslation("workspaceSettings");
   const Icon = item.icon;
 
   return (
@@ -31,13 +33,13 @@ export function SettingsRow({
           variant="h6"
           className="text-[18px] leading-none tracking-[-0.02em] text-[#1d1c1d] sm:text-[20px]"
         >
-          {item.title}
+          {item.titleKey ? t(`accountSection.${item.titleKey}`) : item.title}
         </Typography>
         <Typography
           variant="muted"
           className="mt-1.5 max-w-[780px] text-[13px] leading-5 text-[#616061] sm:text-[14px]"
         >
-          {item.description}
+          {item.titleKey ? t(`accountSection.${item.titleKey}Description`) : item.description}
         </Typography>
       </div>
 

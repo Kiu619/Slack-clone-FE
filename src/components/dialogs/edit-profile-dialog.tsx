@@ -10,17 +10,7 @@ import {
 } from "../custom-dialog"
 import { FieldGroup } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-
 import { CustomSelect } from "../custom-select"
-
 import { User } from "@/lib/types"
 import { useForm } from "react-hook-form"
 import Avatar from "../avatar"
@@ -43,36 +33,7 @@ import { useProfilePanelStore } from "@/stores/useProfilePanelStore"
 import { useQueryClient } from "@tanstack/react-query"
 import { authKeys } from "@/lib/query-keys"
 import { TIMEZONE_OPTIONS } from "@/lib/timezone"
-
-// const TIMEZONE_OPTIONS = [
-//   { label: "(UTC-11:00) Midway Island, American Samoa", value: "(UTC-11:00)" },
-//   { label: "(UTC-10:00) Hawaii", value: "(UTC-10:00)" },
-//   { label: "(UTC-09:00) Alaska", value: "(UTC-09:00)" },
-//   { label: "(UTC-08:00) Pacific Time (US & Canada)", value: "(UTC-08:00)" },
-//   { label: "(UTC-07:00) Mountain Time (US & Canada)", value: "(UTC-07:00)" },
-//   { label: "(UTC-06:00) Central Time (US & Canada)", value: "(UTC-06:00)" },
-//   { label: "(UTC-05:00) Eastern Time (US & Canada)", value: "(UTC-05:00)" },
-//   { label: "(UTC-04:00) Atlantic Time (Canada)", value: "(UTC-04:00)" },
-//   { label: "(UTC-03:00) Argentina, Brazil", value: "(UTC-03:00)" },
-//   { label: "(UTC-02:00) South Georgia/South Sandwich Islands", value: "(UTC-02:00)" },
-//   { label: "(UTC-01:00) Azores", value: "(UTC-01:00)" },
-//   { label: "(UTC+00:00) London, Lisbon, Dublin", value: "(UTC+00:00)" },
-//   { label: "(UTC+01:00) Amsterdam, Berlin, Madrid", value: "(UTC+01:00)" },
-//   { label: "(UTC+02:00) Athens, Istanbul, Cairo", value: "(UTC+02:00)" },
-//   { label: "(UTC+03:00) Moscow, Nairobi", value: "(UTC+03:00)" },
-//   { label: "(UTC+04:00) Dubai, Abu Dhabi", value: "(UTC+04:00)" },
-//   { label: "(UTC+05:00) Karachi, Tashkent", value: "(UTC+05:00)" },
-//   { label: "(UTC+06:00) Dhaka, Novosibirsk", value: "(UTC+06:00)" },
-//   { label: "(UTC+07:00) Bangkok, Hanoi, Jakarta", value: "(UTC+07:00)" },
-//   { label: "(UTC+08:00) Beijing, Singapore, Hong Kong", value: "(UTC+08:00)" },
-//   { label: "(UTC+09:00) Tokyo, Seoul", value: "(UTC+09:00)" },
-//   { label: "(UTC+10:00) Sydney, Melbourne", value: "(UTC+10:00)" },
-//   { label: "(UTC+11:00) Solomon Islands, New Caledonia", value: "(UTC+11:00)" },
-//   { label: "(UTC+12:00) Auckland, Fiji", value: "(UTC+12:00)" },
-//   { label: "(UTC+13:00) Samoa, Tonga", value: "(UTC+13:00)" },
-//   { label: "(UTC+14:00) Kiribati", value: "(UTC+14:00)" },
-// ]
-
+import { useDialogs } from "@/hooks/use-translation"
 
 const formSchema = z.object({
   name: z
@@ -95,6 +56,7 @@ const formSchema = z.object({
 })
 
 export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { open: boolean, setOpen: (open: boolean) => void, userData: User, workspaceId: string }) {
+  const t = useDialogs();
   const queryClient = useQueryClient()
   const { open: openPanel } = useProfilePanelStore()
 
@@ -149,9 +111,9 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
       openPanel({ userData: { ...userData, ...updated }, workspaceId })
 
       setOpen(false)
-      toast.success("Profile updated successfully")
+      toast.success(t('editProfile.profileUpdatedSuccess'))
     } catch {
-      toast.error("Failed to update profile. Please try again.")
+      toast.error(t('editProfile.profileUpdateFailed'))
     } finally {
       setIsUploading(false)
     }
@@ -162,22 +124,19 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // Validate file type
       const validTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp']
       if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image (PNG, JPG, JPEG, GIF, WEBP)')
+        toast.error(t('editProfile.invalidImageType'))
         return
       }
 
-      // Validate file size (5MB)
       if (file.size > 5000000) {
-        toast.error('File size must be less than 5MB')
+        toast.error(t('editProfile.fileTooLarge'))
         return
       }
 
       setSelectedFile(file)
 
-      // Create preview URL
       const reader = new FileReader()
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string)
@@ -199,7 +158,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
           <CustomDialogHeader onOpenChange={setOpen}>
-            <CustomDialogTitle>Edit your profile</CustomDialogTitle>
+            <CustomDialogTitle>{t('editProfile.title')}</CustomDialogTitle>
           </CustomDialogHeader>
 
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6 flex space-x-8">
@@ -210,7 +169,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className=" font-bold">Full name</FormLabel>
+                      <FormLabel className=" font-bold">{t('editProfile.fullName')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -227,7 +186,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className=" font-bold">Display name</FormLabel>
+                      <FormLabel className=" font-bold">{t('editProfile.displayName')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -235,7 +194,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                         />
                       </FormControl>
                       <Typography
-                        text="This could be your first name, or a nickname — however you’d like people to refer to you in Slack."
+                        text={t('editProfile.displayNameDescription')}
                         variant="p"
                         className="text-[#ABABAD] text-xs mt-1"
                       />
@@ -249,11 +208,11 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   name="namePronunciation"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className=" font-bold">Name pronunciation</FormLabel>
+                      <FormLabel className=" font-bold">{t('editProfile.namePronunciation')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Kiuu (pronounced: KEE-uu)"
+                          placeholder={t('editProfile.namePronunciationPlaceholder')}
                           className="bg-transparent border-[#565856]  focus:border-[#1264a3] transition-all"
                         />
                       </FormControl>
@@ -268,35 +227,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                 name="timeZone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className=" font-bold">Time zone</FormLabel>
-                    {/* <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value} 
-                      >
-                        <FormControl>
-                          <SelectTrigger className="w-full bg-transparent border-[#565856]  h-11">
-                            <SelectValue placeholder="Select a timezone" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent 
-                          position="popper" 
-                          side="bottom" 
-                          sideOffset={4}
-                          className="z-1100 bg-white dark:bg-[#1A1D21] border-[#565856]  w-(--radix-select-trigger-width) max-h-[300px] overflow-y-auto"
-                        >
-                          <SelectGroup>
-                            {TIMEZONE_OPTIONS.map((item) => (
-                              <SelectItem 
-                                key={item.value} 
-                                value={item.value}
-                                className="focus:bg-[#1264a3] focus: cursor-pointer"
-                              >
-                                {item.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select> */}
+                    <FormLabel className=" font-bold">{t('editProfile.timeZone')}</FormLabel>
 
                     <CustomSelect
                       options={TIMEZONE_OPTIONS}
@@ -307,7 +238,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                     />
 
                     <Typography
-                      text="Your current time zone. Used to send summary emails, for Times Zone features and more."
+                      text={t('editProfile.timeZoneDescription')}
                       variant="p"
                       className="text-[#ABABAD] text-xs mt-1"
                     />
@@ -318,7 +249,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
             </div>
 
             <div className="space-y-4">
-              <Typography text="Profile photo" variant='p' className=' font-bold text-sm' />
+              <Typography text={t('editProfile.profilePhoto')} variant='p' className=' font-bold text-sm' />
               <div className="relative group">
                 <Avatar
                   src={previewUrl ?? ""}
@@ -340,7 +271,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                   className="w-full border-[#565856]  dark:hover:bg-[#2C2E33]"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  Upload Photo
+                  {t('editProfile.uploadPhoto')}
                 </Button>
                 {previewUrl && (
                   <Button
@@ -349,7 +280,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
                     className="w-full text-[#1264a3] hover:text-[#0b4d7a] dark:hover:bg-transparent font-normal"
                     onClick={handleRemovePhoto}
                   >
-                    Remove Photo
+                    {t('editProfile.removePhoto')}
                   </Button>
                 )}
               </div>
@@ -362,7 +293,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
               type="button"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               disabled={
@@ -378,7 +309,7 @@ export function EditProfileDialog({ open, setOpen, userData, workspaceId }: { op
               type="submit"
               variant="success"
             >
-              {isUploading ? "Saving..." : "Save Changes"}
+              {isUploading ? t('editProfile.saving') : t('editProfile.saveChanges')}
             </Button>
           </CustomDialogFooter>
         </form>

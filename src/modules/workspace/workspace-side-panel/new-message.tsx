@@ -4,9 +4,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import Typography from "@/components/ui/typography"
 import { FiEdit } from "react-icons/fi"
 import { useNewMessageStore } from "@/stores/useNewMessageStore"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 const NewMessage = () => {
   const openNewMessage = useNewMessageStore(s => s.openNewMessage)
+  const t = useAppTranslation("workspaceSidePanel")
 
   return (
     <Tooltip>
@@ -21,7 +23,7 @@ const NewMessage = () => {
       <TooltipContent
         side='bottom'
       >
-        <Typography text='New messages' variant='p' className="text-[13px]!" />
+        <Typography text={t("newMessages")} variant='p' className="text-[13px]!" />
       </TooltipContent>
     </Tooltip>
   )

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/pagination";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 import { cn } from "@/lib/utils";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type HuddlePaginationProps = {
   currentPage: number;
@@ -48,6 +49,7 @@ export function HuddlePagination({
   pageSize,
   onPageChange,
 }: HuddlePaginationProps) {
+  const t = useAppTranslation('huddle.pagination')
   const paginationPages = getPaginationPages(currentPage, totalPages);
 
   if (totalPages <= 1) return null;
@@ -55,7 +57,7 @@ export function HuddlePagination({
   return (
     <div className="flex flex-col gap-3 rounded-[4px] px-4 py-4 md:flex-row md:items-center md:justify-between md:px-5">
       <div className="text-[13px] text-[#616061]">
-        Page {currentPage} of {totalPages} · {pageSize} per page
+        {t('pageOf', { current: currentPage, total: totalPages, pageSize: pageSize })}
       </div>
 
       <Pagination className="mx-0 w-auto justify-end">

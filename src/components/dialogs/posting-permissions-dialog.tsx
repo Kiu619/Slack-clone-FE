@@ -8,7 +8,7 @@ import {
   CustomDialogBody,
   CustomDialogFooter,
   CustomDialogHeader,
-  CustomDialogTitle,
+  CustomDialogTitle
 } from "../custom-dialog"
 import { Button } from "../ui/button"
 import Typography from "../ui/typography"
@@ -25,6 +25,7 @@ import {
   MessageTargetChip,
   MessageTargetSearchRow,
 } from "@/components/message-target-picker"
+import { useDialogs } from "@/hooks/use-translation"
 
 interface Props {
   open: boolean
@@ -38,12 +39,6 @@ interface Props {
 type PostingMode = NonNullable<UpdateChannelPayload["postingSettings"]>["mode"]
 
 type PostingPermissionsFormValues = NonNullable<UpdateChannelPayload["postingSettings"]>
-
-const postingOptions: Array<{ id: PostingMode; label: string }> = [
-  { id: "everyone", label: "Everyone" },
-  { id: "admin_only", label: "Admins only" },
-  { id: "admins_plus_specific_people", label: "Admins, plus specific people" },
-]
 
 function matchesMemberSearch(
   m: WorkspaceMember,
@@ -67,6 +62,7 @@ export default function PostingPermissionsDialog({
   initialValue,
   onSave,
 }: Props) {
+  const t = useDialogs();
   const [searchQuery, setSearchQuery] = useState("")
   const searchRef = useRef<HTMLDivElement>(null)
   const initialFormValues = useMemo<PostingPermissionsFormValues>(() => {
@@ -189,15 +185,21 @@ export default function PostingPermissionsDialog({
       specificUserIds: specificUserIds ?? [],
     }) === initialSignature
 
+  const postingOptions = useMemo(() => [
+    { id: "everyone" as PostingMode, label: t('postingPermissions.everyone') },
+    { id: "admin_only" as PostingMode, label: t('postingPermissions.adminsOnly') },
+    { id: "admins_plus_specific_people" as PostingMode, label: t('postingPermissions.adminsPlusSpecific') },
+  ], [t])
+
   return (
     <CustomDialog open={open} onOpenChange={closeAndReset}>
       <CustomDialogHeader onOpenChange={closeAndReset}>
-        <CustomDialogTitle>Posting Permissions</CustomDialogTitle>
+        <CustomDialogTitle>{t('postingPermissions.title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody className="bg-white dark:bg-[#1A1D21]">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-4">
-            <Typography text="Who can post in this channel?" className="font-semibold" />
+            <Typography text={t('postingPermissions.whoCanPost')} className="font-semibold" />
 
             <div className="flex flex-col gap-2">
               {postingOptions.map((option) => {
@@ -255,7 +257,7 @@ export default function PostingPermissionsDialog({
                         <input
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Find members"
+                          placeholder={t('postingPermissions.findMembers')}
                           className="min-w-0 flex-1 border-0 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
                         />
                       </div>
@@ -265,7 +267,7 @@ export default function PostingPermissionsDialog({
                       <div className={cn(MESSAGE_TARGET_DROPDOWN_CLASS, "bg-white py-2 shadow-lg dark:bg-[#222529]")}>
                         {filteredMembers.length === 0 ? (
                           <div className="px-4 py-2 text-sm text-muted-foreground">
-                            No matching people.
+                            {t('postingPermissions.noMatchingPeople')}
                           </div>
                         ) : (
                           filteredMembers.map((member) => {
@@ -309,9 +311,9 @@ export default function PostingPermissionsDialog({
                   className="size-3 cursor-pointer accent-selection-hover"
                 />
                 <div className="flex flex-col gap-1">
-                  <Typography text="Allow threads" className="text-[13px] font-semibold" />
+                  <Typography text={t('postingPermissions.allowThreads')} className="text-[13px] font-semibold" />
                   <Typography
-                    text="Everyone will be able to add replies to messages posted in this channel, regardless of overall posting permissions"
+                    text={t('postingPermissions.allowThreadsDescription')}
                     className="max-w-108 text-[13px] leading-5 text-muted-foreground"
                   />
                 </div>
@@ -328,9 +330,9 @@ export default function PostingPermissionsDialog({
                 className="size-3 cursor-pointer accent-selection-hover"
               />
               <div className="flex flex-col gap-1">
-                <Typography text="Allow @channel and @here mentions" className="text-[13px] font-semibold" />
+                <Typography text={t('postingPermissions.allowMentions')} className="text-[13px] font-semibold" />
                 <Typography
-                  text="@channel notifies all members of a channel, and @here notifies members of a channel who are online and not away at that moment. Note: Because of your workspace settings, only people who have permission can use @here and @channel."
+                  text={t('postingPermissions.allowMentionsDescription')}
                   className="max-w-108 text-[13px] leading-5 text-muted-foreground"
                 />
               </div>
@@ -346,7 +348,7 @@ export default function PostingPermissionsDialog({
           onClick={() => closeAndReset(false)}
           className="border-[#4A4D52] bg-transparent px-4 py-2 hover:bg-white/5"
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="button"
@@ -355,7 +357,7 @@ export default function PostingPermissionsDialog({
           disabled={isSaveDisabled}
           className="px-4 py-2"
         >
-          Save changes
+          {t('common.save')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

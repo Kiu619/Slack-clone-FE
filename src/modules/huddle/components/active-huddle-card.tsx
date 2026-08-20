@@ -30,6 +30,7 @@ import { resolveHuddleDisplayTitle } from "@/lib/huddle";
 import { useChannels } from "@/hooks/use-channel";
 import { useConversations } from "@/hooks/use-conversations";
 import { useUserStore } from "@/stores/useUserStore";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type ActiveHuddleCardProps = {
   huddle: HuddlePageItem;
@@ -61,6 +62,7 @@ export function ActiveHuddleCard({
   const { currentHuddle, clearCurrentHuddle } = useCurrentHuddleStore();
   const { socket } = useSocket();
   const currentUser = useUserStore((s) => s.user);
+  const t = useAppTranslation('huddle.card')
   const isJoined =
     currentHuddle?.target.entityId === huddle.entityId &&
     currentHuddle?.target.workspaceId === huddle.workspaceId;
@@ -247,7 +249,7 @@ export function ActiveHuddleCard({
 
           {/* Participant count */}
           <span className="shrink-0 text-xs text-gray-400">
-            {participantCount} {participantCount === 1 ? "person" : "people"}
+            {participantCount} {participantCount === 1 ? t('person') : t('people')}
           </span>
         </div>
         {isJoined ? (
@@ -258,7 +260,7 @@ export function ActiveHuddleCard({
             size="sm"
             onClick={handleLeave}
           >
-            Leave
+            {t('leave')}
           </Button>
         ) : (
           <Button
@@ -268,7 +270,7 @@ export function ActiveHuddleCard({
             size="sm"
             onClick={handleCardClick}
           >
-            Join
+            {t('join')}
           </Button>
         )}
       </div>

@@ -32,6 +32,7 @@ import { FiHash } from "react-icons/fi";
 import { GiCheckMark } from "react-icons/gi";
 import { LuClock3, LuTrash2 } from "react-icons/lu";
 import { MdMoreVert } from "react-icons/md";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const TOOLBAR_ITEM_STYLE =
   "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]";
@@ -80,6 +81,7 @@ export const SavedItemComponent = ({
   onEditReminder,
   selectedTextColor,
 }: SavedItemProps) => {
+  const t = useAppTranslation("later");
   const [openPopover, setOpenPopover] = useState(false);
   const [openReminderPopover, setOpenReminderPopover] = useState(false);
 
@@ -168,12 +170,12 @@ export const SavedItemComponent = ({
           {item.remindAt &&
             (isOverdue ? (
               <div className="bg-[#861f62] text-white px-2 py-0.5 rounded-full text-[11px] flex items-center gap-1 shrink-0">
-                Incomplete •{" "}
-                {formatDistanceToNowStrict(new Date(item.remindAt))} ago
+                {t("savedItem.incomplete")} •{" "}
+                {formatDistanceToNowStrict(new Date(item.remindAt))} {t("savedItem.ago")}
               </div>
             ) : (
               <span className="text-[#861f62] dark:text-[#cc78b0] shrink-0">
-                Due in {formatDistanceToNowStrict(new Date(item.remindAt))}
+                {t("savedItem.dueIn")} {formatDistanceToNowStrict(new Date(item.remindAt))}
               </span>
             ))}
 
@@ -185,13 +187,13 @@ export const SavedItemComponent = ({
 
           <span className="hover:underline cursor-pointer font-bold truncate">
             {item.type === 'reminder' ? (
-              "Reminder"
+              t("savedItem.reminder")
             ) : (displayMessage?.channelName || item.attachment?.channelName) ? (
               <span className="flex items-center gap-1">
                 <FiHash size={14} className="shrink-0" />
                 <span className="truncate">{displayMessage?.channelName || item.attachment?.channelName}</span>
               </span>
-            ) : ("Direct messages")}
+            ) : (t("savedItem.directMessages"))}
           </span>
         </div>
       </div>
@@ -205,7 +207,7 @@ export const SavedItemComponent = ({
                 <LuTrash2 size={18} />
               </div>
               <div className="text-[15px] text-[#616061] dark:text-[#ababad] italic self-center">
-                A message you saved was deleted.
+                {t("savedItem.deletedMessage")}
               </div>
             </div>
           ) : item.type === "reminder" ? (
@@ -219,7 +221,7 @@ export const SavedItemComponent = ({
               <div className="flex flex-col min-w-0">
                 <div className="flex min-w-0 items-center gap-1">
                   <span className="text-[15px] font-bold text-[#1d1c1d] dark:text-[#d1d2d3] truncate min-w-0">
-                    {reminderDisplayUser?.displayName || "You"}
+                    {reminderDisplayUser?.displayName || t("savedItem.you")}
                   </span>
                   {reminderDisplayUser ? (
                     <UserStatusEmojiInline
@@ -291,7 +293,7 @@ export const SavedItemComponent = ({
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p className="text-xs">
-                  {item.status === "completed" ? "Mark in progress" : "Mark completed"}
+                  {item.status === "completed" ? t("actions.markInProgress") : t("actions.markCompleted")}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -317,7 +319,7 @@ export const SavedItemComponent = ({
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <Typography className="text-xs">
-                    {item.remindAt ? "Edit reminder" : "Set reminder"}
+                    {item.remindAt ? t("actions.editReminder") : t("actions.setReminder")}
                   </Typography>
                 </TooltipContent>
               </Tooltip>
@@ -352,7 +354,7 @@ export const SavedItemComponent = ({
                       setOpenReminderPopover(false);
                     }}
                   >
-                    Custom...
+                    {t("actions.custom")}
                   </Button>
                   {item.remindAt && (
                     <>
@@ -364,7 +366,7 @@ export const SavedItemComponent = ({
                           setOpenReminderPopover(false);
                         }}
                       >
-                        Clear due date
+                        {t("actions.clearDueDate")}
                       </button>
                     </>
                   )}
@@ -394,7 +396,7 @@ export const SavedItemComponent = ({
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs">More actions</p>
+              <p className="text-xs">{t("actions.moreActions")}</p>
             </TooltipContent>
           </Tooltip>
           <PopoverContent
@@ -417,7 +419,7 @@ export const SavedItemComponent = ({
                       setOpenPopover(false);
                     }}
                   >
-                    <Typography variant="p" text="Move to progress" />
+                    <Typography variant="p" text={t("actions.moveToProgress")} />
                   </Button>
                   <div
                     className={cn(
@@ -431,7 +433,7 @@ export const SavedItemComponent = ({
                   >
                     <Typography
                       variant="p"
-                      text="Clear from later"
+                      text={t("actions.clearFromLater")}
                       className="mt-0.5"
                     />
                   </div>
@@ -446,9 +448,9 @@ export const SavedItemComponent = ({
                       onEditReminder(item);
                       setOpenPopover(false);
                     }}
-                  >
-                    Edit reminder
-                  </Button>
+                    >
+                      {t("actions.editReminderAction")}
+                    </Button>
                   <Button
                     variant="submenu"
                     className={cn(MENU_ITEM_STYLE, "justify-start px-4 py-2 text-red-500 hover:bg-[#f8f8f8] dark:hover:bg-[#222529]")}
@@ -457,9 +459,9 @@ export const SavedItemComponent = ({
                       onRemove(item.id);
                       setOpenPopover(false);
                     }}
-                  >
-                    Delete reminder
-                  </Button>
+                    >
+                      {t("actions.deleteReminder")}
+                    </Button>
                 </div>
               ) : (
                 <div className="flex flex-col space-y-1">
@@ -474,7 +476,7 @@ export const SavedItemComponent = ({
                     >
                       <Typography
                         variant="p"
-                        text={item.status === "archived" ? "Unarchive" : "Archive"}
+                        text={item.status === "archived" ? t("actions.unarchive") : t("actions.archive")}
                       />
                     </Button>
                   )}
@@ -490,7 +492,7 @@ export const SavedItemComponent = ({
                   >
                     <Typography
                       variant="p"
-                      text="Remove from later"
+                      text={t("actions.removeFromLater")}
                       className="mt-0.5"
                     />
                   </div>

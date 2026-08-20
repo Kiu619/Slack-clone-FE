@@ -54,6 +54,7 @@ import { AddCustomEmojiDialog } from "@/components/dialogs/add-custom-emoji-dial
 import { AddEmojiAliasDialog } from "@/components/dialogs/add-emoji-alias-dialog";
 import { DeleteEmojiDialog } from "@/components/dialogs/delete-emoji-dialog";
 import type { WorkspaceCustomEmojisPage } from "@/lib/types";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
@@ -115,16 +116,6 @@ function EmojiGlyph({
   return <span className={cn("text-[18px] leading-none", className)}>{value}</span>;
 }
 
-function formatEmojiDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
-
 function getPaginationRange(currentPage: number, totalPages: number) {
   const pages: PaginationValue[] = [];
   const push = (value: PaginationValue) => {
@@ -181,6 +172,7 @@ function EmojiCreatorCell({
 }
 
 export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) {
+  const t = useAppTranslation("workspaceSettings");
   const { data: workspace } = useEmojiCatalog(workspaceId);
   const { data: customEmojis = [] } = useWorkspaceCustomEmojis(workspaceId, {
     includeAliases: true,
@@ -327,11 +319,11 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
       const aliases = customEmojis.filter((item) => item.sourceDefaultEmoji === emoji.sourceDefaultEmoji);
       setDeleteDialog({
         open: true,
-        title: "Choose which alias to delete",
-        description: `${emoji.sourceDefaultEmoji} has multiple aliases. Deleting an alias will not delete the original emoji, so choose which alias to remove.`,
+        title: t("customizeEmojiSection.chooseWhichAliasToDelete"),
+        description: t("customizeEmojiSection.aliasDeleteDescription", { emoji: emoji.sourceDefaultEmoji }),
         items: aliases.map((alias) => ({
           ...alias,
-          label: "Alias",
+          label: t("customizeEmojiSection.alias"),
           kind: "alias" as const,
         })),
         defaultSelectedId: emoji.id,
@@ -344,17 +336,17 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
     const aliasItems = customEmojis.filter((item) => item.aliasOfId === rootId);
     setDeleteDialog({
       open: true,
-      title: "Choose which emoji to delete",
-      description: `:${rootEmoji.name}: has aliases. Deleting the original emoji will also delete its aliases. Choose whether to delete the original emoji or just an alias.`,
+      title: t("customizeEmojiSection.chooseWhichEmojiToDelete"),
+      description: t("customizeEmojiSection.emojiDeleteDescription", { name: rootEmoji.name }),
       items: [
         {
           ...rootEmoji,
-          label: "Original emoji",
+          label: t("customizeEmojiSection.originalEmoji"),
           kind: "original",
         },
         ...aliasItems.map((alias) => ({
           ...alias,
-          label: "Alias",
+          label: t("customizeEmojiSection.alias"),
           kind: "alias" as const,
         })),
       ],
@@ -366,11 +358,11 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
     <div className="flex flex-col gap-6">
       <div className="space-y-2">
         <Typography as="h1" variant="h3" className="text-[30px] font-bold tracking-[-0.03em] text-[#1d1c1d] dark:text-[#f2f2f2]">
-          Customize Your Workspace
+          {t("customizeEmojiSection.customizeYourWorkspace")}
         </Typography>
         <Typography
           className="max-w-3xl text-[16px] leading-7 text-[#1d1c1d] dark:text-[#d1d2d3]"
-          text="Use these settings to make Slack your own. You can manage custom emoji and configure one-click reactions here."
+          text={t("customizeEmojiSection.customizeDescription")}
         />
       </div>
 
@@ -380,11 +372,11 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <Typography as="h2" variant="h4" className="text-[24px] font-bold tracking-[-0.03em] text-[#1d1c1d] dark:text-[#f2f2f2]">
-                  One-click reactions
+                  {t("customizeEmojiSection.oneClickReactions")}
                 </Typography>
                 <Typography
                   className="text-[15px] text-[#1d1c1d] dark:text-[#d1d2d3]"
-                  text="Choose the default emoji people will see when they enable one-click reactions"
+                  text={t("customizeEmojiSection.oneClickReactionsDescription")}
                 />
               </div>
             </div>
@@ -414,7 +406,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                         </PopoverTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        <p className="text-xs">{canManageEmoji ? `Customize slot ${index + 1}` : `Slot ${index + 1}`}</p>
+                        <p className="text-xs">{canManageEmoji ? t("customizeEmojiSection.customizeSlot", { slot: index + 1 }) : t("customizeEmojiSection.slot", { slot: index + 1 })}</p>
                       </TooltipContent>
                     </Tooltip>
                     {canManageEmoji && (
@@ -451,14 +443,14 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
         <div className="px-5 py-5 md:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <Typography as="h2" variant="h4" className="text-[24px] font-bold tracking-[-0.03em] text-[#1d1c1d] dark:text-[#f2f2f2]">
-              {total} custom emoji
+              {t("customizeEmojiSection.customEmojiCount", { count: total })}
             </Typography>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" disabled={!canManageEmoji} onClick={() => setAliasDialogOpen(true)}>
-                Add Alias
+                {t("customizeEmojiSection.addAlias")}
               </Button>
               <Button type="button" variant="success" disabled={!canManageEmoji} onClick={() => setCustomEmojiDialogOpen(true)}>
-                Add Custom Emoji
+                {t("customizeEmojiSection.addCustomEmoji")}
               </Button>
             </div>
           </div>
@@ -466,18 +458,18 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
           <div className="mt-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#797c81]" />
-              <Input value={search} onChange={(event) => handleSearchChange(event.target.value)} placeholder="Search" className="h-10 rounded-lg pl-9" />
+              <Input value={search} onChange={(event) => handleSearchChange(event.target.value)} placeholder={t("customizeEmojiSection.search")} className="h-10 rounded-lg pl-9" />
             </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-lg border border-[#ece8ec] dark:border-[#2c2e33]">
-            <Table className="min-w-[980px] border-separate border-spacing-0">
+            <Table className="min-w-245 border-separate border-spacing-0">
               <TableHeader>
                 <TableRow className="sticky top-0 z-20 border-b border-[#ece8ec] bg-[#fafafa] text-[12px] font-medium text-[#616061] dark:border-[#2c2e33] dark:bg-[#141619] dark:text-[#ababad] hover:bg-[#fafafa] dark:hover:bg-[#141619]">
-                  <TableHead className="px-4 py-3">Image</TableHead>
+                  <TableHead className="px-4 py-3">{t("customizeEmojiSection.image")}</TableHead>
                   <TableHead className="px-4 py-3">
                     <SortButton
-                      label="Name"
+                      label={t("customizeEmojiSection.name")}
                       sortField="name"
                       activeSortKey={sortKey}
                       activeSortDirection={sortDirection}
@@ -486,7 +478,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                   </TableHead>
                   <TableHead className="px-4 py-3">
                     <SortButton
-                      label="Date added"
+                      label={t("customizeEmojiSection.dateAdded")}
                       sortField="createdAt"
                       activeSortKey={sortKey}
                       activeSortDirection={sortDirection}
@@ -495,7 +487,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                   </TableHead>
                   <TableHead className="px-4 py-3">
                     <SortButton
-                      label="Added by"
+                      label={t("customizeEmojiSection.addedBy")}
                       sortField="createdBy"
                       activeSortKey={sortKey}
                       activeSortDirection={sortDirection}
@@ -509,7 +501,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                 {emojiPageQuery.isPending ? (
                   <TableRow>
                     <TableCell colSpan={5} className="px-4 py-8 text-center text-[14px] text-[#616061] dark:text-[#ababad]">
-                      Loading custom emoji...
+                      {t("customizeEmojiSection.loadingCustomEmoji")}
                     </TableCell>
                   </TableRow>
                 ) : sortedEmojis.length > 0 ? (
@@ -532,12 +524,12 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                           <div className="flex flex-col gap-0.5">
                             <span className="font-semibold">{formatCustomEmojiShortcode(emoji.name)}</span>
                             {emoji.aliasOfId || emoji.sourceDefaultEmoji ? (
-                              <span className="text-[12px] text-[#616061] dark:text-[#ababad]">Alias</span>
+                              <span className="text-[12px] text-[#616061] dark:text-[#ababad]">{t("customizeEmojiSection.alias")}</span>
                             ) : null}
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-[#616061] dark:text-[#ababad]">
-                          {formatEmojiDate(emoji.createdAt)}
+                          {/* {formatEmojiDate(emoji.createdAt, fmt)} */}
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <EmojiCreatorCell workspaceId={workspaceId} emoji={emoji} />
@@ -557,7 +549,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="top">
-                                <p className="text-xs">Delete emoji</p>
+                                <p className="text-xs">{t("customizeEmojiSection.deleteEmoji")}</p>
                               </TooltipContent>
                             </Tooltip>
                           ) : null}
@@ -568,7 +560,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="px-4 py-10 text-center text-[14px] text-[#616061] dark:text-[#ababad]">
-                      No custom emoji found.
+                      {t("customizeEmojiSection.noCustomEmojiFound")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -578,7 +570,7 @@ export function CustomizeEmojiSection({ workspaceId }: { workspaceId: string }) 
 
           <div className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between">
             <div className="text-[13px] text-[#616061] dark:text-[#ababad]">
-              Page {currentPage} of {totalPages} · {currentPageSize} per page
+              {t("customizeEmojiSection.pageOf", { current: currentPage, total: totalPages, pageSize: currentPageSize })}
             </div>
 
             <Pagination className="mx-0 w-auto justify-end">

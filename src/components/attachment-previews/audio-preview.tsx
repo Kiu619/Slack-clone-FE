@@ -17,6 +17,7 @@ import { AddToFolderSubmenu } from './add-to-folder-submenu'
 import { useTrackAttachmentView } from '@/hooks/use-attachments'
 import { useSaveForLater } from '@/hooks/use-messages'
 import { Button } from '../ui/button'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 interface AudioPreviewProps {
   message?: Message
@@ -36,6 +37,7 @@ export default function AudioPreview({
   onRemove,
 }: AudioPreviewProps) {
   const { trackView } = useTrackAttachmentView()
+  const t = useAppTranslation("attachments")
   const { requestNewFolder } = useChannelFolderActions()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -184,7 +186,7 @@ export default function AudioPreview({
                   </PopoverTrigger>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p className="text-xs">More actions</p>
+                  <p className="text-xs">{t("toolbar.moreActions")}</p>
                 </TooltipContent>
               </Tooltip>
               <PopoverContent
@@ -200,7 +202,7 @@ export default function AudioPreview({
                     <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                       onClick={() => onDownload?.(attachment?.url || fileUrl || '', attachment?.name || '')}
                     >
-                      <Typography variant="p" text="Download" />
+                      <Typography variant="p" text={t("toolbar.download")} />
                     </div>
                     <Separator />
                     <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
@@ -208,14 +210,14 @@ export default function AudioPreview({
                         handleSaveForLater(attachment?.id!)
                       }}
                     >
-                      <Typography variant="p" text="Save for later" />
+                      <Typography variant="p" text={t("toolbar.saveForLater")} />
                     </div>
                     <div
                       onMouseEnter={() => setIsAddToFolderOpen(true)}
                       onMouseLeave={() => setIsAddToFolderOpen(false)}
                     >
                       <Button variant="checkedMenu">
-                        <Typography variant="p" text="Add to folder" />
+                        <Typography variant="p" text={t("toolbar.addToFolder")} />
                         <MdOutlineKeyboardArrowRight size={13} />
                       </Button>
                       {isAddToFolderOpen && message && attachment && (
@@ -234,7 +236,7 @@ export default function AudioPreview({
                         setIsShareFileModalOpen(true)
                       }}
                     >
-                      <Typography variant="p" text="Share file" />
+                      <Typography variant="p" text={t("toolbar.shareFile")} />
                     </div>
 
                     <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
@@ -243,13 +245,13 @@ export default function AudioPreview({
                         openFileDetail({ attachment: attachment!, message: message! })
                       }}
                     >
-                      <Typography variant="p" text="View details" />
+                      <Typography variant="p" text={t("toolbar.viewDetails")} />
                     </div>
 
                     <Separator />
                     <Typography
                       variant="p"
-                      text="Delete file"
+                      text={t("toolbar.deleteFile")}
                       className="text-red-500 hover:text-white hover:bg-red-700 px-5 py-1 cursor-pointer"
                     />
                   </div>

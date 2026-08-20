@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import Typography from "@/components/ui/typography"
+import { useAppTranslation } from "@/hooks/use-translation"
 import { useConversations } from "@/hooks/use-conversations"
 import type { DirectMessageConversation, User, WorkspaceMember } from "@/lib/types"
 import { getDmMemberDisplayName, isActiveWorkspaceMember } from "@/lib/dm-members"
@@ -51,6 +52,8 @@ export function WorkspaceDmSearchPanel({
   activeResultId?: string | null
   onSelectResult?: (id: string) => void
 }) {
+  const t = useAppTranslation("search")
+
   const currentUser = useUserStore((state) => state.user)
   const query = useGlobalSearchStore((state) => state.query)
   const withUserIds = useGlobalSearchStore((state) => state.withUserIds)
@@ -123,7 +126,7 @@ export function WorkspaceDmSearchPanel({
                   selectedWithMembers.length > 0 && ACTIVE_ITEM_STYLE,
                 )}
               >
-                <Typography variant="p" className="text-[13px]" text="With" />
+                <Typography variant="p" className="text-[13px]" text={t("filters.with")} />
                 {selectedWithMembers.length > 0 ? (
                   <Typography
                     variant="p"
@@ -133,7 +136,7 @@ export function WorkspaceDmSearchPanel({
                         ? displayMember(selectedWithMembers[0]).displayName ||
                           displayMember(selectedWithMembers[0]).name ||
                           selectedWithMembers[0].email
-                        : `${selectedWithMembers.length} teammates`
+                        : t("filters.teammates", { count: selectedWithMembers.length })
                     }
                   />
                 ) : null}
@@ -158,7 +161,7 @@ export function WorkspaceDmSearchPanel({
                 <Input
                   value={withSearch}
                   onChange={(event) => setWithSearch(event.target.value)}
-                  placeholder="Search people..."
+                      placeholder={t("searchPeople")}
                   className="h-8 border-[#797c814d] text-sm"
                 />
               </div>
@@ -196,12 +199,12 @@ export function WorkspaceDmSearchPanel({
                       className="px-3 py-2 text-sm hover:underline cursor-pointer text-muted-foreground"
                       onClick={() => setWithUserIds([])}
                     >
-                      Clear all
+                      {t("clearAll")}
                     </span>
                   </div>
                 ) : null}
 
-                <div className="px-3 py-2 text-sm text-neutral-400">Suggestions</div>
+                <div className="px-3 py-2 text-sm text-neutral-400">{t("suggestions")}</div>
                 {filteredWithMembers
                   .filter((member) => !withUserIds.includes(member.id))
                   .slice(0, 8)
@@ -241,7 +244,7 @@ export function WorkspaceDmSearchPanel({
           {isLoading ? (
             <Skeleton className="h-4 w-24" />
           ) : (
-            <span>{`${filteredConversations.length} results`}</span>
+            <span>{t("results", { count: filteredConversations.length })}</span>
           )}
         </div>
 
@@ -267,7 +270,7 @@ export function WorkspaceDmSearchPanel({
 
           {!isLoading && filteredConversations.length === 0 ? (
             <div className="rounded-xl border border-[#35373B] p-6 text-sm text-neutral-400">
-              No conversations matched the current search.
+              {t("noConversationsMatched")}
             </div>
           ) : null}
 
@@ -302,7 +305,7 @@ export function WorkspaceDmSearchPanel({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{title}</div>
                   <div className="mt-1 truncate text-xs text-neutral-400">
-                    {conversation.lastMessageContent || "No messages yet"}
+                    {conversation.lastMessageContent || t("noMessagesYet")}
                   </div>
                 </div>
               </div>

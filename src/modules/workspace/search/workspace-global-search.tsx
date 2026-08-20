@@ -8,6 +8,7 @@ import {
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore"
 import { useMainPanelStore } from "@/stores/useMainPanelStore"
 import { useThreadPanelStore } from "@/stores/useThreadPanelStore"
+import { useAppTranslation } from "@/hooks/use-translation"
 import dynamic from "next/dynamic"
 import { useEffect, useMemo, useState } from "react"
 import { SearchTypeSelect } from "./search-type-select"
@@ -75,6 +76,7 @@ const DMView = dynamic(() => import("@/modules/direct-messages/dm-view"), {
 })
 
 export function WorkspaceGlobalSearch({ workspaceId }: { workspaceId: string }) {
+  const t = useAppTranslation("search")
   const query = useGlobalSearchStore((state) => state.query)
   const [searchTypeOpen, setSearchTypeOpen] = useState(false)
   const [searchBy, setSearchBy] = useState<SearchType>("messages")
@@ -105,8 +107,8 @@ export function WorkspaceGlobalSearch({ workspaceId }: { workspaceId: string }) 
     searchBy !== "files" && previewContext === currentSearchContext && hasMainPreview
 
   const searchTitle = useMemo(
-    () => (query.trim() ? `Search: ${query.trim()}` : "Search:"),
-    [query],
+    () => (query.trim() ? t("titleWithQuery", { query: query.trim() }) : t("title")),
+    [query, t],
   )
 
   useEffect(() => {

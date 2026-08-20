@@ -12,6 +12,7 @@ import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -29,6 +30,7 @@ export default function PdfPreview({
   formDetailPanel = false,
 }: PdfPreviewProps) {
   const { trackView } = useTrackAttachmentView()
+  const t = useAppTranslation("attachments")
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [numPages, setNumPages] = useState<number | null>(null)
@@ -74,14 +76,14 @@ export default function PdfPreview({
   if (isSourceError) {
     return (
       <div className="rounded-lg border border-[#797c814d] overflow-hidden bg-white dark:bg-[#1A1D21] p-4 w-full max-w-[400px]">
-        <p className="text-[#797c81] text-sm mb-2">Can&rsquo;t preview PDF</p>
+        <p className="text-[#797c81] text-sm mb-2">{t("pdf.cantPreview")}</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => openSafeUrl(attachment.url)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] dark:bg-[#222529] dark:text-[#d1d2d3] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#2a2d31]"
           >
-            Open in new tab
+            {t("toolbar.openInNewTab")}
           </button>
           <button
             type="button"
@@ -89,7 +91,7 @@ export default function PdfPreview({
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px] dark:bg-[#222529] dark:text-[#d1d2d3] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#2a2d31]"
           >
             <LuDownload size={14} />
-            Download
+            {t("toolbar.download")}
           </button>
         </div>
       </div>
@@ -130,8 +132,8 @@ export default function PdfPreview({
               </div>
             ) : previewError ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#25282d] px-6 text-center">
-                <p className="text-sm text-[#d1d2d3]">Can&rsquo;t preview PDF</p>
-                <p className="text-xs text-[#797c81]">Open the file to view the full document.</p>
+                <p className="text-sm text-[#d1d2d3]">{t("pdf.cantPreview")}</p>
+                <p className="text-xs text-[#797c81]">{t("pdf.openFile")}</p>
               </div>
             ) : pdfSourceUrl ? (
               <Document
@@ -176,8 +178,8 @@ export default function PdfPreview({
             </div>
           ) : modalError ? (
             <div className="flex w-full max-w-[780px] flex-col items-center gap-3 py-20 text-center text-white">
-              <p className="text-base font-medium">Can&rsquo;t open PDF preview</p>
-              <p className="text-sm text-white/70">Try downloading the file or reopening the preview.</p>
+              <p className="text-base font-medium">{t("pdf.cantOpen")}</p>
+              <p className="text-sm text-white/70">{t("pdf.tryDownload")}</p>
             </div>
           ) : isExpanded && pdfSourceUrl ? (
             <Document

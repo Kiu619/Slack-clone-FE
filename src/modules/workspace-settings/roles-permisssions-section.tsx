@@ -19,6 +19,7 @@ import {
   type WorkspaceRoleKey,
 } from "@/lib/workspace-permissions";
 import { cn } from "@/lib/utils";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type PermissionRow = {
   permissionKey: WorkspacePermissionKey;
@@ -39,6 +40,7 @@ function CheckCell({ enabled }: { enabled: boolean }) {
 }
 
 export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }) {
+  const t = useAppTranslation("workspaceSettings");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [activePermissionKey, setActivePermissionKey] = useState<WorkspacePermissionKey | null>(null);
@@ -119,14 +121,7 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
     const row = activePermission.permission;
     return WORKSPACE_ROLE_KEYS.map((roleKey) => ({
       key: roleKey,
-      label:
-        roleKey === "primary_owner"
-          ? "Workspace Primary Owner"
-          : roleKey === "owner"
-            ? "Workspace Owner"
-            : roleKey === "admin"
-              ? "Workspace Admin"
-              : "Member",
+      label: t(`rolesPermissionsSection.${roleKey === "primary_owner" ? "workspacePrimaryOwner" : roleKey === "owner" ? "workspaceOwner" : roleKey === "admin" ? "workspaceAdmin" : "member"}`),
       checked: row
         ? roleKey === "member"
           ? row.memberAllowed
@@ -138,7 +133,7 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
         : false,
       locked: activePermission.lockedRoleKeys.includes(roleKey),
     }));
-  }, [activePermission]);
+  }, [activePermission, t]);
 
   const handleSave = async (nextRoles: PermissionRoleOption[]) => {
     if (!activePermissionKey) return;
@@ -170,16 +165,19 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
           variant="h3"
           className="text-[28px] font-bold tracking-[-0.03em] text-[#1d1c1d] dark:text-[#f2f2f2] md:text-[32px]"
         >
-          Account Types
+          {t("rolesPermissionsSection.accountTypes")}
         </Typography>
         <Typography
           variant="muted"
           className="mt-2 max-w-[860px] text-[14px] leading-6 text-[#616061] dark:text-[#b4b8be]"
         >
-          Below you can set the permissions for each of the basic Slack account types.{" "}
-          <a href="#" className="text-[#1264a3] hover:underline">
-            Learn more
-          </a>
+          {t.rich("rolesPermissionsSection.accountTypesDescription", {
+            learnMore: (chunks) => (
+              <a href="#" className="text-[#1264a3] hover:underline">
+                {chunks}{t("rolesPermissionsSection.learnMore")}
+              </a>
+            ),
+          })}
         </Typography>
       </div>
 
@@ -188,7 +186,7 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
           variant="small"
           className="px-4 text-[13px] font-medium text-[#1d1c1d] md:px-6 dark:text-[#f2f2f2]"
         >
-          {filteredPermissions.length} permissions
+          {t("rolesPermissionsSection.permissionsCount", { count: filteredPermissions.length })}
         </Typography>
 
         <label className="relative px-4 md:ml-auto md:w-full md:max-w-[260px] md:px-0">
@@ -197,7 +195,7 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Filter by name or keyword..."
+            placeholder={t("rolesPermissionsSection.filterByNameOrKeyword")}
             className="h-10 w-full rounded-[6px] border border-[#dddddd] bg-transparent pl-8 pr-3 text-[13px] text-[#1d1c1d] outline-none placeholder:text-[#616061] focus:border-[#1264a3] focus:ring-1 focus:ring-[#1264a3]/20 dark:border-[#35373B] dark:text-[#f2f2f2] dark:placeholder:text-[#8e8d93]"
             aria-label="Filter permissions"
           />
@@ -207,19 +205,13 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
       <div className="min-h-0 flex-1 overflow-auto rounded-[4px] border border-[#ece8ec] bg-white dark:border-[#35373B] dark:bg-[#1A1D21]">
         <div className="min-w-[1120px]">
           <div className="sticky top-0 z-10 grid grid-cols-[1.9fr_repeat(4,minmax(150px,1fr))] border-b border-[#ece8ec] bg-white text-[13px] font-semibold text-[#1d1c1d] dark:border-[#35373B] dark:bg-[#1A1D21] dark:text-[#d1d2d3]">
-            <div className="px-4 py-4 md:px-6">Permission</div>
+            <div className="px-4 py-4 md:px-6">{t("rolesPermissionsSection.permission")}</div>
             {WORKSPACE_ROLE_KEYS.map((column) => (
               <div
                 key={column}
                 className="border-l border-[#ece8ec] px-4 py-4 text-center md:px-6 dark:border-[#35373B]"
               >
-                {column === "primary_owner"
-                  ? "Workspace Primary Owner"
-                  : column === "owner"
-                    ? "Workspace Owner"
-                    : column === "admin"
-                      ? "Workspace Admin"
-                      : "Member"}
+                {t(`rolesPermissionsSection.${column === "primary_owner" ? "workspacePrimaryOwner" : column === "owner" ? "workspaceOwner" : column === "admin" ? "workspaceAdmin" : "member"}`)}
               </div>
             ))}
           </div>
@@ -250,7 +242,7 @@ export function RolesPermissionsSection({ workspaceId }: { workspaceId: string }
                         variant="ghost"
                         className="h-8 rounded-md px-2 text-[#616061] hover:bg-selection-hover hover:text-[#1d1c1d] dark:text-[#b4b8be] dark:hover:text-[#f2f2f2]"
                         onClick={() => setActivePermissionKey(row.permissionKey)}
-                        aria-label={`Edit permissions for ${row.label}`}
+                        aria-label={t("rolesPermissionsSection.editPermissionsFor", { name: row.label })}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>

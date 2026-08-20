@@ -20,6 +20,7 @@ import {
 } from "react-icons/lu";
 import { useState } from "react";
 import { MdMoreVert } from "react-icons/md";
+import { useHuddle } from "@/hooks/use-translation";
 
 interface ParticipantMoreActionsProps {
   isLocal: boolean;
@@ -56,6 +57,7 @@ export function ParticipantMoreActions({
   onMute,
   className,
 }: ParticipantMoreActionsProps) {
+  const t = useHuddle()
   const [open, setOpen] = useState(false);
 
   const handleAction = (action: () => void) => {
@@ -95,12 +97,12 @@ export function ParticipantMoreActions({
                 {isMuted ? (
                   <>
                     <LuMic className="h-4 w-4" />
-                    <span>Unmute microphone</span>
+                    <span>{t("unmuteMicrophone")}</span>
                   </>
                 ) : (
                   <>
                     <LuMicOff className="h-4 w-4" />
-                    <span>Mute microphone</span>
+                    <span>{t("muteMicrophone")}</span>
                   </>
                 )}
               </Button>
@@ -113,12 +115,12 @@ export function ParticipantMoreActions({
                 {isCameraEnabled ? (
                   <>
                     <LuVideoOff className="h-4 w-4" />
-                    <span>Turn off camera</span>
+                    <span>{t("turnCameraOff")}</span>
                   </>
                 ) : (
                   <>
                     <LuVideo className="h-4 w-4" />
-                    <span>Turn on camera</span>
+                    <span>{t("turnCameraOn")}</span>
                   </>
                 )}
               </Button>
@@ -131,12 +133,12 @@ export function ParticipantMoreActions({
                 {isSelfViewHidden ? (
                   <>
                     <LuEye className="h-4 w-4" />
-                    <span>Show self-view</span>
+                    <span>{t("showSelfView")}</span>
                   </>
                 ) : (
                   <>
                     <LuEyeOff className="h-4 w-4" />
-                    <span>Hide self-view</span>
+                    <span>{t("hideSelfView")}</span>
                   </>
                 )}
               </Button>
@@ -170,19 +172,19 @@ export function ParticipantMoreActions({
         <div className="py-2">
           <Button variant="submenu" onClick={() => handleAction(onViewProfile)}>
             <LuUser className="h-4 w-4" />
-            <span>View profile</span>
+            <span>{t("viewProfile")}</span>
           </Button>
           {onMute && (
             <Button variant="submenu" onClick={() => handleAction(onMute)}>
               {isMuted ? (
                 <>
                   <LuMic className="h-4 w-4" />
-                  <span>Unmute microphone</span>
+                  <span>{t("unmuteParticipant")}</span>
                 </>
               ) : (
                 <>
                   <LuMicOff className="h-4 w-4" />
-                  <span>Mute microphone</span>
+                  <span>{t("muteParticipant")}</span>
                 </>
               )}
             </Button>
@@ -190,13 +192,13 @@ export function ParticipantMoreActions({
           {isPinned ? (
             <Button variant="submenu" onClick={() => handleAction(onUnpin!)}>
               <LuPinOff className="h-4 w-4" />
-              <span>Unpin participant</span>
+              <span>{t("unpinParticipant")}</span>
             </Button>
           ) : (
             onPin && (
               <Button variant="submenu" onClick={() => handleAction(onPin)}>
                 <LuPin className="h-4 w-4" />
-                <span>Pin participant</span>
+                <span>{t("pinParticipant")}</span>
               </Button>
             )
           )}

@@ -30,6 +30,7 @@ import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { authKeys, messageKeys, workspaceKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 import {
     Table,
@@ -144,6 +145,7 @@ function getPaginationRange(currentPage: number, totalPages: number) {
 }
 
 export function MembersSection({ workspaceId }: { workspaceId: string }) {
+  const t = useAppTranslation("workspaceSettings");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("fullName");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -243,7 +245,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
     return (
       <div className="rounded-[4px] border border-input p-6">
         <Typography
-          text="Could not load members"
+          text={t("membersSection.couldNotLoadMembers")}
           className="text-[14px] font-semibold "
         />
         <button
@@ -251,7 +253,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
           onClick={() => void refetch()}
           className="mt-2 text-[13px] font-semibold text-[#1264a3] hover:underline"
         >
-          Try again
+          {t("membersSection.tryAgain")}
         </button>
       </div>
     );
@@ -261,12 +263,12 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
     <div className="flex min-h-0 flex-1 flex-col space-y-4 bg-white dark:bg-[#1A1D21]">
       <div className="flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between ">
         <div>
-          <Typography
+              <Typography
             as="h1"
             variant="h3"
             className="text-[24px] font-bold tracking-[-0.03em] md:text-[32px]"
           >
-            Manage members
+            {t("membersSection.manageMembers")}
           </Typography>
         </div>
 
@@ -275,17 +277,17 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
           size="sm"
           className="h-9 rounded-lg px-4 text-[14px] font-semibold"
         >
-          Invite People
+          {t("membersSection.invitePeople")}
         </Button>
       </div>
 
       <div className="flex flex-col gap-3 py-3 text-[13px] md:flex-row md:items-center md:justify-between">
         <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px] md:gap-4">
           <span>
-            {total} member{total === 1 ? "" : "s"}
+            {t("membersSection.membersCount", { count: total })}
           </span>
           <button type="button" className="text-[#1264a3] hover:underline">
-            Export full member list
+            {t("membersSection.exportFullMemberList")}
           </button>
         </div>
 
@@ -295,7 +297,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
             <Input
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Filter by name, email, or ID..."
+              placeholder={t("membersSection.filterByNameEmailOrId")}
               className="h-10 w-full bg-transparent pl-10 border-[#dddddd] dark:border-[#35373B] md:w-[260px]"
               autoComplete="off"
             />
@@ -309,7 +311,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
             <TableRow className="sticky top-0 z-20 border-b border-[#ece8ec] bg-white text-[13px] font-semibold text-[#1d1c1d] dark:border-[#35373B] dark:bg-[#1A1D21] dark:text-[#d1d2d3] hover:bg-white dark:hover:bg-[#1A1D21]">
               <TableHead className="sticky left-0 z-30 w-[400px] min-w-[400px] max-w-[400px] border-r border-[#ece8ec] bg-white px-4 py-4 shadow-[10px_0_12px_-12px_rgba(0,0,0,0.35)] dark:border-[#35373B] dark:bg-[#1A1D21] md:px-6">
                 <SortButton
-                  label="Full name"
+                  label={t("membersSection.fullName")}
                   sortField="fullName"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
@@ -318,7 +320,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
               </TableHead>
               <TableHead className="px-4 py-4 md:px-6">
                 <SortButton
-                  label="Display name"
+                  label={t("membersSection.displayName")}
                   sortField="displayName"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
@@ -327,17 +329,17 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
               </TableHead>
               <TableHead className="px-4 py-4 md:px-6">
                 <SortButton
-                  label="Email address"
+                  label={t("membersSection.emailAddress")}
                   sortField="email"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
                   onSort={handleSort}
                 />
               </TableHead>
-              <TableHead className="px-4 py-4 md:px-6">Member ID</TableHead>
+              <TableHead className="px-4 py-4 md:px-6">{t("membersSection.memberId")}</TableHead>
               <TableHead className="px-4 py-4 md:px-6">
                 <SortButton
-                  label="Account type"
+                  label={t("membersSection.accountType")}
                   sortField="accountType"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
@@ -346,7 +348,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
               </TableHead>
               <TableHead className="px-4 py-4 md:px-6">
                 <SortButton
-                  label="Joined"
+                  label={t("membersSection.joined")}
                   sortField="joined"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
@@ -355,7 +357,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
               </TableHead>
               <TableHead className="px-4 py-4 md:px-6">
                 <SortButton
-                  label="Status"
+                  label={t("membersSection.status")}
                   sortField="status"
                   activeSortKey={sortKey}
                   activeSortDirection={sortDirection}
@@ -372,7 +374,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                   colSpan={7}
                   className="px-4 py-8 text-center text-[14px] text-[#616061] dark:text-[#b4b8be]"
                 >
-                  Loading members...
+                  {t("membersSection.loadingMembers")}
                 </TableCell>
               </TableRow>
             ) : members.length === 0 ? (
@@ -381,7 +383,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                   colSpan={7}
                   className="px-4 py-8 text-center text-[14px] text-[#616061] dark:text-[#b4b8be]"
                 >
-                  No members match your search.
+                  {t("membersSection.noMembersMatchSearch")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -455,7 +457,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                                       setRoleDialogOpen(true);
                                     }}
                                   >
-                                    Change account type
+                                    {t("membersSection.changeAccountType")}
                                   </Button>
                                   <Separator />
                                   <div
@@ -469,7 +471,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                                       setDeactivateDialogOpen(true);
                                     }}
                                   >
-                                    Deactivate account
+                                    {t("membersSection.deactivateAccount")}
                                   </div>
                                 </>
                               ) : (
@@ -482,7 +484,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                                       setActivateDialogOpen(true);
                                     }}
                                   >
-                                    Reactivate account
+                                    {t("membersSection.reactivateAccount")}
                                   </Button>
                                   <Separator />
                                   <div
@@ -496,7 +498,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                                       setDeleteDialogOpen(true);
                                     }}
                                   >
-                                    Delete deactivated account
+                                    {t("membersSection.deleteDeactivatedAccount")}
                                   </div>
                                 </>
                               )}
@@ -528,8 +530,8 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
 
                     <TableCell className="px-4 py-3 text-[13px] text-[#1d1c1d] dark:text-[#f2f2f2] md:px-6">
                       {member.membershipStatus === "deactivated"
-                        ? "Deactivated"
-                        : "Active"}
+                        ? t("membersSection.deactivated")
+                        : t("membersSection.active")}
                     </TableCell>
                   </TableRow>
                 );
@@ -541,7 +543,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
 
       <div className="flex flex-col gap-3 rounded-[4px] px-4 py-4 md:flex-row md:items-center md:justify-between md:px-5">
         <div className="text-[13px] text-[#616061]">
-          Page {currentPage} of {totalPages} · {currentPageSize} per page
+          {t("membersSection.pageOf", { current: currentPage, total: totalPages, pageSize: currentPageSize })}
         </div>
 
         <Pagination className="mx-0 w-auto justify-end">

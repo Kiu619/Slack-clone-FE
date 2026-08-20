@@ -29,39 +29,36 @@ import { Virtuoso } from "react-virtuoso";
 import { useMemo, useCallback } from "react";
 import { MdDoneAll, MdClearAll } from "react-icons/md";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 export type ActivityViewTab = "all" | "mentions" | "threads";
 
 const SUBMENU_ITEM_STYLE =
   "group flex items-center gap-2 hover:bg-selection-hover hover:text-white cursor-pointer px-2 py-1";
 
-const FILTER_ITEM = [
+const buildFilterItems = (t: ReturnType<typeof useAppTranslation>) => [
   {
     id: "mentions",
-    name: "Mentions",
-    checked: false,
+    name: t("filterMentions"),
   },
   {
     id: "threads",
-    name: "Threads",
-    checked: false,
+    name: t("filterThreads"),
   },
   {
     id: "reactions",
-    name: "Reactions",
-    checked: false,
+    name: t("filterReactions"),
   },
   {
     id: "invitations",
-    name: "Invitations",
-    checked: false,
+    name: t("filterInvitations"),
   },
   // {
   //   id: "channel-set-to-all-new-post",
   //   name: `Channel set to "all new post"`,
   //   checked: false,
   // },
-]
+];
 
 export default function ActivitySidePanel({
   theme,
@@ -75,6 +72,8 @@ export default function ActivitySidePanel({
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [showUnreadsOnly, setShowUnreadsOnly] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const t = useAppTranslation("notification");
+  const filterItems = useMemo(() => buildFilterItems(t), [t]);
   const { navigateToNotification } = useNotificationNavigation();
   const queryClient = useQueryClient();
 
@@ -246,7 +245,7 @@ export default function ActivitySidePanel({
     <>
       <div className="flex justify-between items-center">
         <span className="text-lg font-extrabold text-workspace-side-panel-text">
-          Activity
+          {t("title")}
         </span>
         <Setting />
       </div>
@@ -271,7 +270,7 @@ export default function ActivitySidePanel({
               : {}
           }
         >
-          <Typography text="All" variant="p" className="text-[13px] font-semibold" />
+          <Typography text={t("tabAll")} variant="p" className="text-[13px] font-semibold" />
         </button>
 
         <button
@@ -293,7 +292,7 @@ export default function ActivitySidePanel({
               : {}
           }
         >
-          <Typography text="Mentions" variant="p" className="text-[13px] font-semibold" />
+          <Typography text={t("tabMentions")} variant="p" className="text-[13px] font-semibold" />
         </button>
 
         <button
@@ -315,7 +314,7 @@ export default function ActivitySidePanel({
               : {}
           }
         >
-          <Typography text="Threads" variant="p" className="text-[13px] font-semibold" />
+          <Typography text={t("tabThreads")} variant="p" className="text-[13px] font-semibold" />
         </button>
       </div>
 
@@ -343,7 +342,7 @@ export default function ActivitySidePanel({
               </TooltipTrigger>
               <TooltipContent side="bottom" align="center">
                 <Typography
-                  text="More options"
+                  text={t("moreOptions")}
                   variant="p"
                   className="text-[14px]!"
                 />
@@ -358,13 +357,13 @@ export default function ActivitySidePanel({
               onOpenAutoFocus={(e) => e.preventDefault()}
             >
               <Button variant="submenu" onClick={() => handleSelectByType('all')}>
-                <Typography variant="p" text="Select all" />
+                <Typography variant="p" text={t("selectAll")} />
               </Button>
               <Button variant="submenu" onClick={() => handleSelectByType('reads')}>
-                <Typography variant="p" text="Select reads" />
+                <Typography variant="p" text={t("selectReads")} />
               </Button>
               <Button variant="submenu" onClick={() => handleSelectByType('unreads')}>
-                <Typography variant="p" text="Select unreads" />
+                <Typography variant="p" text={t("selectUnreads")} />
               </Button>
               {/* <Button variant="submenu">
                 <Typography variant="p" text="Custom select" />
@@ -383,7 +382,7 @@ export default function ActivitySidePanel({
               disabled={markAsReadMutation.isPending || markAllAsReadMutation.isPending}
             >
               <MdDoneAll size={16} className="text-blue-500" />
-              <Typography variant="p" className="text-[12px] font-medium" text="Mark selected as read" />
+              <Typography variant="p" className="text-[12px] font-medium" text={t("markSelectedAsRead")} />
             </Button>
             <Button
               variant="outline"
@@ -392,9 +391,9 @@ export default function ActivitySidePanel({
               onClick={() => setSelectedIds([])}
             >
               <MdClearAll size={16} className="text-muted-foreground" />
-              <Typography variant="p" className="text-[12px] font-medium" text="Clear selected" />
+              <Typography variant="p" className="text-[12px] font-medium" text={t("clearSelected")} />
             </Button>
-            <Typography variant="p" className="text-[12px] text-muted-foreground ml-1" text={`${selectedIds.length} selected`} />
+            <Typography variant="p" className="text-[12px] text-muted-foreground ml-1" text={t("selectedCount", { count: selectedIds.length })} />
           </div>
         ) : (
           <>
@@ -407,7 +406,7 @@ export default function ActivitySidePanel({
               onClick={() => setShowUnreadsOnly(!showUnreadsOnly)}
             >
               <RiNotificationBadgeLine size={13} className={cn(showUnreadsOnly && "text-blue-500")} />
-              <Typography variant="p" className={cn("text-[13px]", showUnreadsOnly && "text-blue-500")} text="Unreads" />
+              <Typography variant="p" className={cn("text-[13px]", showUnreadsOnly && "text-blue-500")} text={t("unreads")} />
             </Button>
 
             <Popover open={openFilters} onOpenChange={setOpenFilters}>
@@ -417,7 +416,7 @@ export default function ActivitySidePanel({
                   className="p-1 p rounded-md bg-transparent"
                 >
                   <IoFilter size={13} />
-                  <Typography variant="p" className="text-[13px]" text="Filters" />
+                  <Typography variant="p" className="text-[13px]" text={t("filters")} />
                   <ChevronDown
                     size={13}
                     className={cn(
@@ -437,10 +436,10 @@ export default function ActivitySidePanel({
               >
                 <Typography
                   variant="p"
-                  text="Filter by:"
+                  text={t("filterBy")}
                   className=" font-semibold text-xs px-2 py-1"
                 />
-                {FILTER_ITEM.map((item) => (
+                {filterItems.map((item) => (
                   <div
                     className={SUBMENU_ITEM_STYLE}
                     key={item.id}
@@ -519,12 +518,12 @@ export default function ActivitySidePanel({
             <Typography
               variant="p"
               className="text-sm font-semibold"
-              text="No activity yet"
+              text={t("noActivity")}
             />
             <Typography
               variant="p"
               className="text-xs text-muted-foreground mt-1"
-              text="When you get mentioned, invited, reacted to, or someone replies to you, it'll show up here."
+              text={t("noActivityHint")}
             />
           </div>
         )}

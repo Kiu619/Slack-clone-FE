@@ -15,6 +15,7 @@ import FileToolbar from './file-toolbar'
 import { cn } from '@/lib/utils'
 
 import { useTrackAttachmentView } from '@/hooks/use-attachments'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 interface ImagePreviewProps {
   attachment: MessageAttachment
@@ -40,6 +41,7 @@ export default function ImagePreview({
   fromPublicChannel,
 }: ImagePreviewProps) {
   const { trackView } = useTrackAttachmentView()
+  const t = useAppTranslation("attachments")
   const [isOpen, setIsOpen] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -241,7 +243,7 @@ export default function ImagePreview({
                         type="button"
                         onClick={handlePrev}
                         className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
-                        aria-label="Ảnh trước"
+                        aria-label={t("status.previousImage")}
                       >
                         <LuChevronLeft className="w-5 h-5" />
                       </button>
@@ -252,7 +254,7 @@ export default function ImagePreview({
                         type="button"
                         onClick={handleNext}
                         className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
-                        aria-label="Ảnh sau"
+                        aria-label={t("status.nextImage")}
                       >
                         <LuChevronRight className="w-5 h-5" />
                       </button>
@@ -265,7 +267,7 @@ export default function ImagePreview({
                     onClick={handleDownload}
                     disabled={isDownloading}
                     className="ml-auto p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white disabled:opacity-50"
-                    aria-label={isDownloading ? 'Đang tải...' : 'Tải xuống'}
+                    aria-label={isDownloading ? t("status.downloading") : t("toolbar.download")}
                   >
                     <LuDownload className={`w-5 h-5 ${isDownloading ? 'animate-pulse' : ''}`} />
                   </button>

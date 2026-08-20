@@ -14,6 +14,8 @@ import { useGlobalSync } from '@/hooks/use-global-sync'
 import { useLaterOverdueSummary } from '@/hooks/use-saved-items'
 import { useDmUnreadSummary } from '@/hooks/use-conversations'
 import { usePrefetchSidebarMutedItems } from '@/hooks/use-prefetch-sidebar-muted-items'
+import { useHydrateLanguageRegionStore } from '@/hooks/useHydrateLanguageRegionStore'
+import { useMemberPreferences } from '@/hooks/use-member-preferences'
 import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import { useWorkspacePanelResize } from '@/hooks/use-workspace-panel-resize'
@@ -56,6 +58,7 @@ import dynamic from 'next/dynamic'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 const ActivitySidePanel = dynamic(
   () => import('../activity/activity-side-panel'),
@@ -130,14 +133,26 @@ const DMView = dynamic(() => import('@/modules/direct-messages/dm-view'), {
 })
 
 const PAGE_ONLY_TITLE_MAP: Record<string, string> = {
-  activity: 'Activity',
-  dms: 'DMs',
-  drafts: 'Drafts',
-  files: 'Files',
-  later: 'Later',
-  'new-message': 'New message',
-  search: 'Search',
-  threads: 'Threads',
+  activity: 'pageTitles.activity',
+  dms: 'pageTitles.dms',
+  drafts: 'pageTitles.drafts',
+  files: 'pageTitles.files',
+  later: 'pageTitles.later',
+  'new-message': 'pageTitles.newMessage',
+  search: 'pageTitles.search',
+  threads: 'pageTitles.threads',
+}
+
+const SETTINGS_TAB_TITLE_MAP: Record<string, string> = {
+  account: 'pageTitles.account',
+  about: 'pageTitles.aboutWorkspace',
+  customize: 'pageTitles.customize',
+  invitations: 'pageTitles.invitations',
+  members: 'pageTitles.members',
+  profiles: 'pageTitles.profiles',
+  roles: 'pageTitles.rolesAndPermissions',
+  security: 'pageTitles.security',
+  'settings-permissions': 'pageTitles.settingsAndPermissions',
 }
 
 function getWorkspaceRouteInfo(pathname: string) {
@@ -152,32 +167,22 @@ function getWorkspaceRouteInfo(pathname: string) {
   }
 }
 
-function getPageOnlyTitle(pathname: string, searchParams: URLSearchParams) {
+function getPageOnlyTitle(pathname: string, searchParams: URLSearchParams, t: ReturnType<typeof useAppTranslation>) {
   const { section } = getWorkspaceRouteInfo(pathname)
   if (!section) return null
 
   if (section === 'drafts') {
-    return searchParams.get('tab') === 'scheduled' ? 'Scheduled' : 'Drafts'
+    return searchParams.get('tab') === 'scheduled' ? t("pageTitles.scheduled") : t("pageTitles.drafts")
   }
 
   if (section === 'settings') {
     const { itemId } = getWorkspaceRouteInfo(pathname)
-    const settingsTabTitleMap: Record<string, string> = {
-      account: 'Account',
-      about: 'About this workspace',
-      customize: 'Customize',
-      invitations: 'Invitations',
-      members: 'Members',
-      profiles: 'Profiles',
-      roles: 'Role & Permissions',
-      security: 'Security',
-      'settings-permissions': 'Settings & Permissions',
-    }
-
-    return itemId ? settingsTabTitleMap[itemId] ?? 'Settings' : 'Settings'
+    const key = itemId ? SETTINGS_TAB_TITLE_MAP[itemId] ?? 'pageTitles.settings' : 'pageTitles.settings'
+    return t(key as never)
   }
 
-  return PAGE_ONLY_TITLE_MAP[section] ?? null
+  const key = PAGE_ONLY_TITLE_MAP[section]
+  return key ? t(key as never) : null
 }
 
 function getDirectOpenView(pathname: string) {
@@ -188,8 +193,9 @@ function getDirectOpenView(pathname: string) {
   return null
 }
 
-function formatNewItemsLabel(count: number) {
+function formatNewItemsLabel(count: number, t?: ReturnType<typeof useAppTranslation>) {
   if (count <= 0) return null
+  if (t) return t("newItemsLabel", { count })
   return `${count} new item${count === 1 ? '' : 's'}`
 }
 
@@ -340,6 +346,8 @@ export default function WorkspaceShell({
   children,
   initialWidths,
 }: Props) {
+  const t = useAppTranslation("workspaceShell")
+
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -384,6 +392,15 @@ export default function WorkspaceShell({
   const { data: allWorkspaces = [] } = useWorkspaces()
   const { data: channels = [] } = useChannels(workspaceId)
   const { data: conversations = [] } = useConversations(workspaceId)
+  const { data: memberPrefs, isLoading: memberPrefsLoading } = useMemberPreferences(workspaceId)
+
+  // Hydrate the language/region store from server cache on first load.
+  // This ensures I18nProvider reads the correct locale immediately (no flash).
+  useHydrateLanguageRegionStore({
+    workspaceId,
+    serverPrefs: memberPrefs,
+    isLoading: memberPrefsLoading,
+  })
   const { count: dmUnreadCount } = useDmUnreadSummary(workspaceId)
   const { unreadCount: activityUnreadCount } = useUnreadNotificationsCount()
   const { overdueCount: laterOverdueCount } = useLaterOverdueSummary()
@@ -426,7 +443,7 @@ export default function WorkspaceShell({
 
   const documentTitle = useMemo(() => {
     if (isCreatingNewMessage) {
-      const badgeLabel = formatNewItemsLabel(newItemsCount)
+      const badgeLabel = formatNewItemsLabel(newItemsCount, t)
       const baseTitle = `${currentWorkspaceData.name}${badgeLabel ? ` - ${badgeLabel}` : ''} - Slack`
       return `New message - ${baseTitle}`
     }
@@ -445,7 +462,7 @@ export default function WorkspaceShell({
       const channelName =
         channels.find((channel) => channel.id === activeOpenView.id)?.name ??
         'Channel'
-      const badgeLabel = formatNewItemsLabel(newItemsCount)
+      const badgeLabel = formatNewItemsLabel(newItemsCount, t)
       return badgeLabel
         ? `${channelName} (Channel) - ${currentWorkspaceData.name} - ${badgeLabel} - Slack`
         : `${channelName} (Channel) - ${currentWorkspaceData.name} - Slack`
@@ -462,14 +479,14 @@ export default function WorkspaceShell({
               mergeUserForDisplay(member, memberOverlayMap[member.id]),
           )
         : 'DM'
-      const badgeLabel = formatNewItemsLabel(newItemsCount)
+      const badgeLabel = formatNewItemsLabel(newItemsCount, t)
       return badgeLabel
         ? `${conversationName} (DM) - ${currentWorkspaceData.name} - ${badgeLabel} - Slack`
         : `${conversationName} (DM) - ${currentWorkspaceData.name} - Slack`
     }
 
-  const pagePrefix = getPageOnlyTitle(pathname, searchParams)
-    const badgeLabel = formatNewItemsLabel(newItemsCount)
+  const pagePrefix = getPageOnlyTitle(pathname, searchParams, t)
+    const badgeLabel = formatNewItemsLabel(newItemsCount, t)
     const baseTitle = `${currentWorkspaceData.name}${badgeLabel ? ` - ${badgeLabel}` : ''} - Slack`
     return pagePrefix ? `${pagePrefix} - ${baseTitle}` : baseTitle
   }, [
@@ -484,6 +501,7 @@ export default function WorkspaceShell({
     currentUserId,
     memberOverlayMap,
     newItemsCount,
+    t,
   ])
 
   useEffect(() => {

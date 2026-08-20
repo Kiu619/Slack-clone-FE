@@ -40,6 +40,7 @@ import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import ScheduleSendDialog from "@/components/dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
 import { canUserPostInChannel } from "@/lib/channel-posting-permissions";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 /** Skeleton khi đang load lần đầu */
 function ThreadSkeleton() {
@@ -75,12 +76,14 @@ function ThreadCard({
   currentUserId,
   currentUserRole,
   onMarkAsRead,
+  t,
 }: {
   thread: ThreadMessage;
   workspaceId: string;
   currentUserId: string;
   currentUserRole?: string | null;
   onMarkAsRead: (id: string) => void;
+  t: ReturnType<typeof useAppTranslation>;
 }) {
   const queryClient = useQueryClient();
   const { open: openThread } = useThreadPanelStore();
@@ -125,7 +128,7 @@ function ThreadCard({
       currentUserRole ?? null,
     ).canReply;
   }, [thread.channelId, threadChannelData, currentUserId, currentUserRole]);
-  const restrictedThreadLabel = "Only certain people can post in this channel";
+  const restrictedThreadLabel = t('restrictedThread');
 
   // Fetch full replies when user wants to see more
   const {
@@ -178,11 +181,11 @@ function ThreadCard({
   const headerName = useMemo(() => {
     if (thread.channel) return thread.channel.name;
     if (thread.conversation) {
-      if (thread.conversation.isGroup) return "Group DM";
+      if (thread.conversation.isGroup) return t('groupDM');
       const otherMember = thread.conversation.members.find(
         (m) => m.id !== currentUserId,
       );
-      if (!otherMember) return "Direct Message";
+      if (!otherMember) return t('directMessage');
       const d = mergeUserForDisplay(
         otherMember as User,
         memberOverlayMap[otherMember.id],
@@ -191,11 +194,11 @@ function ThreadCard({
         d.displayName ||
         d.name ||
         d.email ||
-        "Direct Message"
+        t('directMessage')
       );
     }
-    return "Thread";
-  }, [thread.channel, thread.conversation, currentUserId, memberOverlayMap]);
+    return t('thread');
+  }, [thread.channel, thread.conversation, currentUserId, memberOverlayMap, t]);
 
   const subLabel = useMemo(() => {
     const participants = new Map<string, string>();
@@ -216,19 +219,19 @@ function ThreadCard({
     });
 
     if (includesMe) {
-      if (otherParticipants.length === 0) return "Just you";
+      if (otherParticipants.length === 0) return t('justYou');
       if (otherParticipants.length === 1)
-        return `You and ${otherParticipants[0]}`;
+        return t('youAnd', { name: otherParticipants[0] });
       if (otherParticipants.length === 2)
-        return `You, ${otherParticipants[0]} and ${otherParticipants[1]}`;
-      return `You, ${otherParticipants[0]} and ${otherParticipants.length - 1} others`;
+        return t('youAndTwo', { name1: otherParticipants[0], name2: otherParticipants[1] });
+      return t('youAndOthers', { name: otherParticipants[0], count: otherParticipants.length - 1 });
     }
     if (otherParticipants.length === 0) return "";
     if (otherParticipants.length === 1) return otherParticipants[0];
     if (otherParticipants.length === 2)
-      return `${otherParticipants[0]} and ${otherParticipants[1]}`;
-    return `${otherParticipants[0]}, ${otherParticipants[1]} and ${otherParticipants.length - 2} others`;
-  }, [thread, currentUserId, memberOverlayMap]);
+      return `${otherParticipants[0]} ${t('and')} ${otherParticipants[1]}`;
+    return `${otherParticipants[0]}, ${otherParticipants[1]} ${t('and')} ${otherParticipants.length - 2} ${t('others')}`;
+  }, [thread, currentUserId, memberOverlayMap, t]);
 
   const displayedReplies = useMemo(() => {
     if (!showAllReplies) return thread.replies;
@@ -327,7 +330,7 @@ function ThreadCard({
             className="flex items-center gap-2 px-4 py-2 text-sm text-[#1d9bd1] hover:bg-gray-50 dark:hover:bg-[#222529] font-medium transition-colors border-y dark:border-[#797c814d]"
           >
             <ChevronDown size={16} />
-            Show more replies
+            {t('showMoreReplies')}
           </button>
         )}
 
@@ -346,7 +349,7 @@ function ThreadCard({
             ) : (
               <ChevronDown size={16} />
             )}
-            Load 10 more replies
+            {t('loadMoreReplies')}
           </button>
         )}
 
@@ -475,6 +478,7 @@ export default function ThreadsPage() {
   const currentUserRole = useUserStore((s) => s.user?.role ?? null);
   console.log("Current user role in ThreadsPage:", currentUserRole);
   const { isConnected } = useSocket();
+  const t = useAppTranslation('threads');
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useThreads(workspaceId, user?.id ?? "", isConnected);
@@ -492,7 +496,7 @@ export default function ThreadsPage() {
         <div className="h-[49px] border-b dark:border-[#797c814d] bg-white dark:bg-[#1A1D21] flex items-center px-4 shrink-0">
           <Typography
             variant="h2"
-            text="Threads"
+            text={t('title')}
             className="text-lg font-bold"
           />
         </div>
@@ -507,10 +511,10 @@ export default function ThreadsPage() {
         <div className="bg-muted rounded-full p-6 mb-4">
           <Typography variant="h2" text="🧵" className="text-4xl" />
         </div>
-        <Typography variant="h2" text="No threads yet" className="mb-2" />
+        <Typography variant="h2" text={t('noThreads')} className="mb-2" />
         <Typography
           variant="p"
-          text="Threads are a great way to keep conversations organized. When you reply to a message, it will show up here."
+          text={t('noThreadsDescription')}
           className="text-muted-foreground max-w-sm"
         />
       </div>
@@ -521,7 +525,7 @@ export default function ThreadsPage() {
     <div className="flex flex-col h-full bg-[#F8F8F8] dark:bg-[#0b0e11]">
       {/* Header */}
       <div className="h-[49px] border-b dark:border-[#797c814d] bg-white dark:bg-[#1A1D21] flex items-center px-4 shrink-0">
-        <Typography variant="h2" text="Threads" className="text-lg font-bold" />
+        <Typography variant="h2" text={t('title')} className="text-lg font-bold" />
       </div>
 
       {/* Thread List with Virtuoso */}
@@ -541,6 +545,7 @@ export default function ThreadsPage() {
               currentUserId={user?.id ?? ""}
               currentUserRole={currentUserRole}
               onMarkAsRead={(id) => markAsRead(id)}
+              t={t}
             />
           )}
           components={{

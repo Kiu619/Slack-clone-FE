@@ -36,6 +36,7 @@ import { useTheme } from "next-themes";
 
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 interface CodePreviewProps {
   message: Message;
@@ -94,6 +95,7 @@ export default function CodePreview({
   formDetailPanel = false,
 }: CodePreviewProps) {
   const { trackView } = useTrackAttachmentView();
+  const t = useAppTranslation("attachments")
   const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -116,7 +118,7 @@ export default function CodePreview({
   const error = fetchError
     ? fetchError instanceof Error
       ? fetchError.message
-      : "Cannot load content"
+      : t("preview.cantLoad")
     : null;
 
   const handleDownload = useCallback(() => {
@@ -166,7 +168,7 @@ export default function CodePreview({
           <span className="text-sm truncate">{attachment.name}</span>
         </div>
         <p className="text-xs text-[#f85149] mb-3">
-          {error || "Cannot display preview"}
+          {error || t("preview.cantDisplay")}
         </p>
         <div className="flex gap-2">
           <button
@@ -175,7 +177,7 @@ export default function CodePreview({
             className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d] transition-colors"
           >
             <LuExternalLink size={14} />
-            Open file
+            {t("preview.openFile")}
           </button>
           <button
             type="button"
@@ -183,7 +185,7 @@ export default function CodePreview({
             className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d] transition-colors"
           >
             <LuDownload size={14} />
-            Download
+            {t("toolbar.download")}
           </button>
         </div>
       </div>
@@ -267,13 +269,12 @@ export default function CodePreview({
                     {isCollapsed ? (
                       <>
                         <LuChevronDown size={14} />
-                        Click to expand inline (
-                        {lineCount - DEFAULT_VISIBLE_LINES} lines)
+                        {t("preview.clickToExpand", { count: lineCount - DEFAULT_VISIBLE_LINES })}
                       </>
                     ) : (
                       <>
                         <LuChevronUp size={14} />
-                        Collapse
+                        {t("preview.collapse")}
                       </>
                     )}
                   </button>

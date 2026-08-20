@@ -3,6 +3,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { getUserInitials } from "@/modules/huddle-preview/huddle-preview.utils";
+import { useHuddle as useHuddleT } from "@/hooks/use-translation";
 import {
   type LocalParticipant,
   type RemoteParticipant,
@@ -68,7 +69,7 @@ export function DeviceSelect({
         options={options}
         onChange={onChange}
         // disabled={disabled}
-        placeholder="Select device..."
+        placeholder={useHuddleT("selectDevice")}
         className="bg-white/15 rounded-lg"
       />
     </div>
@@ -185,13 +186,13 @@ export function ScreenShareTile({
           {displayName}
         </Typography>
         <Typography className="text-[11px] text-white/50">
-          Screen share
+          {t("screenShare")}
         </Typography>
         <div className="flex-1" />
         <button
           onClick={handleFullscreenClick}
           className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
-          aria-label="Enter fullscreen"
+          aria-label={t("enterFullscreen")}
         >
           <LuMaximize2 size={14} />
         </button>
@@ -202,7 +203,7 @@ export function ScreenShareTile({
               onSelect();
             }}
             className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
-            aria-label="Close spotlight"
+            aria-label={t("closeSpotlight")}
           >
             <LuX size={14} />
           </button>
@@ -234,7 +235,7 @@ export function ScreenShareTile({
           {displayName}
         </Typography>
         <Typography className="text-[11px] text-white/50">
-          Share screen
+          {t("shareScreen")}
         </Typography>
       </div>
     </div>
@@ -292,6 +293,7 @@ export function ParticipantTile({
   onToggleCamera?: () => void;
   variant?: "grid" | "sidebar";
 }) {
+  const t = useHuddleT()
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoKey, setVideoKey] = useState(0);
   const videoPublication = participant.getTrackPublication(Track.Source.Camera);
@@ -361,7 +363,7 @@ export function ParticipantTile({
               {isRaisedHand ? (
                 <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-amber-400/95 px-2.5 py-1 text-[11px] font-semibold text-amber-950 shadow-[0_6px_14px_rgba(0,0,0,0.2)]">
                   <LuHand size={12} />
-                  <span>Raised</span>
+                  <span>{t("raised")}</span>
                 </div>
               ) : null}
               <HuddleFloatingReactions reactions={floatingReactions} />
@@ -399,7 +401,7 @@ export function ParticipantTile({
           </TooltipTrigger>
           <TooltipContent className="text-center leading-relaxed">
             <span className="block font-medium">{displayName}</span>
-            <span className="block ">View profile</span>
+            <span className="block ">{t("viewProfile")}</span>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

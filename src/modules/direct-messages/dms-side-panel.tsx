@@ -23,6 +23,7 @@ import { useDebouncedValue } from "@/hooks/use-debounce";
 import { usePrefetchSidebarMutedItems } from "@/hooks/use-prefetch-sidebar-muted-items";
 import { useToggleLaterMessage } from "@/hooks/use-messages";
 import { useLaterSavedMessageIds, useRemindMe } from "@/hooks/use-saved-items";
+import { useAppTranslation } from "@/hooks/use-translation";
 import {
   getDmDisplayName,
   isDeactivatedUser,
@@ -48,6 +49,7 @@ import {
 } from "react-icons/md";
 import { useShallow } from "zustand/react/shallow";
 import NewMessage from "../workspace/workspace-side-panel/new-message";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 
 // Dynamic import EmojiPicker để tránh SSR
 import { Button } from "@/components/ui/button";
@@ -70,6 +72,10 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const router = useRouter();
   const mainPanelView = useMainPanelStore((s) => s.view);
   const { user: currentUser } = useAuth();
+  const t = useAppTranslation("directMessages");
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadsOnly, setShowUnreadsOnly] = useState(false);
@@ -204,9 +210,16 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const formatLastMessageTime = (dateStr: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    if (isToday(date)) return format(date, "h:mm a");
-    if (isYesterday(date)) return "Yesterday";
-    return format(date, "EEEE");
+    const isDayFirst = dateFormat === "vi_VN";
+    const timeStr =
+      timeFormat === "24h" ? format(date, "HH:mm") : format(date, "h:mm a");
+    if (isToday(date)) return timeStr;
+    if (isYesterday(date)) return language === "vi" ? "Hôm qua" : "Yesterday";
+    const day = format(date, "d");
+    const monthIndex = date.getMonth() + 1;
+    return isDayFirst
+      ? `${day}/${monthIndex} ${timeStr}`
+      : `${monthIndex}/${day} ${timeStr}`;
   };
 
   const sanitizedContent = (content: string) => {
@@ -235,7 +248,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
     <>
       <div className="flex justify-between items-center">
         <span className="text-lg font-extrabold text-workspace-side-panel-text">
-          Direct messages
+          {t("directMessages")}
         </span>
 
         <div className="flex gap-x-2">
@@ -244,7 +257,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
               htmlFor="unread-mode"
               className="text-workspace-side-panel-text text-xs"
             >
-              Unreads
+              {t("unreads")}
             </Label>
             <Switch
               id="unread-mode"
@@ -264,7 +277,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
           size={18}
         />
         <Input
-          placeholder="Find a DM"
+          placeholder={t("findADm")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsSearchFocused(true)}
@@ -275,7 +288,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
         />
 
         {isSearchFocused && searchQuery.trim() && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg max-h-[300px] overflow-y-auto z-50 py-1">
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-md shadow-lg max-h-75 overflow-y-auto z-50 py-1">
             {isSearching ? (
               <div className="space-y-2 px-3 py-2">
                 {Array.from({ length: 4 }, (_, i) => (
@@ -290,7 +303,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
               </div>
             ) : filteredResults.length === 0 ? (
               <div className="px-4 py-2 text-sm text-gray-400">
-                No results found
+                {t("noResultsFound")}
               </div>
             ) : (
               filteredResults.map((conv) => {
@@ -350,7 +363,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             }}
                           />
                         ) : (
-                          <span className="italic opacity-50">No messages</span>
+                          <span className="italic opacity-50">{t("noMessages")}</span>
                         )}
                       </div>
                     </div>
@@ -377,7 +390,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
           </div>
         ) : conversationsWithMessages.length === 0 ? (
           <div className="text-workspace-side-panel-text/50 text-xs px-2">
-            No DMs with messages yet.
+            {t("noDmsWithMessages")}
           </div>
         ) : (
           conversationsWithMessages.map((conv) => {
@@ -470,7 +483,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                       {conv.lastMessageContent ? (
                         <div className="flex items-center gap-x-1 ">
                           {isLastMsgFromMe && (
-                            <span className="mr-1">You:</span>
+                            <span className="mr-1">{t("you")}</span>
                           )}
                           <div
                             dangerouslySetInnerHTML={{
@@ -480,7 +493,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                         </div>
                       ) : (
                         <span className="italic opacity-50">
-                          No messages yet
+                          {t("noMessagesYet2")}
                         </span>
                       )}
                     </div>
@@ -512,7 +525,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                           if (conv.lastMessageId) {
                             handleToggleLaterForMessage(conv.lastMessageId);
                           } else {
-                            toast.error("No message to save");
+                            toast.error(t("noMessages"));
                           }
                         }}
                       >
@@ -534,8 +547,8 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                       <p className="text-xs">
                         {conv.lastMessageId &&
                         savedMessageIdSet.has(conv.lastMessageId)
-                          ? "Remove from Later"
-                          : "Save for later"}
+                          ? t("removeFromLater")
+                          : t("saveForLater")}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -561,7 +574,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                         </PopoverTrigger>
                       </TooltipTrigger>
                       <TooltipContent side="top">
-                        <p className="text-xs">More actions</p>
+                        <p className="text-xs">{t("moreActions")}</p>
                       </TooltipContent>
                     </Tooltip>
                     <PopoverContent
@@ -596,7 +609,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     clipRule="evenodd"
                                   ></path>
                                 </svg>
-                                <Typography variant="p" text="Remind me" />
+                                <Typography variant="p" text={t("remindMe")} />
                               </div>
                               <MdOutlineKeyboardArrowRight size={13} />
                             </Button>
@@ -612,7 +625,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                 >
                                   <Typography
                                     variant="p"
-                                    text="In 30 minutes"
+                                    text={t("in30Minutes")}
                                   />
                                 </Button>
                                 <Button variant="submenu"
@@ -623,7 +636,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     })
                                   }
                                 >
-                                  <Typography variant="p" text="In 1 hour" />
+                                  <Typography variant="p" text={t("in1Hour")} />
                                 </Button>
                                 <Button variant="submenu"
                                   onClick={() =>
@@ -633,7 +646,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                     })
                                   }
                                 >
-                                  <Typography variant="p" text="In 3 hours" />
+                                  <Typography variant="p" text={t("in3Hours")} />
                                 </Button>
                                 <Button variant="submenu"
                                   onClick={() =>
@@ -645,7 +658,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                 >
                                   <Typography
                                     variant="p"
-                                    text="Tomorrow at 9:00 AM"
+                                    text={t("tomorrowAt9Am")}
                                   />
                                 </Button>
                                 <Button variant="submenu"
@@ -658,7 +671,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                                 >
                                   <Typography
                                     variant="p"
-                                    text="Monday at 9:00 AM"
+                                    text={t("mondayAt9Am")}
                                   />
                                 </Button>
                               </div>
@@ -669,7 +682,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             <FiBellOff size={16} />
                             <Typography
                               variant="p"
-                              text="Turn off notifications for replies"
+                              text={t("turnOffNotificationsForReplies")}
                             />
                           </Button>
 
@@ -680,22 +693,22 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                               navigator.clipboard.writeText(
                                 `${window.location.origin}/workspace/${currentWorkspaceData.id}/dms`,
                               );
-                              toast.success("Link copied to clipboard");
+                              toast.success(t("linkCopiedToClipboard"));
                             }}
                           >
                             <LuLink size={16} />
-                            <Typography variant="p" text="Copy link" />
+                            <Typography variant="p" text={t("copyLink")} />
                           </Button>
                           <Button variant="submenu"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 getConversationName(conv.members) || "",
                               );
-                              toast.success("Name copied to clipboard");
+                              toast.success(t("nameCopiedToClipboard"));
                             }}
                           >
                             <RxText size={16} />
-                            <Typography variant="p" text="Copy name" />
+                            <Typography variant="p" text={t("copyName")} />
                           </Button>
                         </div>
                       </div>

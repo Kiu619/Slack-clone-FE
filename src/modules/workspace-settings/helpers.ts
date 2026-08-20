@@ -19,15 +19,17 @@ export function memberLabel(member: WorkspaceMember) {
   );
 }
 
-export function memberStatus(member: WorkspaceMember) {
-  if (member.membershipStatus === "deactivated") return "Deactivated";
+export function memberStatus(member: WorkspaceMember, t?: (key: string) => string) {
+  if (member.membershipStatus === "deactivated") {
+    return t ? t("helpers.deactivated") : "Deactivated";
+  }
 }
 
-export function accountTypeLabel(role: WorkspaceMember["role"]) {
-  if (role === "primary_owner") return "Primary Workspace Owner";
-  if (role === "owner") return "Workspace Owner";
-  if (role === "admin") return "Workspace Admin";
-  return "Regular Member";
+export function accountTypeLabel(role: WorkspaceMember["role"], t?: (key: string) => string) {
+  if (role === "primary_owner") return t ? t("helpers.primaryWorkspaceOwner") : "Primary Workspace Owner";
+  if (role === "owner") return t ? t("helpers.workspaceOwner") : "Workspace Owner";
+  if (role === "admin") return t ? t("helpers.workspaceAdmin") : "Workspace Admin";
+  return t ? t("helpers.regularMember") : "Regular Member";
 }
 
 export function memberToUser(member: WorkspaceMember): User {

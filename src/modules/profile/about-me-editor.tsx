@@ -2,6 +2,7 @@
 
 import { LinkInputDialog } from '@/components/dialogs/link-input-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useAppTranslation } from '@/hooks/use-translation'
 import Code from '@tiptap/extension-code'
 import Placeholder from '@tiptap/extension-placeholder'
 import Underline from '@tiptap/extension-underline'
@@ -40,6 +41,7 @@ interface AboutMeEditorProps {
 }
 
 const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorProps) => {
+  const t = useAppTranslation("profile");
   const {theme} = useTheme()
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [linkDialogValue, setLinkDialogValue] = useState<LinkDialogValue>({
@@ -85,7 +87,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
         },
       }),
       Placeholder.configure({
-        placeholder: `Add a message, if you'd like.`,
+        placeholder: t("editor.placeholder"),
       }),
       createEditorLinkExtension(),
       Underline,
@@ -188,37 +190,37 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
       >
         {/* Top Toolbar: Formatting */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-[#797c814d]">
-          <ToolbarButton onClick={toggleBold} active={isMarkActive('bold')} tooltip="Bold (Ctrl+B)">
+          <ToolbarButton onClick={toggleBold} active={isMarkActive('bold')} tooltip={t("editor.toolbar.bold")}>
             <LuBold size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleItalic} active={isMarkActive('italic')} tooltip="Italic (Ctrl+I)">
+          <ToolbarButton onClick={toggleItalic} active={isMarkActive('italic')} tooltip={t("editor.toolbar.italic")}>
             <LuItalic size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleStrike} active={isMarkActive('strike')} tooltip="Strikethrough">
+          <ToolbarButton onClick={toggleStrike} active={isMarkActive('strike')} tooltip={t("editor.toolbar.strikethrough")}>
             <LuStrikethrough size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleUnderline} active={isMarkActive('underline')} tooltip="Underline (Ctrl+U)">
+          <ToolbarButton onClick={toggleUnderline} active={isMarkActive('underline')} tooltip={t("editor.toolbar.underline")}>
             <LuUnderline size={16} />
           </ToolbarButton>
 
           <Divider />
 
-          <ToolbarButton onClick={toggleBulletList} active={editor.isActive('bulletList')} tooltip="Bullet list">
+          <ToolbarButton onClick={toggleBulletList} active={editor.isActive('bulletList')} tooltip={t("editor.toolbar.bulletList")}>
             <LuList size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleOrderedList} active={editor.isActive('orderedList')} tooltip="Ordered list">
+          <ToolbarButton onClick={toggleOrderedList} active={editor.isActive('orderedList')} tooltip={t("editor.toolbar.orderedList")}>
             <LuListOrdered size={16} />
           </ToolbarButton>
 
           <Divider />
 
-          <ToolbarButton onClick={openLinkDialog} active={editor.isActive('link')} tooltip="Insert link">
+          <ToolbarButton onClick={openLinkDialog} active={editor.isActive('link')} tooltip={t("editor.toolbar.insertLink")}>
             <LuLink size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleCode} active={isMarkActive('code')} tooltip="Inline code">
+          <ToolbarButton onClick={toggleCode} active={isMarkActive('code')} tooltip={t("editor.toolbar.inlineCode")}>
             <LuCode size={16} />
           </ToolbarButton>
-          <ToolbarButton onClick={toggleCodeBlock} active={editor.isActive('codeBlock')} tooltip="Code block">
+          <ToolbarButton onClick={toggleCodeBlock} active={editor.isActive('codeBlock')} tooltip={t("editor.toolbar.codeBlock")}>
             <LuSquareCode size={16} />
           </ToolbarButton>
         </div>
@@ -231,7 +233,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
         {/* Bottom Toolbar: Media + Send */}
         <div className="flex items-center justify-between px-2 py-1.5">
           <div className="flex items-center gap-0.5">
-            <ToolbarButton tooltip="Format text">
+            <ToolbarButton tooltip={t("editor.toolbar.formatText")}>
               <MdFormatColorText size={16} />
             </ToolbarButton>
 
@@ -242,7 +244,7 @@ const AboutMeEditor = ({ initialContent = '', onContentChange }: AboutMeEditorPr
               <ToolbarButton
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 active={showEmojiPicker}
-                tooltip="Emoji"
+                tooltip={t("editor.toolbar.emoji")}
               >
                 <LuSmile size={16} />
               </ToolbarButton>

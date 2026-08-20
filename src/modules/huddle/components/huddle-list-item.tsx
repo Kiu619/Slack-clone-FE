@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { HuddlePageItem, RecentHuddlesResponse } from "@/lib/huddle";
-import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { RiHeadphoneLine } from "react-icons/ri";
 import {
   Tooltip,
@@ -36,6 +36,9 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { formatMessageTime } from "@/lib/format-message-time";
 
 type HuddleListItemProps = {
   huddle: HuddlePageItem;
@@ -58,24 +61,18 @@ function formatDuration(seconds: number): string {
   return `${days}d`;
 }
 
-function formatTime(isoString: string): string {
-  const date = new Date(isoString);
-  if (isToday(date)) {
-    return `Today at ${format(date, "h:mm a")}`;
-  }
-  if (isYesterday(date)) {
-    return `Yesterday at ${format(date, "h:mm a")}`;
-  }
-  return format(date, "MMM d 'at' h:mm a");
-}
-
 export function HuddleListItem({
   huddle,
   isSaved = false,
   className,
 }: HuddleListItemProps) {
+  const t = useAppTranslation('huddle.listItem')
+  const commonT = useAppTranslation('common')
   const router = useRouter();
   const pathname = usePathname();
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
   const { setFocusedMessageId } = useMessageFocusStore();
   const [openSeeParticipantsDialog, setOpenSeeParticipantsDialog] =
     useState(false);
@@ -84,10 +81,9 @@ export function HuddleListItem({
   const queryClient = useQueryClient();
   const isActive = huddle.status === "active";
   const displayTime = huddle.endedAt
-    ? formatTime(huddle.endedAt)
+    ? formatMessageTime(huddle.endedAt, { t, commonT, language, timeFormat, dateFormat })
     : formatDistanceToNow(new Date(huddle.startedAt), { addSuffix: true });
 
-  // Bookmark state - only for ended huddles with feedMessageId
   const { saveMessage } = useSavedItems();
   const feedMessageId = huddle.feedMessageId;
 
@@ -98,30 +94,28 @@ export function HuddleListItem({
       try {
         await removeLaterByMessageIdApi(huddle.workspaceId, feedMessageId);
         queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
-        toast.success("Removed from Later");
+        toast.success(t('removedFromLater'));
       } catch {
-        toast.error("Failed to remove from Later");
+        toast.error(t('failedToRemoveFromLater'));
       }
     } else {
       saveMessage(feedMessageId);
     }
   };
 
-  // Display title matching active-huddle-indicator format
   const displayTitle = huddle.topic
-    ? `${huddle.topic} in ${huddle.entityType === "channel" ? `#${huddle.entityLabel}` : huddle.entityLabel || "Huddle"}`
+    ? `${huddle.topic} ${t('in')} ${huddle.entityType === "channel" ? `#${huddle.entityLabel}` : huddle.entityLabel || t('huddle')}`
     : huddle.entityType === "channel"
-      ? `Huddle in #${huddle.entityLabel}`
-      : `Huddle with ${huddle.entityLabel || "Huddle"}`;
+      ? `${t('huddleIn')} #${huddle.entityLabel}`
+      : `${t('huddleWith')} ${huddle.entityLabel || t('huddle')}`;
 
-  // Get realtime overlays from store for participant data sync
   const memberOverlayMap = useWorkspaceMemberStore(
     useShallow((s) => s.byWorkspace[huddle.workspaceId] || {}),
   );
 
   const displayDuration = huddle.endedAt
     ? formatDuration(huddle.durationSeconds)
-    : `Started ${formatDistanceToNow(new Date(huddle.startedAt), { addSuffix: false })} ago`;
+    : t('startedAgo', { time: formatDistanceToNow(new Date(huddle.startedAt), { addSuffix: false }) });
 
   const handleClick = () => {
     if (!feedMessageId) return;
@@ -143,7 +137,6 @@ export function HuddleListItem({
     setIsSavingTopic(true);
     try {
       await updateHuddleTopicApi(huddle.workspaceId, huddle.id, topic || null);
-      // Update recentHuddles cache directly
       queryClient.setQueriesData(
         {
           predicate: (q) => {
@@ -167,13 +160,16 @@ export function HuddleListItem({
         },
       );
       setOpenTopicDialog(false);
-      toast.success(topic ? "Topic updated" : "Topic removed");
+      toast.success(topic ? t('topicUpdated') : t('topicRemoved'));
     } catch {
-      toast.error("Failed to update topic");
+      toast.error(t('failedToUpdateTopic'));
     } finally {
       setIsSavingTopic(false);
     }
   };
+
+  const participantLabel = huddle.participantCount === 1 ? t('reply') : t('replies');
+  const seeParticipantsLabel = t('seeParticipants', { count: huddle.participantCount });
 
   return (
     <div
@@ -203,7 +199,7 @@ export function HuddleListItem({
                 <span>·</span>
                 <div className="flex shrink-0 items-center gap-1">
                   <span>{huddle.replyCount}</span>
-                  <span>{huddle.replyCount === 1 ? "reply" : "replies"}</span>
+                  <span>{participantLabel}</span>
                 </div>
               </>
             )}
@@ -222,7 +218,6 @@ export function HuddleListItem({
               }}
             >
               {huddle.participants.slice(0, 3).map((participant) => {
-                // Merge snapshot with realtime overlay from store
                 const overlay = memberOverlayMap[participant.userId];
                 const label =
                   overlay?.displayName?.trim() ||
@@ -250,8 +245,7 @@ export function HuddleListItem({
             </AvatarGroup>
           </TooltipTrigger>
           <TooltipContent>
-            See {huddle.participantCount}{" "}
-            {huddle.participantCount === 1 ? "participant" : "participants"}
+            {seeParticipantsLabel}
           </TooltipContent>
         </Tooltip>
 
@@ -268,7 +262,7 @@ export function HuddleListItem({
                 </Button>
               </PopoverTrigger>
             </TooltipTrigger>
-            <TooltipContent>More actions</TooltipContent>
+            <TooltipContent>{t('moreActions')}</TooltipContent>
           </Tooltip>
           <PopoverContent side="bottom" align="center" withOverlay>
             <div className="flex flex-col py-2">
@@ -279,8 +273,7 @@ export function HuddleListItem({
                   setOpenSeeParticipantsDialog(true);
                 }}
               >
-                See {huddle.participantCount}{" "}
-                {huddle.participantCount === 1 ? "participant" : "participants"}
+                {seeParticipantsLabel}
               </Button>
               {huddle.status === "ended" && feedMessageId && (
                 <Button
@@ -290,7 +283,7 @@ export function HuddleListItem({
                     void handleToggleSave();
                   }}
                 >
-                  {isSaved ? "Remove from Later" : "Save for later"}
+                  {isSaved ? t('removeFromLater') : t('saveForLater')}
                 </Button>
               )}
               <Button
@@ -300,7 +293,7 @@ export function HuddleListItem({
                   setOpenTopicDialog(true);
                 }}
               >
-                {huddle.topic ? "Edit topic" : "Add topic"}
+                {huddle.topic ? t('editTopic') : t('addTopic')}
               </Button>
             </div>
           </PopoverContent>

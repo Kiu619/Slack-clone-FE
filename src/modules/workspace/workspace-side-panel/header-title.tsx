@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator"
 import { Workspace } from "@/lib/types"
 import { usePreferencesStore } from "@/stores/usePreferencesStore"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 interface Props {
   currentWorkspaceData: Workspace
@@ -14,6 +15,7 @@ interface Props {
 
 const HeaderTitle = ({ currentWorkspaceData }: Props) => {
   const { open: openPreferences } = usePreferencesStore()
+  const t = useAppTranslation("workspaceSidePanel")
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -44,23 +46,23 @@ const HeaderTitle = ({ currentWorkspaceData }: Props) => {
           </div>
           <Separator className="my-2" />
           <div className="px-6 text-[13px]">
-            Your workspaces is currently on Slack&apos;s Pro Trial
+            {t("workspaceTrial")}
           </div>
           <Separator className="my-2" />
-          <div className="px-6 hover:bg-selection-hover cursor-pointer">Invite people to {currentWorkspaceData.name}</div>
+          <div className="px-6 hover:bg-selection-hover cursor-pointer">{t("invitePeople", { name: currentWorkspaceData.name })}</div>
           <Separator className="my-2" />
           <div
             className="px-6 hover:bg-selection-hover cursor-pointer"
             onClick={openPreferences}
           >
-            Preferences
+            {t("preferences")}
           </div>
           <Separator className="my-2" />
-          <div className="px-6 flex items-center justify-between hover:bg-selection-hover cursor-pointer">Get the mobile app
+          <div className="px-6 flex items-center justify-between hover:bg-selection-hover cursor-pointer">{t("getMobileApp")}
             <TfiMobile />
           </div>
           <Separator className="my-2" />
-          <div className="px-6 hover:bg-selection-hover cursor-pointer">Sign out</div>
+          <div className="px-6 hover:bg-selection-hover cursor-pointer">{t("signOut")}</div>
 
         </div>
       </PopoverContent>

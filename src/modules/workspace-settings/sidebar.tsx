@@ -12,6 +12,7 @@ import type { MainSection, PeopleTab, SettingsTab } from "./types";
 import { Theme, useThemeStore } from "@/stores/useThemeStore";
 import { useEffect, useMemo, useState } from "react";
 import { User } from "@/lib/types";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 export function SettingsSidebar({
   workspaceId,
@@ -51,6 +52,7 @@ export function SettingsSidebar({
 
   displayUser: User | null;
 }) {
+  const t = useAppTranslation("workspaceSettings");
   const { theme: storeTheme, setTheme, confirmTheme } = useThemeStore()
     const [hasSynced, setHasSynced] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
@@ -114,7 +116,7 @@ export function SettingsSidebar({
               href={`/workspace/${workspaceId}`}
               className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[#1d1c1d] dark:text-inherit"
             >
-              <span>Open in Slack</span>
+              <span>{t("sidebar.openInSlack")}</span>
               <MessageSquareMore className="h-3 w-3" />
             </Link>
           </div>
@@ -125,7 +127,7 @@ export function SettingsSidebar({
           onClick={() => setMobileOpen((value) => !value)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-black/10 text-[#1d1c1d] dark:border-white/10 dark:text-[#f2f2f2]"
           aria-expanded={mobileOpen}
-          aria-label={mobileOpen ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={mobileOpen ? t("sidebar.collapseSidebar") : t("sidebar.expandSidebar")}
         >
           {mobileOpen ? (
             <ChevronUp className="h-4 w-4" />
@@ -154,7 +156,7 @@ export function SettingsSidebar({
             href={`/workspace/${workspaceId}`}
             className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-[#1d1c1d] dark:text-inherit"
           >
-            <span>Open in Slack</span>
+            <span>{t("sidebar.openInSlack")}</span>
             <MessageSquareMore className="h-3 w-3" />
           </Link>
         </div>
@@ -194,7 +196,7 @@ export function SettingsSidebar({
                         )}
                       />
                       <span className="text-[15px] font-medium leading-none">
-                        {item.label}
+                        {item.labelKey ? t(`sidebar.${item.labelKey}`) : item.label}
                       </span>
                     </div>
                   </li>
@@ -225,7 +227,7 @@ export function SettingsSidebar({
                       )}
                     />
                     <span className="flex-1 text-[15px] font-medium leading-none">
-                      {item.label}
+                      {item.labelKey ? t(`sidebar.${item.labelKey}`) : item.label}
                     </span>
                     <ChevronDown
                       className={cn(
@@ -291,7 +293,7 @@ export function SettingsSidebar({
                                   : "text-[#616061] hover:bg-selection-hover",
                               )}
                             >
-                              {subItem.label}
+                              {subItem.labelKey ? t(`sidebar.${subItem.labelKey}`) : subItem.label}
                             </div>
                           </li>
                         );

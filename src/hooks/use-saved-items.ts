@@ -1,45 +1,29 @@
 "use client";
 
 import {
-  checkLaterMessagesApi,
-  getLaterSummaryApi,
-  getSavedItemsApi,
-  removeSavedItemApi,
-  saveItemApi,
-  updateSavedItemApi,
-  clearCompletedSavedItemsApi,
+    checkLaterMessagesApi,
+    clearCompletedSavedItemsApi,
+    getLaterSummaryApi,
+    getSavedItemsApi,
+    removeSavedItemApi,
+    saveItemApi,
+    updateSavedItemApi,
 } from "@/apis";
 import { SavedItem, SaveItemPayload, UpdateSavedItemPayload } from "@/lib/types";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  addHours,
-  addMinutes,
-  format,
-  nextMonday,
-  setHours,
-  setMinutes,
+    addHours,
+    addMinutes,
+    format,
+    nextMonday,
+    setHours,
+    setMinutes,
 } from "date-fns";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-
-/** Preset reminders giống Slack */
-export function getReminderPresets() {
-  const now = new Date();
-  return [
-    { label: "In 30 mins", value: addMinutes(now, 30).toISOString() },
-    { label: "In 1 hour", value: addHours(now, 1).toISOString() },
-    { label: "In 3 hours", value: addHours(now, 3).toISOString() },
-    {
-      label: "Tomorrow at 9:00 AM",
-      value: setMinutes(setHours(addHours(now, 24), 9), 0).toISOString(),
-    },
-    {
-      label: "Monday at 9:00 AM",
-      value: setMinutes(setHours(nextMonday(now), 9), 0).toISOString(),
-    },
-  ];
-}
+import { useAppTranslation } from "./use-translation";
+import { getReminderPresets } from "@/lib/reminder-presets";
 
 interface UseSavedItemsOptions {
   filterStatus?: "in_progress" | "archived" | "completed";
@@ -359,9 +343,11 @@ export function useLaterSavedMessageIds(
   const sortedIds = useMemo(() => {
     if (!messageIds?.length) return [];
     const uniq = [...new Set(messageIds)].filter(Boolean);
-    uniq.sort();
-    return uniq;
-  }, [messageIds?.join("\0")]);
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validUuids = uniq.filter((id) => UUID_REGEX.test(id));
+    validUuids.sort();
+    return validUuids;
+  }, [messageIds]);
 
   const sortedKey = sortedIds.join(",");
 

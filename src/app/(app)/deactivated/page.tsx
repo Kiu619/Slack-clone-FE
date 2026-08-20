@@ -1,29 +1,27 @@
-import Link from 'next/link'
+'use client'
 
-export default async function DeactivatedPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ workspaceId?: string }>
-}) {
-  const resolvedSearchParams = searchParams
-    ? await Promise.resolve(searchParams)
-    : undefined
-  const workspaceId = resolvedSearchParams?.workspaceId
+import Link from 'next/link'
+import { useAppTranslation } from '@/hooks/use-translation'
+import { useParams } from 'next/navigation'
+
+export default function DeactivatedPage() {
+  const t = useAppTranslation('deactivated')
+  const params = useParams()
+  const workspaceId = params?.workspaceId as string | undefined
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(59,17,65,0.18),_transparent_45%),linear-gradient(180deg,_#0f1013,_#17181c_60%,_#111214)] px-6 py-12 text-white">
+    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,rgba(59,17,65,0.18),transparent_45%),linear-gradient(180deg,#0f1013,#17181c_60%,#111214)] px-6 py-12 text-white">
       <section className="w-full max-w-xl rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-md">
         <div className="mb-6 inline-flex rounded-full border border-red-400/30 bg-red-500/10 px-4 py-1 text-sm font-semibold text-red-200">
-          Access removed
+          {t('accessRemoved')}
         </div>
 
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          You have been deactivated from this workspace
+          {t('title')}
         </h1>
 
         <p className="mt-4 text-sm leading-6 text-white/75 md:text-base">
-          Your workspace membership is no longer active, so you cannot continue
-          using this workspace.
+          {t('description')}
         </p>
 
         {workspaceId ? (
@@ -37,7 +35,7 @@ export default async function DeactivatedPage({
             href="/"
             className="inline-flex items-center justify-center rounded-xl bg-[#2eb67d] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#249667]"
           >
-            Go to home
+            {t('goToHome')}
           </Link>
         </div>
       </section>

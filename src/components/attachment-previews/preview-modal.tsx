@@ -1,6 +1,7 @@
 'use client'
 
 import { LuDownload, LuX } from 'react-icons/lu'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 interface PreviewModalProps {
   open: boolean
@@ -22,6 +23,9 @@ export default function PreviewModal({
   onDownload,
   children,
 }: PreviewModalProps) {
+  const tAttachments = useAppTranslation("attachments")
+  const tCommon = useAppTranslation("common")
+
   if (!open) return null
 
   return (
@@ -42,7 +46,7 @@ export default function PreviewModal({
                 type="button"
                 onClick={onDownload}
                 className="p-2 dark:text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
-                aria-label="Tải xuống"
+                aria-label={tAttachments("toolbar.download")}
               >
                 <LuDownload className="w-5 h-5" />
               </button>
@@ -51,7 +55,7 @@ export default function PreviewModal({
               type="button"
               onClick={onClose}
               className="p-2 dark:text-[#d1d2d3] hover:bg-[#2a2d31] rounded transition-colors"
-              aria-label="Đóng"
+              aria-label={tCommon("close")}
             >
               <LuX className="w-5 h-5" />
             </button>

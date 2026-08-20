@@ -28,6 +28,7 @@ type DraftsTabContentProps = {
   onScheduleDraft: (row: MessageDraftSummary) => void
   onSendDraft: (row: MessageDraftSummary) => void | Promise<void>
   onNewMessage: () => void
+  t: (key: string) => string
 }
 
 export const DraftsTabContent = ({
@@ -40,6 +41,7 @@ export const DraftsTabContent = ({
   onScheduleDraft,
   onSendDraft,
   onNewMessage,
+  t,
 }: DraftsTabContentProps) => {
   const ctx = { channels, conversations, userId }
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
@@ -48,18 +50,18 @@ export const DraftsTabContent = ({
     return (
       <div className="flex min-h-full max-w-100 flex-col items-center justify-center gap-2 mx-auto text-center">
         <Typography
-          text="Draft messages to send when you’re ready"
+          text={t('draftsEmptyState.title')}
           variant="h5"
           className="font-semibold"
         />
         <Typography
-          text="Start typing a message anywhere, then find it here. Re-read, revise, and send whenever you’d like."
+          text={t('draftsEmptyState.description')}
           variant="p"
           className="text-[14px] font-medium"
         />
         <Button onClick={onNewMessage} variant="outline">
           <Typography
-            text="New message "
+            text={t('draftsEmptyState.newMessage')}
             variant="p"
             className="text-[13px] font-semibold"
           />
@@ -129,7 +131,7 @@ export const DraftsTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Delete draft</p>
+                <p className="text-xs">{t('tooltips.deleteDraft')}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -146,7 +148,7 @@ export const DraftsTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Edit draft</p>
+                <p className="text-xs">{t('tooltips.editDraft')}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -163,7 +165,7 @@ export const DraftsTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Schedule message</p>
+                <p className="text-xs">{t('tooltips.scheduleMessage')}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -180,7 +182,7 @@ export const DraftsTabContent = ({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">Send message</p>
+                <p className="text-xs">{t('tooltips.sendMessage')}</p>
               </TooltipContent>
             </Tooltip>
           </div>

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Channel, ChannelFileHit, MessageAttachment, DirectMessageConversation } from "@/lib/types";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 const MEDIA_GRID_PAGE_SIZE = 6;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -40,6 +41,7 @@ interface FilesTabProps {
 }
 
 export default function FilesTab({ currentChannelData, currentConversationData, isMember }: FilesTabProps) {
+  const t = useAppTranslation("headerTabs");
   const channelId = currentChannelData?.id;
   const conversationId = currentConversationData?.id;
   const workspaceId = currentConversationData?.workspaceId;
@@ -173,13 +175,13 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
         <div className="min-h-4">
           {isFetchingNextPage && !appliedQuery.trim() ? (
             <p className="py-3 text-center text-xs text-[#616061] dark:text-[#ababad] sm:text-[13px]">
-              Loading more…
+              {t("files.loadingMore")}
             </p>
           ) : null}
         </div>
       ),
     }),
-    [appliedQuery, isFetchingNextPage],
+    [appliedQuery, isFetchingNextPage, t],
   );
 
   if (isError) {
@@ -192,14 +194,14 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
         )}
       >
         <p className="text-sm font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]">
-          Could not load files
+          {t("files.couldNotLoad")}
         </p>
         <button
           type="button"
           onClick={() => void refetch()}
           className="text-sm text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
-          Try again
+          {t("files.tryAgain")}
         </button>
       </div>
     );
@@ -278,7 +280,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
                 setSearchFocused(false);
               }
             }}
-            placeholder="Search files"
+            placeholder={t("files.searchPlaceholder")}
             className={cn(
               "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
               inputValue ? "pr-18" : "pr-3",
@@ -298,7 +300,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
                 setSearchFocused(false);
               }}
             >
-              Clear
+              {t("files.clear")}
             </button>
           ) : null}
 
@@ -321,7 +323,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
                     size={16}
                   />
                   <span className="min-w-0 truncate">
-                    Show results for:{" "}
+                    {t("files.showResultsFor")}{" "}
                     <strong className="font-semibold">{debouncedInput.trim()}</strong>
                   </span>
                 </span>
@@ -332,11 +334,11 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
 
               {previewSearchFetching && previewMatches.length === 0 ? (
                 <div className="animate-pulse px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-                  Searching…
+                  {t("files.searching")}
                 </div>
               ) : previewMatches.length === 0 ? (
                 <div className="px-3 py-4 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-                  No files match this name in this {channelId ? 'channel' : 'conversation'}.
+                  {t("files.noFilesMatchName", { target: channelId ? t("headerTabs.pins.channel") : t("headerTabs.pins.conversation") })}
                 </div>
               ) : (
                 <ul className="max-h-[min(280px,55vh)] overflow-y-auto py-1 sm:max-h-[min(320px,50vh)]">
@@ -366,15 +368,15 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-6">
         {allItems.length === 0 && !appliedQuery.trim() ? (
           <p className="px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
-            No files have been shared in this {channelId ? 'channel' : 'conversation'} yet.
+            {t("files.noFilesShared", { target: channelId ? t("headerTabs.pins.channel") : t("headerTabs.pins.conversation") })}
           </p>
         ) : appliedQuery.trim() && appliedSearchPending ? (
           <p className="animate-pulse px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
-            Searching…
+            {t("files.searching")}
           </p>
         ) : appliedQuery.trim() && layoutItems.length === 0 ? (
           <p className="px-1 py-8 text-center text-sm text-[#616061] dark:text-[#ababad] sm:text-[15px]">
-            No files match your search.
+            {t("files.noFilesMatchSearch")}
           </p>
         ) : (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -382,7 +384,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
               <section className="mb-6 min-w-0 shrink-0 overflow-x-hidden sm:mb-8">
                 <div className="mb-2 flex min-w-0 flex-col gap-2 sm:mb-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <h2 className="text-[12px] font-bold text-[#616061] dark:text-[#ababad] sm:text-[13px]">
-                    Photos and videos
+                    {t("files.photosAndVideos")}
                   </h2>
                   {hasMoreMediaThanGrid ? (
                     <button
@@ -390,7 +392,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
                       onClick={() => setShowAllMedia((v) => !v)}
                       className="w-fit shrink-0 text-left text-[12px] font-semibold text-selection-hover hover:underline sm:text-[13px] dark:text-selection-hover! dark:hover:bg-transparent! dark:hover:text-selection-hover! hover:bg-transparent! hover:text-selection-hover!"
                     >
-                      {showAllMedia ? "Show less" : "See all"}
+                      {showAllMedia ? t("files.showLess") : t("files.seeAll")}
                     </button>
                   ) : null}
                 </div>
@@ -429,7 +431,7 @@ export default function FilesTab({ currentChannelData, currentConversationData, 
 
             {documentItems.length > 0 ? (
               <h2 className="mb-1 shrink-0 text-[12px] font-bold text-[#616061] dark:text-[#ababad] sm:text-[13px]">
-                Documents
+                {t("files.documents")}
               </h2>
             ) : null}
 

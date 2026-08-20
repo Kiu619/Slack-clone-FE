@@ -10,38 +10,61 @@ import {
 
 import type { SectionItem, SidebarEntry } from "./types";
 
-export const sidebarItems: SidebarEntry[] = [
-  { kind: "item", label: "Home", key: "home", icon: Home },
-  { kind: "item", label: "Account", key: "account", icon: CircleUserRound },
+export type SidebarLabelKey =
+  | "home"
+  | "account"
+  | "people"
+  | "members"
+  | "invitations"
+  | "profiles"
+  | "roleAndPermissions"
+  | "security"
+  | "settings"
+  | "settingsAndPermissions"
+  | "customize"
+  | "aboutThisWorkspace";
+
+export const sidebarItems: Array<SidebarEntry & { labelKey?: SidebarLabelKey }> = [
+  { kind: "item", label: "Home", key: "home", icon: Home, labelKey: "home" },
+  { kind: "item", label: "Account", key: "account", icon: CircleUserRound, labelKey: "account" },
   {
     kind: "group",
     label: "People",
     key: "people",
     icon: Users,
+    labelKey: "people",
     items: [
-      { label: "Members", key: "members" },
-      { label: "Invitations", key: "invitations" },
+      { label: "Members", key: "members", labelKey: "members" },
+      { label: "Invitations", key: "invitations", labelKey: "invitations" },
     ],
   },
-  { kind: "item", label: "Profiles", key: "profiles", icon: PanelsTopLeft },
-  { kind: "item", label: "Role & Permissions", key: "roles", icon: Fingerprint },
-  { kind: "item", label: "Security", key: "security", icon: Shield },
+  { kind: "item", label: "Profiles", key: "profiles", icon: PanelsTopLeft, labelKey: "profiles" },
+  { kind: "item", label: "Role & Permissions", key: "roles", icon: Fingerprint, labelKey: "roleAndPermissions" },
+  { kind: "item", label: "Security", key: "security", icon: Shield, labelKey: "security" },
   {
     kind: "group",
     label: "Settings",
     key: "settings",
     icon: Sparkles,
+    labelKey: "settings",
     items: [
-      { label: "Settings & Permissions", key: "settings-permissions" },
-      { label: "Customize", key: "customize" },
-      { label: "About this workspace", key: "about" },
+      { label: "Settings & Permissions", key: "settings-permissions", labelKey: "settingsAndPermissions" },
+      { label: "Customize", key: "customize", labelKey: "customize" },
+      { label: "About this workspace", key: "about", labelKey: "aboutThisWorkspace" },
     ],
   },
 ];
 
-export const accountSections: SectionItem[] = [
+export type AccountSectionTitleKey =
+  | "settingsAndPermissions"
+  | "manageYourWorkspace"
+  | "customizeSlack"
+  | "analytics";
+
+export const accountSections: Array<SectionItem & { titleKey: AccountSectionTitleKey }> = [
   {
     title: "Settings & Permissions",
+    titleKey: "settingsAndPermissions",
     description:
       "Configure your workspace settings, permissions, and authentication preferences.",
     icon: Sparkles,
@@ -49,18 +72,21 @@ export const accountSections: SectionItem[] = [
   },
   {
     title: "Manage Your Workspace",
+    titleKey: "manageYourWorkspace",
     description: "Invite new members and manage user permissions.",
     icon: CircleUserRound,
     iconBg: "bg-[#e6512b]",
   },
   {
     title: "Customize Slack",
+    titleKey: "customizeSlack",
     description: "Use these settings to make Slack your own.",
     icon: Sparkles,
     iconBg: "bg-[#0b8f67]",
   },
   {
     title: "Analytics",
+    titleKey: "analytics",
     description:
       "View stats for your workspace, including activity, files, and integrations.",
     icon: PanelsTopLeft,
@@ -68,15 +94,27 @@ export const accountSections: SectionItem[] = [
   },
 ];
 
-export const footerLinks = [
-  "Tour",
-  "Download Apps",
-  "Brand Guidelines",
-  "Help",
-  "API",
-  "Pricing",
-  "Contact",
-  "Policies",
-  "Our Blog",
-  "Sign Out",
+export type FooterLinkKey =
+  | "tour"
+  | "downloadApps"
+  | "brandGuidelines"
+  | "help"
+  | "api"
+  | "pricing"
+  | "contact"
+  | "policies"
+  | "ourBlog"
+  | "signOut";
+
+export const footerLinks: Array<{ label: string; key: FooterLinkKey }> = [
+  { label: "Tour", key: "tour" },
+  { label: "Download Apps", key: "downloadApps" },
+  { label: "Brand Guidelines", key: "brandGuidelines" },
+  { label: "Help", key: "help" },
+  { label: "API", key: "api" },
+  { label: "Pricing", key: "pricing" },
+  { label: "Contact", key: "contact" },
+  { label: "Policies", key: "policies" },
+  { label: "Our Blog", key: "ourBlog" },
+  { label: "Sign Out", key: "signOut" },
 ];

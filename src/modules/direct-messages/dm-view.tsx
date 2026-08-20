@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConversation } from "@/hooks/use-conversation";
 import { useRecordRecentVisit } from "@/hooks/use-workspace-recents";
+import { useAppTranslation } from "@/hooks/use-translation";
 import Main from "@/modules/direct-messages/main";
 
 interface DMViewProps {
@@ -28,6 +29,7 @@ export default function DMView({
   } = useConversation(workspaceId, conversationId);
 
   const { recordVisit } = useRecordRecentVisit(workspaceId);
+  const t = useAppTranslation("directMessages");
 
   useEffect(() => {
     if (!conversation?.id) return;
@@ -52,10 +54,10 @@ export default function DMView({
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3 px-4 text-center">
         <p className="text-gray-400 text-lg font-semibold">
-          Conversation not found
+          {t("conversationNotFound")}
         </p>
         <p className="text-gray-500 text-sm">
-          This conversation may have been deleted or you don&apos;t have access.
+          {t("conversationNotFoundDescription")}
         </p>
       </div>
     );

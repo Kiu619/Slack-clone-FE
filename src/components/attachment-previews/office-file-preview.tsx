@@ -10,6 +10,7 @@ import { FaFileExcel, FaFilePowerpoint, FaFileWord } from "react-icons/fa"
 import { LuExternalLink } from "react-icons/lu"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
+import { useAppTranslation } from "@/hooks/use-translation"
 
 interface OfficeFilePreviewProps {
   message: Message
@@ -20,41 +21,41 @@ interface OfficeFilePreviewProps {
 
 const OFFICE_CONFIG: Record<
   string,
-  { icon: React.ReactNode; label: string; accentClass: string; panelClass: string }
+  { icon: React.ReactNode; labelKey: string; accentClass: string; panelClass: string }
 > = {
   ppt: {
     icon: <FaFilePowerpoint className="h-14 w-14 text-[#d24726]" />,
-    label: "PowerPoint Presentation",
+    labelKey: "office.powerPoint",
     accentClass: "text-[#d24726]",
     panelClass: "from-[#fff4ef] to-[#ffe2d6] dark:from-[#3d241d] dark:to-[#261511]",
   },
   pptx: {
     icon: <FaFilePowerpoint className="h-14 w-14 text-[#d24726]" />,
-    label: "PowerPoint Presentation",
+    labelKey: "office.powerPoint",
     accentClass: "text-[#d24726]",
     panelClass: "from-[#fff4ef] to-[#ffe2d6] dark:from-[#3d241d] dark:to-[#261511]",
   },
   xls: {
     icon: <FaFileExcel className="h-14 w-14 text-[#217346]" />,
-    label: "Excel Spreadsheet",
+    labelKey: "office.excel",
     accentClass: "text-[#217346]",
     panelClass: "from-[#effaf3] to-[#d8f1e1] dark:from-[#183325] dark:to-[#0f2419]",
   },
   xlsx: {
     icon: <FaFileExcel className="h-14 w-14 text-[#217346]" />,
-    label: "Excel Spreadsheet",
+    labelKey: "office.excel",
     accentClass: "text-[#217346]",
     panelClass: "from-[#effaf3] to-[#d8f1e1] dark:from-[#183325] dark:to-[#0f2419]",
   },
   doc: {
     icon: <FaFileWord className="h-14 w-14 text-[#2b579a]" />,
-    label: "Word Document",
+    labelKey: "office.word",
     accentClass: "text-[#2b579a]",
     panelClass: "from-[#eef5ff] to-[#dbe9ff] dark:from-[#1b2740] dark:to-[#121b2d]",
   },
   docx: {
     icon: <FaFileWord className="h-14 w-14 text-[#2b579a]" />,
-    label: "Word Document",
+    labelKey: "office.word",
     accentClass: "text-[#2b579a]",
     panelClass: "from-[#eef5ff] to-[#dbe9ff] dark:from-[#1b2740] dark:to-[#121b2d]",
   },
@@ -65,7 +66,7 @@ function getOfficeConfig(fileName: string) {
   return (
     OFFICE_CONFIG[ext] ?? {
       icon: <FaFileWord className="h-14 w-14 text-[#5e5d60]" />,
-      label: "Document",
+      labelKey: "office.document",
       accentClass: "text-[#5e5d60]",
       panelClass: "from-[#f3f3f4] to-[#e4e4e7] dark:from-[#2a2d31] dark:to-[#202327]",
     }
@@ -87,6 +88,7 @@ export default function OfficeFilePreview({
   formDetailPanel = false,
 }: OfficeFilePreviewProps) {
   const { trackView } = useTrackAttachmentView()
+  const t = useAppTranslation("attachments")
   const [isViewerOpen, setIsViewerOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isViewerLoading, setIsViewerLoading] = useState(false)
@@ -143,7 +145,7 @@ export default function OfficeFilePreview({
             {attachment.name}
           </p>
           <p className="text-[13px] text-[#797c81]">
-            {config.label} · {formatFileSize(attachment.size)}
+            {t(config.labelKey)} · {formatFileSize(attachment.size)}
           </p>
         </div>
 
@@ -162,13 +164,13 @@ export default function OfficeFilePreview({
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               <div className="absolute inset-x-0 top-0 flex justify-end p-4">
                 <div className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-[#1d1c1d]">
-                  {isWarm ? "Ready to preview" : "Open preview"}
+                  {isWarm ? t("office.readyToPreview") : t("office.openPreview")}
                 </div>
               </div>
               <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/75">
-                    {config.label}
+                    {t(config.labelKey)}
                   </p>
                   <p className="mt-1 truncate text-sm font-semibold text-white">
                     {attachment.name}
@@ -176,7 +178,7 @@ export default function OfficeFilePreview({
                 </div>
                 <div className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-[12px] font-medium text-[#1d1c1d] shadow-sm">
                   <LuExternalLink size={14} />
-                  Open preview
+                  {t("office.openPreview")}
                 </div>
               </div>
             </>
@@ -190,27 +192,27 @@ export default function OfficeFilePreview({
                   </div>
                   <div className="rounded-full bg-black/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-[#5e5d60] dark:bg-white/10 dark:text-white/70">
                     {isGeneratingPreview
-                      ? "Generating preview"
+                      ? t("office.generatingPreview")
                       : isWarm
-                        ? "Ready to preview"
-                        : "Open preview"}
+                        ? t("office.readyToPreview")
+                        : t("office.openPreview")}
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-[#5e5d60] dark:text-white/55">
-                      {isGeneratingPreview ? "Thumbnail pipeline" : "Microsoft 365 Viewer"}
+                      {isGeneratingPreview ? t("office.thumbnailPipeline") : t("office.microsoft365")}
                     </p>
                     <p className="mt-1 text-lg font-semibold text-[#1d1c1d] dark:text-[#f8f8f8]">
-                      {isGeneratingPreview ? "Generating first-page thumbnail" : config.label}
+                      {isGeneratingPreview ? t("office.generatingFirstPage") : t(config.labelKey)}
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-[13px] text-[#5e5d60] dark:text-white/70">
                       <span className={`font-medium ${config.accentClass}`}>
-                        {isFallbackShell ? "Office fallback" : "Office"}
+                        {isFallbackShell ? t("office.officeFallback") : t("office.office")}
                       </span>
                       <span>·</span>
                       <span>{formatFileSize(attachment.size)}</span>
@@ -218,7 +220,7 @@ export default function OfficeFilePreview({
 
                     <div className="inline-flex items-center gap-2 rounded-full bg-[#1d1c1d] px-3 py-1.5 text-[12px] font-medium text-white shadow-sm dark:bg-white dark:text-[#1d1c1d]">
                       <LuExternalLink size={14} />
-                      Click to expand
+                      {t("office.clickToExpand")}
                     </div>
                   </div>
                 </div>
@@ -242,15 +244,15 @@ export default function OfficeFilePreview({
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-white">
               <Skeleton className="h-16 w-16 rounded-xl" />
               <Skeleton className="h-4 w-40" />
-              <p className="text-sm text-[#616061]">Loading Office preview...</p>
+              <p className="text-sm text-[#616061]">{t("office.loading")}</p>
             </div>
           )}
 
           {viewerError ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-              <p className="text-lg font-semibold text-[#1d1c1d]">Can&apos;t open Office preview</p>
+              <p className="text-lg font-semibold text-[#1d1c1d]">{t("office.cantOpen")}</p>
               <p className="max-w-[420px] text-sm text-[#616061]">
-                Microsoft Office Online couldn&apos;t load this file preview. You can still open the file in a new tab or download it.
+                {t("office.cantOpenDescription")}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -258,14 +260,14 @@ export default function OfficeFilePreview({
                   onClick={handleOpenInNewTab}
                   className="rounded-md bg-[#1d1c1d] px-4 py-2 text-sm font-medium text-white"
                 >
-                  Open in new tab
+                  {t("office.openFileInNewTab")}
                 </button>
                 <button
                   type="button"
                   onClick={handleDownload}
                   className="rounded-md border border-[#d1d2d3] px-4 py-2 text-sm font-medium text-[#1d1c1d]"
                 >
-                  Download file
+                  {t("office.downloadFile")}
                 </button>
               </div>
             </div>

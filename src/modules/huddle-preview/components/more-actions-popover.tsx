@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { MdMoreVert } from "react-icons/md";
+import { useHuddle } from "@/hooks/use-translation";
 
 interface MoreActionsToolbarButtonProps {
   topic?: string | null;
@@ -24,6 +25,7 @@ export function MoreActionsToolbarButton({
   topic,
   onAddOrEditTopic,
 }: MoreActionsToolbarButtonProps) {
+  const t = useHuddle()
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -38,18 +40,18 @@ export function MoreActionsToolbarButton({
                 "bg-white/20 hover:bg-white/40",
                 open && "bg-[#7b6847] hover:bg-[#8a764b]",
               )}
-              aria-label="More actions"
+              aria-label={t("moreActions")}
             >
               <MdMoreVert size={20} />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent>More actions</TooltipContent>
+        <TooltipContent>{t("moreActions")}</TooltipContent>
       </Tooltip>
       <PopoverContent align="center" withOverlay>
         <div className="flex flex-col py-2">
           <Button variant="submenu" onClick={onAddOrEditTopic}>
-            {topic ? "Edit topic" : "Add a topic"}
+            {topic ? t("editTopic") : t("addATopic")}
           </Button>
         </div>
       </PopoverContent>

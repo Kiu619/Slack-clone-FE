@@ -15,7 +15,7 @@ import {
 import Typography from "@/components/ui/typography";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 import { useLaterNavigation } from "@/hooks/use-later-navigation";
-import { getReminderPresets, useSavedItems } from "@/hooks/use-saved-items";
+import { useSavedItems } from "@/hooks/use-saved-items";
 import { getContrastTextColor } from "@/lib/color-contrast";
 import { SavedItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -33,12 +33,15 @@ import { MdBookmark, MdOutlineDeleteSweep } from "react-icons/md";
 import { Virtuoso } from "react-virtuoso";
 import { toast } from "sonner";
 import { SavedItemComponent, SavedItemSkeleton } from "./saved-item";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { getReminderPresets, localizeReminderPresets } from "@/lib/reminder-presets";
 
 interface Props {
   theme: Theme;
 }
 
 const LaterSidePanel = ({ theme }: Props) => {
+  const t = useAppTranslation("later");
   const { user: currentUser } = useUserStore();
   const params = useParams<{ workspaceId: string }>();
   const [filterStatus, setFilterStatus] = useState<
@@ -77,7 +80,7 @@ const LaterSidePanel = ({ theme }: Props) => {
   const handleArchive = (item: SavedItem) => {
     const newStatus = item.status === "archived" ? "in_progress" : "archived";
     updateMutation.mutate({ itemId: item.id, payload: { status: newStatus } });
-    toast.success(newStatus === "archived" ? "Archived" : "Moved back to In Progress");
+    toast.success(newStatus === "archived" ? t("toast.archived") : t("toast.movedBackToInProgress"));
   };
 
   const handleRemove = (itemId: string) => {
@@ -101,7 +104,7 @@ const LaterSidePanel = ({ theme }: Props) => {
     navigateToItem(item);
   }
 
-  const reminderPresets = getReminderPresets();
+  const reminderPresets = localizeReminderPresets(getReminderPresets(), (key) => t(key));
   const selectedTextColor = getContrastTextColor(theme.selectedItems);
 
   return (
@@ -109,7 +112,7 @@ const LaterSidePanel = ({ theme }: Props) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <span className="text-lg font-extrabold text-[#1d1c1d] dark:text-[#d1d2d3]">
-          Later
+          {t("title")}
         </span>
         <div className="flex items-center gap-x-3 text-[#1d1c1d] dark:text-[#d1d2d3]">
           {filterStatus === "completed" ? (
@@ -120,7 +123,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">Clear all completed</p>
+                <p className="text-xs">{t("toolbar.clearAllCompleted")}</p>
               </TooltipContent>
             </Tooltip>
           ) : filterStatus === "in_progress" ? (
@@ -138,7 +141,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                   </TooltipTrigger>
                 </PopoverTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">Filter</p>
+                  <p className="text-xs">{t("toolbar.filter")}</p>
                 </TooltipContent>
               </Tooltip>
               <PopoverContent
@@ -161,7 +164,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                     >
                       <Typography
                         variant="p"
-                        text="Show upcoming reminders"
+                        text={t("filterOptions.showUpcomingReminders")}
                         className="text-[14px] font-medium"
                       />
                       <div className="w-4 flex shrink-0">
@@ -177,7 +180,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                     >
                       <Typography
                         variant="p"
-                        text="Hide upcoming reminders"
+                        text={t("filterOptions.hideUpcomingReminders")}
                         className="text-[14px] font-medium"
                       />
                       <div className="w-4 flex shrink-0">
@@ -218,7 +221,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                 : {}
             }
           >
-            <Typography text={status.replace("_", " ").charAt(0).toUpperCase() + status.replace("_", " ").slice(1)} variant="p" className="text-[13px] font-semibold" />
+            <Typography text={t(`tabs.${status === "in_progress" ? "inProgress" : status}`)} variant="p" className="text-[13px] font-semibold" />
             {/* hiển thị số lượng item theo status */}
             {savedItems &&
               savedItems?.filter((item) => item.status === status).length > 0 && (
@@ -250,12 +253,12 @@ const LaterSidePanel = ({ theme }: Props) => {
             </div>
             <Typography
               variant="h4"
-              text="Nothing to see here"
+              text={t("emptyState.title")}
               className="font-bold"
             />
             <Typography
               variant="p"
-              text="Items you save will appear here."
+              text={t("emptyState.description")}
               className="text-[#616061] dark:text-[#ababad]"
             />
           </div>
@@ -291,7 +294,7 @@ const LaterSidePanel = ({ theme }: Props) => {
                 Footer: () => (
                   isFetchingNextPage ? (
                     <div className="p-4 text-center text-sm text-[#616061]">
-                      Loading more...
+                      {t("loadingMore")}
                     </div>
                   ) : null
                 )

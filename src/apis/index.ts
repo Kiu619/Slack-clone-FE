@@ -250,6 +250,38 @@ export const updateProfileApi = async (
   return res.data
 }
 
+// ─── Member Preferences ──────────────────────────────────────────────────────────
+
+export type MemberPreferencesResponse = {
+  locale: 'en' | 'vi' | null
+  dateFormat: 'en_US' | 'vi_VN' | null
+  timeFormat: '12h' | '24h' | null
+}
+
+export type UpdateMemberPreferencesPayload = {
+  locale?: 'en' | 'vi'
+  dateFormat?: 'en_US' | 'vi_VN'
+  timeFormat?: '12h' | '24h'
+}
+
+export const getMemberPreferencesApi = async (workspaceId: string) => {
+  const res = await apiClient.get<MemberPreferencesResponse | null>(
+    `/workspaces/${workspaceId}/member-preferences`,
+  )
+  return res.data
+}
+
+export const updateMemberPreferencesApi = async (
+  workspaceId: string,
+  payload: UpdateMemberPreferencesPayload,
+) => {
+  const res = await apiClient.patch<MemberPreferencesResponse>(
+    `/workspaces/${workspaceId}/member-preferences`,
+    payload,
+  )
+  return res.data
+}
+
 export const updateContactApi = async (
   workspaceId: string,
   payload: UpdateContactPayload,

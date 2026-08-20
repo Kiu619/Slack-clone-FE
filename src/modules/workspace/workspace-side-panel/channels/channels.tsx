@@ -19,6 +19,7 @@ import {
 import Typography from "@/components/ui/typography";
 import { useSidebarMutedItems } from "@/hooks/use-sidebar-muted-items";
 import { useWorkspaceUnreadCounts } from "@/hooks/use-workspace-unread-counts";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { Channel, Workspace } from "@/lib/types";
 import { type Theme } from "@/stores/useThemeStore";
 import Link from "next/link";
@@ -42,6 +43,7 @@ const Channels = ({
   currentWorkspaceData,
   userWorkspaceChannels,
 }: Props) => {
+  const t = useAppTranslation("workspaceSidePanel")
   const params = useParams<{ channelId?: string }>();
   const [open, setOpen] = useState(true);
   const [hovered, setHovered] = useState(false);
@@ -105,7 +107,7 @@ const Channels = ({
                   />
                 )}
                 <Typography
-                  text="Channels"
+                  text={t("channels")}
                   variant="p"
                   className="text-[15px]! text-workspace-side-panel-text"
                 />
@@ -128,7 +130,7 @@ const Channels = ({
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Muted conversations</p>
+                          <p>{t("mutedConversations")}</p>
                         </TooltipContent>
                       </Tooltip>
                     </button>
@@ -142,7 +144,7 @@ const Channels = ({
                   >
                     <div className="flex flex-col gap-1 py-1">
                       <Typography
-                        text="Muted conversations"
+                        text={t("mutedConversations")}
                         variant="p"
                         className="px-3 pb-1 text-xs font-semibold text-workspace-side-panel-text/70"
                       />
@@ -262,7 +264,7 @@ const Channels = ({
           >
             <FiPlus size={14} className="text-workspace-side-panel-text" />
             <Typography
-              text="Add channels"
+              text={t("addChannels")}
               variant="p"
               className="text-[14px]! text-workspace-side-panel-text"
             />

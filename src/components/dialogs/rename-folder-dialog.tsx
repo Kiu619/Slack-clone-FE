@@ -28,15 +28,15 @@ import {
 } from "../custom-dialog";
 import { isAxiosError } from "axios";
 import { useEffect } from "react";
+import { useDialogs } from "@/hooks/use-translation";
 
 const schema = z.object({
   name: z
     .string()
-    .min(2, "Folder name must be at least 2 characters")
-    .max(80, "Folder name must be at most 80 characters")
+    .min(2)
+    .max(80)
     .regex(
       /^[a-z0-9-_]+$/,
-      "Folder name can only contain lowercase letters, numbers, hyphens and underscores",
     ),
 });
 
@@ -55,6 +55,7 @@ export function RenameFolderDialog({
   folder: ChannelFolder | null;
   isDM?: boolean;
 }) {
+  const t = useDialogs();
   const queryClient = useQueryClient();
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -71,7 +72,7 @@ export function RenameFolderDialog({
     mutationFn: (name: string) =>
       renameChannelFolderApi(targetId, folder!.id, name, isDM),
     onSuccess: () => {
-      toast.success("Folder renamed");
+      toast.success(t('renameFolder.renamedSuccess'));
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(targetId),
       });
@@ -81,8 +82,8 @@ export function RenameFolderDialog({
       const msg = isAxiosError(err)
         ? (err.response?.data as { message?: string })?.message ??
           err.message
-        : "Rename failed";
-      toast.error(typeof msg === "string" ? msg : "Rename failed");
+        : t('renameFolder.renameFailed');
+      toast.error(typeof msg === "string" ? msg : t('renameFolder.renameFailed'));
     },
   });
 
@@ -96,7 +97,7 @@ export function RenameFolderDialog({
           className="flex flex-col h-full"
         >
           <CustomDialogHeader onOpenChange={onOpenChange}>
-            <CustomDialogTitle>Rename folder</CustomDialogTitle>
+            <CustomDialogTitle>{t('renameFolder.title')}</CustomDialogTitle>
           </CustomDialogHeader>
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
             <FieldGroup className="space-y-4">
@@ -105,7 +106,7 @@ export function RenameFolderDialog({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold">Name</FormLabel>
+                    <FormLabel className="font-bold">{t('renameFolder.name')}</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -124,14 +125,14 @@ export function RenameFolderDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               variant="success"
               disabled={isPending || !form.formState.isDirty}
             >
-              Save
+              {t('common.save')}
             </Button>
           </CustomDialogFooter>
         </form>
