@@ -11,10 +11,11 @@ import { useAuth } from '@/hooks/use-auth'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import type { Workspace } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { HomePageSkeleton } from '@/components/loading-skeletons'
 import { signOutApi } from '@/apis'
 import { useUserStore } from '@/stores/useUserStore'
+import { getQueryClient } from '@/providers/query-provider'
 import { forceLightTheme } from '@/lib/theme-utils'
 
 const VISIBLE_COUNT = 5
@@ -87,11 +88,29 @@ export default function Home() {
     router.replace('/auth');
   };
 
+  // Tránh redirect nhiều lần trong cùng 1 effect cycle khi router trigger re-render
+  const redirectedRef = useRef(false)
+  const redirectToAuth = useCallback(() => {
+    if (redirectedRef.current) return
+    redirectedRef.current = true
+    // Clear client state để tránh useAuth bị "authenticated" do cache stale
+    useUserStore.getState().clearUser()
+    getQueryClient().clear()
+    const currentPath = window.location.pathname + window.location.search
+    const target =
+      currentPath !== '/auth' && currentPath !== '/auth/'
+        ? `/auth?redirect=${encodeURIComponent(currentPath)}`
+        : '/auth'
+    // router.replace thay vì window.location.href để không tạo history entry
+    // và tránh tranh chấp với proxy.ts
+    router.replace(target)
+  }, [router])
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.replace('/auth')
+      redirectToAuth()
     }
-  }, [authLoading, isAuthenticated, router])
+  }, [authLoading, isAuthenticated, redirectToAuth])
 
   if (authLoading) {
     return <HomePageSkeleton />

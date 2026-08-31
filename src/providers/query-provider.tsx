@@ -105,7 +105,7 @@ function makeQueryClient() {
  */
 let browserQueryClient: QueryClient | undefined = undefined
 
-function getQueryClient() {
+export function getQueryClient() {
   if (isServer) {
     /**
      * SERVER: tạo QueryClient mới cho MỖI request

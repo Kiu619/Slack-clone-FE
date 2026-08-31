@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import axios from 'axios'
-import { useUserStore } from '@/stores/useUserStore'
 import { getUserApi, magicLinkVerifyApi } from '@/apis'
 import { authKeys } from '@/lib/query-keys'
 import { readRedirectParam } from '@/lib/redirect-utils'
@@ -15,7 +14,6 @@ const AuthCallbackContent = () => {
   const searchParams = useSearchParams()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const setUser = useUserStore((s) => s.setUser)
   const handled = useRef(false)
 
   useEffect(() => {
@@ -38,7 +36,6 @@ const AuthCallbackContent = () => {
       if (success === 'true') {
         try {
           const user = await getUserApi()
-          setUser(user)
           queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
           const safeRedirect =
@@ -54,7 +51,6 @@ const AuthCallbackContent = () => {
       if (token && type === 'magic') {
         try {
           const { user, redirect } = await magicLinkVerifyApi(token)
-          setUser(user)
           queryClient.setQueryData(authKeys.me, user)
           toast.success('Signed in successfully!')
           const safeRedirect =
@@ -77,7 +73,7 @@ const AuthCallbackContent = () => {
     }
 
     handleCallback()
-  }, [searchParams, router, setUser, queryClient])
+  }, [searchParams, router, queryClient])
 
   return (
     <FullPageCenterSkeleton

@@ -47,6 +47,11 @@ export function useAuth() {
       queryClient.clear()
       router.replace('/auth')
     },
+    onError: () => {
+      clearUser()
+      queryClient.clear()
+      router.replace('/auth')
+    },
   })
 
   return {

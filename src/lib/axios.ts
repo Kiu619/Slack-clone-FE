@@ -1,6 +1,8 @@
-import axios from 'axios'
+import axios, { type AxiosError } from 'axios'
 import { toast } from 'sonner'
 import { getMainGatewaySocket } from '@/hooks/use-socket'
+import { useUserStore } from '@/stores/useUserStore'
+import { getQueryClient } from '@/providers/query-provider'
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -25,6 +27,11 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   TOO_MANY_REQUESTS: 'Too many requests. Please try again later',
 }
 
+function clearAuthState() {
+  useUserStore.getState().clearUser()
+  getQueryClient().clear()
+}
+
 /**
  * Request interceptor: đính kèm socket.id vào header X-Socket-Id
  *
@@ -43,37 +50,95 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// ────────────────────────────────────────────────────────────────────────────
+// 401 refresh queue — tránh gọi /auth/refresh nhiều lần song song
+// ────────────────────────────────────────────────────────────────────────────
+
+let isRefreshing = false
+let refreshFailed = false
+let pendingQueue: Array<{
+  resolve: (value: unknown) => void
+  reject: (reason?: unknown) => void
+}> = []
+
+function flushQueue(error: unknown) {
+  pendingQueue.forEach(({ reject }) => reject(error))
+  pendingQueue = []
+}
+
+function redirectToAuth() {
+  if (typeof window === 'undefined') return
+  // Tránh chạy 2 lần nếu nhiều call 401 cùng lúc
+  if ((window as Window & { __slackRedirecting?: boolean }).__slackRedirecting) return
+  ;(window as Window & { __slackRedirecting?: boolean }).__slackRedirecting = true
+
+  const currentPath = window.location.pathname + window.location.search
+  const redirectUrl =
+    currentPath !== '/auth' && currentPath !== '/auth/'
+      ? `/auth?redirect=${encodeURIComponent(currentPath)}`
+      : '/auth'
+
+  clearAuthState()
+  toast.error('Your session has expired. Please sign in again.')
+  // Dùng replace để không tạo history entry, tránh back-button bị kẹt ở vòng loop
+  window.location.replace(redirectUrl)
+}
+
 // Response interceptor: auto-refresh token on 401 + toast on errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const originalRequest = error.config
+  async (error: AxiosError) => {
+    const originalRequest = error.config as (typeof error.config & {
+      _retry?: boolean
+    }) | undefined
+    const status = error.response?.status
 
-    // Handle 401: try token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      apiClient.post('/auth/refresh')
-        .then(() => apiClient(originalRequest))
-        .catch(() => {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/auth'
-          }
-        })
-
+    // Refresh call đã fail rồi — không retry, chỉ reject để caller xử lý
+    if (status === 401 && refreshFailed) {
       return Promise.reject(error)
     }
 
+    // Handle 401: try token refresh
+    if (status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      // Có request khác đang refresh — chờ và dùng kết quả
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          pendingQueue.push({ resolve, reject })
+        })
+          .then(() => apiClient(originalRequest))
+          .catch((err) => Promise.reject(err))
+      }
+
+      isRefreshing = true
+      try {
+        await apiClient.post('/auth/refresh')
+        isRefreshing = false
+        // Resolve tất cả request đang chờ với retry của chúng
+        const queue = pendingQueue
+        pendingQueue = []
+        queue.forEach(({ resolve }) => resolve(undefined))
+        return apiClient(originalRequest)
+      } catch (refreshError) {
+        isRefreshing = false
+        refreshFailed = true
+        flushQueue(refreshError)
+        redirectToAuth()
+        return Promise.reject(refreshError)
+      }
+    }
+
     // Handle other errors: show toast based on error code
-    const errorData = error.response?.data
+    const errorData = error.response?.data as
+      | { code?: string; message?: string }
+      | undefined
     const errorCode = errorData?.code
     const errorMessage = errorData?.message
 
-    // Show toast for non-401 errors
     if (errorCode && ERROR_CODE_MESSAGES[errorCode]) {
       toast.error(ERROR_CODE_MESSAGES[errorCode])
-    } else if (errorMessage && error.response?.status !== 401) {
-      // Fallback: show the message from backend if available
+    } else if (errorMessage && status !== 401) {
       toast.error(errorMessage)
     }
 

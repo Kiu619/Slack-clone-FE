@@ -14,13 +14,39 @@ function classify(pathname: string): 'public' | 'auth-internal' | 'protected' {
   return 'protected'
 }
 
+/**
+ * Decode JWT payload (không verify signature) — chỉ đọc `exp` để biết còn hạn không.
+ * Middleware Edge không cần verify chữ ký vì backend là nguồn xác thực cuối cùng;
+ * nếu token giả, request tới API protected sẽ trả 401 ngay và axios interceptor xử lý.
+ */
+function isJwtUsable(token: string | undefined): boolean {
+  if (!token) return false
+  const parts = token.split('.')
+  if (parts.length !== 3) return false
+  try {
+    // base64url → base64
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    const payload = JSON.parse(atob(padded)) as { exp?: number }
+    if (typeof payload.exp !== 'number') return false
+    // Trừ 30s leeway để tránh race với access_token sắp hết hạn
+    return payload.exp * 1000 > Date.now() + 30_000
+  } catch {
+    return false
+  }
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const access = classify(pathname)
 
+  const refreshToken = request.cookies.get('refresh_token')?.value
+  const accessToken = request.cookies.get('access_token')?.value
+
+  // refresh_token còn hạn ⇒ session còn sống, kể cả khi access_token đã expire.
+  // access_token còn hạn ⇒ chắc chắn authenticated.
   const isAuthenticated =
-    request.cookies.has('access_token') ||
-    request.cookies.has('refresh_token')
+    isJwtUsable(refreshToken) || isJwtUsable(accessToken)
 
   // auth-internal: must render regardless of auth state (e.g. OAuth callback)
   if (access === 'auth-internal') return NextResponse.next()
