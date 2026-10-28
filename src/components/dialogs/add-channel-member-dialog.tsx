@@ -184,10 +184,16 @@ export default function AddChannelMemberDialog({
     [pendingUserIds],
   );
 
+  // Lọc theo membershipStatus tại client:
+  // - 'deleted' (hard-removed khỏi workspace_members): hiếm khi xuất hiện ở đây vì API
+  //   `getWorkspaceMembers` đã filter ra, nhưng nếu backend đổi → vẫn loại bỏ an toàn
+  // - 'deactivated': user không thể tham gia channel mới → loại bỏ
+  // - 'active': cho phép add vào channel
   const filteredPool = useMemo(
     () =>
       notInChannelPool
         .filter((m) => !pendingIdSet.has(m.id))
+        .filter((m) => m.membershipStatus === "active")
         .filter((m) => matchesMemberSearch(m, searchKey, memberOverlayMap[m.id])),
     [notInChannelPool, searchKey, pendingIdSet, memberOverlayMap],
   );
@@ -306,7 +312,7 @@ export default function AddChannelMemberDialog({
         return sendWorkspaceInviteEmailsApi(
           workspaceId,
           emails,
-          channelId,
+          [channelId],
         );
       }
       return {

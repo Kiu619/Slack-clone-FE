@@ -1,3 +1,5 @@
+"use client"
+
 import { useMemo, useState } from 'react'
 import { CustomDialog, CustomDialogBody, CustomDialogHeader, CustomDialogTitle } from '../custom-dialog'
 import { Calendar } from '../ui/calendar'

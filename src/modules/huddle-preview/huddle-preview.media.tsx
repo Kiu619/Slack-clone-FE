@@ -58,6 +58,8 @@ export function DeviceSelect({
   options: Array<{ value: string; label: string }>;
   disabled?: boolean;
 }) {
+  const t = useHuddleT();
+
   return (
     <div className="rounded-[14px] border border-white/10 px-3 py-2.5 shadow-sm">
       <div className="mb-1.5 flex items-center gap-2 ">
@@ -69,7 +71,7 @@ export function DeviceSelect({
         options={options}
         onChange={onChange}
         // disabled={disabled}
-        placeholder={useHuddleT("selectDevice")}
+        placeholder={t("selectDevice")}
         className="bg-white/15 rounded-lg"
       />
     </div>
@@ -124,6 +126,7 @@ export function ScreenShareTile({
   onViewProfile?: () => void;
   variant?: "grid" | "sidebar" | "spotlight";
 }) {
+  const t = useHuddleT();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const screenSharePublication = participant.getTrackPublication(
     Track.Source.ScreenShare,

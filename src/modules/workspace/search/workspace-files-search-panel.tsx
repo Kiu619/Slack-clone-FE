@@ -20,7 +20,7 @@ import { useAppTranslation } from "@/hooks/use-translation"
 import { useSearchAttachments, type SearchAttachmentsFilters } from "@/hooks/use-attachments"
 import { useChannels } from "@/hooks/use-channel"
 import { useConversations } from "@/hooks/use-conversations"
-import { useWorkspace{t("recent")}s } from "@/hooks/use-workspace-recents"
+import { useWorkspaceRecents } from "@/hooks/use-workspace-recents"
 import { fetchWorkspaceMembersApi } from "@/apis"
 import { FILE_TYPES } from "@/lib/file-filter-options"
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore"
@@ -48,6 +48,16 @@ type FileSort = (typeof SORT_OPTIONS_IDS)[number]
 
 const DATE_OPTION_VALUES = ["all-time", "today", "yesterday", "last-7-days", "last-30-days", "last-90-days", "last-180-days", "last-365-days"] as const
 type DateOptionValue = (typeof DATE_OPTION_VALUES)[number]
+
+/**
+ * Converts date option value to i18n key format.
+ * E.g., "last-7-days" -> "last7Days", "all-time" -> "allTime"
+ */
+function getDateOptionKey(value: DateOptionValue): string {
+  return value
+    .replace(/-/g, "") // Remove hyphens
+    .replace(/(\d+)days/i, "$1Days") // Convert "7days" to "7Days"
+}
 
 const GLOBAL_TO_FILE: Record<string, string> = {
   documents: "document",
@@ -143,7 +153,7 @@ export function WorkspaceFilesSearchPanel({
   })
   const { data: channels = [] } = useChannels(workspaceId)
   const { data: conversations = [] } = useConversations(workspaceId)
-  const { data: recentsData } = useWorkspace{t("recent")}s(workspaceId)
+  const { data: recentsData } = useWorkspaceRecents(workspaceId)
   const memberOverlayMap = useWorkspaceMemberStore(
     useShallow((state) => state.byWorkspace[workspaceId] ?? {}),
   )

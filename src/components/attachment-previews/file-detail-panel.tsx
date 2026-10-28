@@ -2,7 +2,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
-import { useChannelFolderActions } from "@/contexts/channel-folder-actions"
 import { formatTimestamp } from "@/helpers/format-time-stamp"
 import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages"
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore"
@@ -17,6 +16,7 @@ import dynamic from "next/dynamic"
 import { useEffect, useState } from "react"
 import { MdMoreVert, MdOutlineCloudDownload, MdOutlineKeyboardArrowRight } from "react-icons/md"
 import { RiShareForwardLine } from "react-icons/ri"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import ConfirmDeleteFileDialog from "../dialogs/confirm-delete-file-dialog"
 import { ShareFileDialog } from "../dialogs/share-file-dialog"
@@ -39,10 +39,8 @@ const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false })
 
 export default function FileDetailPanel() {
   const currentUser = useUserStore((state) => state.user)
-  const { requestNewFolder } = useChannelFolderActions()
   const { attachment, message, close } = useFileDetailStore()
   const t = useAppTranslation("attachments")
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat)
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat)
   const language = useLanguageRegionStore((s) => s.language)
   console.log("message, attachment: ", message, attachment);
@@ -115,10 +113,10 @@ export default function FileDetailPanel() {
     if (!attachment) return;
     deleteAttachment(attachment.id, {
       onSuccess: () => {
-        toast.success("File deleted successfully");
+        toast.success(t("delete.fileDeleted"));
       },
       onError: () => {
-        toast.error("Failed to delete file. You might not have permission.");
+        toast.error(t("delete.fileDeleteFailed"));
       }
     });
   }
@@ -171,7 +169,7 @@ export default function FileDetailPanel() {
           />
           <Typography
             variant="p"
-            text={t("file.uploadedOn", { date: formatTimestamp(message?.createdAt ?? "", { dateFormat, timeFormat, language }) })}
+            text={t("file.uploadedOn", { date: formatTimestamp(message?.createdAt ?? "", { timeFormat, language }) })}
             className="font-semibold"
           />
         </div>
@@ -328,7 +326,6 @@ export default function FileDetailPanel() {
                       <AddToFolderSubmenu
                         targetId={targetId}
                         attachmentId={attachment.id}
-                        onRequestCreateFolder={requestNewFolder}
                       />
                     </div>
                   )}

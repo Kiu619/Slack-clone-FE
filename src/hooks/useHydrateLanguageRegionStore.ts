@@ -10,13 +10,20 @@
  */
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import {
+  useLanguageRegionStore,
+  type Language,
+  type TimeFormat,
+} from "@/stores/useLanguageRegionStore";
 import { authKeys, memberPreferencesKeys } from "@/lib/query-keys";
 import type { User } from "@/lib/types";
 
 interface UseHydrateLanguageRegionStoreOptions {
   workspaceId: string | undefined;
-  serverPrefs: { locale: string | null; dateFormat: string | null; timeFormat: string | null } | null | undefined;
+  serverPrefs: {
+    locale: Language | null;
+    timeFormat: TimeFormat | null;
+  } | null | undefined;
   isLoading: boolean;
 }
 
@@ -41,7 +48,6 @@ export function useHydrateLanguageRegionStore({
     storeHydrate(
       {
         locale: serverPrefs.locale ?? "en",
-        dateFormat: serverPrefs.dateFormat ?? "en_US",
         timeFormat: serverPrefs.timeFormat ?? "12h",
       },
       timeZone

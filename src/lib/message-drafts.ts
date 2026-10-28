@@ -5,10 +5,6 @@
 
 export const MESSAGE_DRAFT_RESTORE_SESSION_KEY = 'sc-restore-draft-payload'
 
-/** Prefill New message composer sau khi mở từ danh sách draft */
-export const NEW_MSG_RESTORE_CHANNEL_KEY = 'sc-new-msg-restore-channel'
-export const NEW_MSG_RESTORE_DM_KEY = 'sc-new-msg-restore-dm'
-
 export type MessageDraftContextKey = string
 
 export function buildMessageDraftContextKey(params: {

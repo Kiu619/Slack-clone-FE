@@ -5,6 +5,7 @@ import {
     clearCompletedSavedItemsApi,
     getLaterSummaryApi,
     getSavedItemsApi,
+    removeLaterByAttachmentIdApi,
     removeSavedItemApi,
     saveItemApi,
     updateSavedItemApi,
@@ -12,17 +13,17 @@ import {
 import { SavedItem, SaveItemPayload, UpdateSavedItemPayload } from "@/lib/types";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-    addHours,
-    addMinutes,
-    format,
-    nextMonday,
-    setHours,
-    setMinutes,
+  addHours,
+  addMinutes,
+  nextMonday,
+  setHours,
+  setMinutes,
 } from "date-fns";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useAppTranslation } from "./use-translation";
+import { useLocaleFormatter } from "./use-locale-formatter";
 import { getReminderPresets } from "@/lib/reminder-presets";
 
 interface UseSavedItemsOptions {
@@ -37,6 +38,8 @@ export function useSavedItems({
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = params?.workspaceId;
   const queryClient = useQueryClient();
+  const t = useAppTranslation("later");
+  const { formatDate, formatTime } = useLocaleFormatter();
 
   // ─── Query ────────────────────────────────────────────────────────────────
   const {
@@ -65,10 +68,10 @@ export function useSavedItems({
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
       queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
-      toast.success("Reminder created");
+      toast.success(t("toast.reminderCreated"));
     },
     onError: () => {
-      toast.error("Failed to create reminder");
+      toast.error(t("toast.failedToCreateReminder"));
     },
   });
 
@@ -146,12 +149,19 @@ export function useSavedItems({
         });
       }
       console.error("Failed to update item", _err);
-      toast.error("Failed to update item");
+      toast.error(t("toast.failedToUpdateItem"));
     },
-    onSuccess: () => {
+    onSuccess: (_data, { payload }) => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
       queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
+      if (payload.status === "completed") {
+        toast.success(t("toast.markedAsCompleted"));
+      } else if (payload.status === "in_progress") {
+        toast.success(t("toast.markedAsInProgress"));
+      } else if (payload.status === "archived") {
+        toast.success(t("toast.archived"));
+      }
     },
   });
 
@@ -180,13 +190,35 @@ export function useSavedItems({
           ctx.previous,
         );
       }
-      toast.error("Failed to remove item");
+      toast.error(t("toast.failedToRemoveItem"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
       queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
-      toast.success("Removed from Later");
+      toast.success(t("toast.removedFromLater"));
+    },
+  });
+
+  // ─── Remove attachment from Later ─────────────────────────────────────────
+  const removeAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: string) =>
+      removeLaterByAttachmentIdApi(workspaceId, attachmentId),
+    onMutate: async (attachmentId) => {
+      // Optimistically remove from savedAttachmentIdSet
+      await queryClient.cancelQueries({
+        queryKey: ["later-saved-messages", workspaceId],
+      });
+      return { attachmentId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
+      toast.success(t("toast.removedFromLater"));
+    },
+    onError: () => {
+      toast.error(t("toast.failedToRemoveItem"));
     },
   });
 
@@ -215,13 +247,13 @@ export function useSavedItems({
           ctx.previous,
         );
       }
-      toast.error("Failed to clear items");
+      toast.error(t("toast.failedToClearItems"));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved-items"] });
       queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
-      toast.success("Cleared completed items");
+      toast.success(t("toast.clearedCompletedItems"));
     },
   });
 
@@ -239,13 +271,17 @@ export function useSavedItems({
       itemId: item.id,
       payload: { remindAt, ...(note ? { note } : {}) },
     });
-    toast.success(`Reminder set for ${format(new Date(remindAt), "MMM d 'at' h:mm a")}`);
+    toast.success(
+      t("toast.reminderSetFor", {
+        date: `${formatDate(remindAt)} ${formatTime(remindAt)}`,
+      }),
+    );
   };
 
   /** Xóa reminder của một SavedItem đã có */
   const clearReminderOnItem = (item: SavedItem) => {
     updateMutation.mutate({ itemId: item.id, payload: { remindAt: null } });
-    toast.success("Reminder cleared");
+    toast.success(t("toast.reminderCleared"));
   };
 
   /** Tạo reminder mới (standalone – dùng trong MessageItem, DmsSidePanel) */
@@ -335,12 +371,17 @@ export function useLaterOverdueSummary() {
 /**
  * Batch lookup: which message IDs are in Later with status in_progress
  * (for bookmark toolbar / DM row). Uses POST check-messages.
+ *
+ * @param attachmentIds - attachment IDs whose parent messages are in messageIds.
+ *                        Used only for cache-key deduplication; the API returns
+ *                        savedAttachmentIds regardless of this param.
  */
 export function useLaterSavedMessageIds(
   workspaceId: string | undefined,
   messageIds: string[],
+  attachmentIds: string[] = [],
 ) {
-  const sortedIds = useMemo(() => {
+  const sortedMessageIds = useMemo(() => {
     if (!messageIds?.length) return [];
     const uniq = [...new Set(messageIds)].filter(Boolean);
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -349,26 +390,56 @@ export function useLaterSavedMessageIds(
     return validUuids;
   }, [messageIds]);
 
-  const sortedKey = sortedIds.join(",");
+  const sortedAttachmentIds = useMemo(() => {
+    if (!attachmentIds?.length) return [];
+    const uniq = [...new Set(attachmentIds)].filter(Boolean);
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validUuids = uniq.filter((id) => UUID_REGEX.test(id));
+    validUuids.sort();
+    return validUuids;
+  }, [attachmentIds]);
+
+  // Use message IDs for the cache key; attachment IDs included for granularity.
+  const sortedKey = [sortedMessageIds.join(","), sortedAttachmentIds.join(",")].filter(Boolean).join("|");
 
   const query = useQuery({
     queryKey: ["later-saved-messages", workspaceId, sortedKey],
-    queryFn: () => checkLaterMessagesApi(workspaceId!, sortedIds),
-    enabled: Boolean(workspaceId && sortedIds.length > 0),
+    queryFn: () => checkLaterMessagesApi(workspaceId!, sortedMessageIds),
+    enabled: Boolean(workspaceId && sortedMessageIds.length > 0),
     staleTime: 45_000,
     select: (data) => ({
       savedMessageIdSet: new Set(data.savedMessageIds),
       remindAtByMessageId: new Map(
         Object.entries(data.remindAtByMessageId ?? {}),
       ) as Map<string, string>,
+      savedAttachmentIdSet: new Set(data.savedAttachmentIds ?? []),
     }),
   });
 
   return {
     savedMessageIdSet: query.data?.savedMessageIdSet ?? new Set<string>(),
     remindAtByMessageId: query.data?.remindAtByMessageId ?? new Map<string, string>(),
-    isLoading: sortedIds.length > 0 && query.isLoading,
+    savedAttachmentIdSet: query.data?.savedAttachmentIdSet ?? new Set<string>(),
+    isLoading: sortedMessageIds.length > 0 && query.isLoading,
   };
+}
+
+/**
+ * Standalone hook to remove a specific attachment from Later.
+ * Used by FileToolbar to implement "Remove from Later" on attachments.
+ */
+export function useRemoveSavedAttachment(workspaceId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (attachmentId: string) =>
+      removeLaterByAttachmentIdApi(workspaceId!, attachmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-items"] });
+      queryClient.invalidateQueries({ queryKey: ["saved-items-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
+    },
+  });
 }
 
 /** Hook nhẹ hơn chỉ cho chức năng "Remind me" (không cần query list) */
@@ -376,6 +447,8 @@ export function useRemindMe() {
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = params?.workspaceId;
   const queryClient = useQueryClient();
+  const t = useAppTranslation("later");
+  const { formatDate, formatTime } = useLocaleFormatter();
   const [isRemindMeOpen, setIsRemindMeOpen] = useState(false);
 
   const saveMutation = useMutation({
@@ -387,14 +460,16 @@ export function useRemindMe() {
       queryClient.invalidateQueries({ queryKey: ["later-saved-messages"] });
       if (variables.remindAt) {
         toast.success(
-          `Reminder set for ${format(new Date(variables.remindAt), "MMM d 'at' h:mm a")}`,
+          t("toast.reminderSetFor", {
+            date: `${formatDate(variables.remindAt)} ${formatTime(variables.remindAt)}`,
+          }),
         );
       } else {
-        toast.success("Saved to Later");
+        toast.success(t("toast.savedToLater"));
       }
     },
     onError: () => {
-      toast.error("Failed to set reminder");
+      toast.error(t("toast.failedToSetReminder"));
     },
   });
 

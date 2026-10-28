@@ -24,8 +24,8 @@ import { useWorkspaceUnreadCounts } from "@/hooks/use-workspace-unread-counts";
 import { useAppTranslation } from "@/hooks/use-translation";
 import {
   getDmDisplayName,
-  isDeactivatedUser,
-  isOneToOneWithDeactivatedPeer,
+  isInactiveUser,
+  isOneToOneWithInactivePeer,
 } from "@/lib/dm-members";
 import type { User, Workspace } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,7 @@ const DirectMessages = ({
     () =>
       (conversations ?? []).filter(
         (conversation) =>
-          !isOneToOneWithDeactivatedPeer(
+          !isOneToOneWithInactivePeer(
             conversation,
             currentUser?.id,
             displayMember,
@@ -114,7 +114,12 @@ const DirectMessages = ({
   );
 
   const getConversationName = (members: User[]) => {
-    return getDmDisplayName(members, currentUser?.id, displayMember);
+    return getDmDisplayName(
+      members,
+      currentUser?.id,
+      displayMember,
+      t("deletedUser"),
+    );
   };
 
   const getConversationAvatar = (members: User[], isGroup: boolean) => {
@@ -272,7 +277,8 @@ const DirectMessages = ({
             );
             const isOneToOne = !conversation.isGroup && others.length === 1;
             const peer = isOneToOne ? displayMember(others[0]!) : null;
-            const peerIsDeactivated = isDeactivatedUser(peer);
+            // Catch cả deactivate lẫn delete — peer không còn active trong workspace
+            const peerIsInactive = isInactiveUser(peer);
 
             return (
               <Link
@@ -287,7 +293,7 @@ const DirectMessages = ({
                 >
                   <div className="relative shrink-0">
                     {getConversationAvatar(conversation.members, conversation.isGroup)}
-                    {isOneToOne && peer && !peerIsDeactivated ? (
+                    {isOneToOne && peer && !peerIsInactive ? (
                       <div className="absolute -right-0.5 -bottom-2">
                         <UserPresenceIndicator
                           workspaceId={workspaceId}
@@ -309,7 +315,7 @@ const DirectMessages = ({
                           hasUnread && "font-bold",
                         )}
                       />
-                      {!peerIsDeactivated ? (
+                      {!peerIsInactive ? (
                         <UserStatusEmojiInline
                           statusEmoji={peer.statusEmoji}
                           statusText={peer.statusText}

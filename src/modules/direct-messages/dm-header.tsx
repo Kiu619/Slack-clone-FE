@@ -19,7 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useStarConversation } from "@/hooks/use-conversation";
 import { useAppTranslation } from "@/hooks/use-translation";
 import { clearLastDmConversationId } from "@/lib/last-dm-storage";
-import { getDmDisplayName, isDeactivatedUser } from "@/lib/dm-members";
+import { getDmDisplayName, isInactiveUser } from "@/lib/dm-members";
 import { cn } from "@/lib/utils";
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore";
 import { useMainPanelStore } from "@/stores/useMainPanelStore";
@@ -88,6 +88,7 @@ const DMHeader = ({
       conversation.members,
       currentUser?.id,
       (member) => mergeUserForDisplay(member as User, memberOverlayMap[member.id]),
+      t("deletedUser"),
     );
   };
 
@@ -104,7 +105,8 @@ const DMHeader = ({
     if (!conversation.isGroup && others.length === 1) {
       const m = others[0] as User;
       const display = mergeUserForDisplay(m, memberOverlayMap[m.id]);
-      return isDeactivatedUser(display) ? null : display;
+      // Hide presence/status UI khi peer đã bị deactivate hoặc delete
+      return isInactiveUser(display) ? null : display;
     }
     return null;
   }, [

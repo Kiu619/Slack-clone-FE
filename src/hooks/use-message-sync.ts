@@ -19,14 +19,30 @@ export function useMessageSync() {
    * Cập nhật tin nhắn ở tất cả mọi nơi
    */
   const syncMessageUpdate = useCallback((updatedMessage: Partial<Message> & { id: string }) => {
+    if (updatedMessage.attachments) {
+      console.log(
+        `[MessageSync] syncMessageUpdate - id: ${updatedMessage.id}, ` +
+        `attachments count: ${updatedMessage.attachments.length}, ` +
+        `attachments[0] URL length: ${updatedMessage.attachments[0]?.url?.length ?? 'N/A'}, ` +
+        `attachments[0] URL: ${updatedMessage.attachments[0]?.url ?? 'N/A'}`,
+      );
+    }
+
+    // Filter undefined values — prevents overwriting valid fields with undefined
+    // (e.g. when backend broadcasts UPDATE without all fields, like finalizeAttachment
+    // which previously sent replyCount=undefined for parent message).
+    const sanitizedUpdate = Object.fromEntries(
+      Object.entries(updatedMessage).filter(([_, v]) => v !== undefined),
+    ) as Partial<Message> & { id: string };
+
     // 1. Update Zustand Entity (Cực nhanh, O(1))
-    store.updateEntity(updatedMessage.id, updatedMessage);
+    store.updateEntity(updatedMessage.id, sanitizedUpdate);
 
     // 1b. Nếu là thread update (replyCount tăng), set isUnread nếu:
     // - Message có replyCount > 0
     // - Current user KHÔNG phải là author
     // - Current user KHÔNG nằm trong replyParticipantIds
-    if (updatedMessage.replyCount !== undefined && updatedMessage.replyCount > 0) {
+    if (sanitizedUpdate.replyCount !== undefined && sanitizedUpdate.replyCount > 0) {
       const entity = store.entities[updatedMessage.id] as Record<string, unknown> | undefined;
       const authorId = (entity?.user as { id?: string } | null)?.id;
       const participantIds = entity?.replyParticipantIds as string[] | undefined;
@@ -62,7 +78,7 @@ export function useMessageSync() {
     // 2. Update Thread Panel nếu đang mở tin nhắn này
     const { updateMessage: syncThreadPanel, messageId: openParentId } = useThreadPanelStore.getState();
     if (openParentId === updatedMessage.id) {
-      syncThreadPanel(updatedMessage);
+      syncThreadPanel(sanitizedUpdate);
     }
 
     // 3. Update React Query Cache (Legacy support & list reactivity)
@@ -73,20 +89,20 @@ export function useMessageSync() {
         pages: old.pages.map((page: MessagesPage) => ({
           ...page,
           messages: page.messages.map((m) => {
-            if (m.id === updatedMessage.id) return { ...m, ...updatedMessage };
+            if (m.id === updatedMessage.id) return { ...m, ...sanitizedUpdate };
             // Cập nhật parent.content trong các reply alsoSendToChannel
             if (
               m.parentId === updatedMessage.id &&
               m.alsoSendToChannel &&
-              (updatedMessage.content !== undefined || updatedMessage.attachments !== undefined)
+              (sanitizedUpdate.content !== undefined || sanitizedUpdate.attachments !== undefined)
             ) {
               return {
                 ...m,
                 parent: {
                   ...m.parent,
-                  content: updatedMessage.content ?? m.parent?.content ?? '',
-                  attachments: updatedMessage.attachments ?? m.parent?.attachments ?? [],
-                  deletedAt: updatedMessage.deletedAt ?? m.parent?.deletedAt ?? null,
+                  content: sanitizedUpdate.content ?? m.parent?.content ?? '',
+                  attachments: sanitizedUpdate.attachments ?? m.parent?.attachments ?? [],
+                  deletedAt: sanitizedUpdate.deletedAt ?? m.parent?.deletedAt ?? null,
                 },
               };
             }
@@ -109,24 +125,24 @@ export function useMessageSync() {
           return {
             ...page,
             threads: page.threads.map((t) => {
-              if (t.id === updatedMessage.id) return { ...t, ...updatedMessage };
+              if (t.id === updatedMessage.id) return { ...t, ...sanitizedUpdate };
               return {
                 ...t,
                 replies: t.replies.map((r) => {
-                  if (r.id === updatedMessage.id) return { ...r, ...updatedMessage };
+                  if (r.id === updatedMessage.id) return { ...r, ...sanitizedUpdate };
                   // Cập nhật parent.content trong reply alsoSendToChannel trên Threads Page
                   if (
                     r.parentId === updatedMessage.id &&
                     r.alsoSendToChannel &&
-                    (updatedMessage.content !== undefined || updatedMessage.attachments !== undefined)
+                    (sanitizedUpdate.content !== undefined || sanitizedUpdate.attachments !== undefined)
                   ) {
                     return {
                       ...r,
                       parent: {
                         ...r.parent,
-                        content: updatedMessage.content ?? r.parent?.content ?? '',
-                        attachments: updatedMessage.attachments ?? r.parent?.attachments ?? [],
-                        deletedAt: updatedMessage.deletedAt ?? r.parent?.deletedAt ?? null,
+                        content: sanitizedUpdate.content ?? r.parent?.content ?? '',
+                        attachments: sanitizedUpdate.attachments ?? r.parent?.attachments ?? [],
+                        deletedAt: sanitizedUpdate.deletedAt ?? r.parent?.deletedAt ?? null,
                       },
                     };
                   }
@@ -149,7 +165,7 @@ export function useMessageSync() {
       }
     } else {
       queryClient.setQueriesData({ queryKey: messageKeys.pinnedAll }, (old: Message[] | undefined) =>
-        old?.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m)),
+        old?.map((m) => (m.id === updatedMessage.id ? { ...m, ...sanitizedUpdate } : m)),
       );
     }
   }, [queryClient, store, currentUserId]);

@@ -65,8 +65,11 @@ function releasePdfSource(url: string) {
   }, PDF_SOURCE_GRACE_PERIOD_MS)
 }
 
-export function usePdfSource(url: string | undefined, enabled = true) {
-  const { data, isPending, isError, error } = useFileCache(url, enabled)
+export function usePdfSource(
+  url: string | null | undefined,
+  enabled = true,
+) {
+  const { data, isPending, isError, error } = useFileCache(url ?? undefined, enabled)
   const [pdfSourceUrl, setPdfSourceUrl] = useState<string | null>(null)
 
   useEffect(() => {

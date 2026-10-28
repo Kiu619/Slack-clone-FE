@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { useLanguage, useDateFormat } from "@/hooks/use-translation"
+import { useLanguage } from "@/hooks/use-translation"
 
 interface DatePickerDropdownProps {
   date: Date | undefined
@@ -27,14 +27,12 @@ const LOCALE_FOR_PICKER: Record<"en" | "vi", DateFnsLocale> = {
   vi: vi,
 }
 
-function formatLocalizedDate(date: Date, language: "en" | "vi", dateFormat: "en_US" | "vi_VN"): string {
+function formatLocalizedDate(date: Date, language: "en" | "vi"): string {
   const dateLocale = LOCALE_FOR_PICKER[language]
-  // Format based on dateFormat preference: en_US = "MMMM do, yyyy", vi_VN = "do MMMM yyyy"
-  if (dateFormat === 'vi_VN') {
-    return format(date, "do MMMM yyyy", { locale: dateLocale })
-  } else {
-    return format(date, "MMMM do, yyyy", { locale: dateLocale })
-  }
+  // Day-month order derived from language: en = "MMMM do, yyyy", vi = "do MMMM yyyy"
+  return language === "vi"
+    ? format(date, "do MMMM yyyy", { locale: dateLocale })
+    : format(date, "MMMM do, yyyy", { locale: dateLocale })
 }
 
 export function DatePickerDropdown({
@@ -43,7 +41,6 @@ export function DatePickerDropdown({
   disabled,
 }: DatePickerDropdownProps) {
   const language = useLanguage()
-  const dateFormat = useDateFormat()
   const [isOpen, setIsOpen] = React.useState(false)
   const pickerLocale = LOCALE_FOR_PICKER[language]
 
@@ -63,7 +60,7 @@ export function DatePickerDropdown({
         >
           <div className="flex items-center">
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? formatLocalizedDate(date, language, dateFormat) : <span>{pickADateLabel}</span>}
+            {date ? formatLocalizedDate(date, language) : <span>{pickADateLabel}</span>}
           </div>
           <ChevronDown
             className={cn(

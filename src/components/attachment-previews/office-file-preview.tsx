@@ -6,10 +6,13 @@ import { useOfficePreviewSession } from "@/hooks/use-office-preview-session"
 import { openSafeUrl } from "@/lib/open-safe-url"
 import type { Message, MessageAttachment } from "@/lib/types"
 import { useState } from "react"
+import { createPortal } from "react-dom"
 import { FaFileExcel, FaFilePowerpoint, FaFileWord } from "react-icons/fa"
 import { LuExternalLink } from "react-icons/lu"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
+import { UploadStatusOverlay } from "./upload-status-overlay"
+import { UploadingPlaceholder } from "./uploading-placeholder"
 import { useAppTranslation } from "@/hooks/use-translation"
 
 interface OfficeFilePreviewProps {
@@ -17,6 +20,10 @@ interface OfficeFilePreviewProps {
   attachment: MessageAttachment
   onDownload?: (url: string, name: string) => void
   formDetailPanel?: boolean
+  /** Callback retry — truyền từ attachment-list (lấy từ UploadingAttachmentsContext) */
+  onRetry?: () => void
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>
 }
 
 const OFFICE_CONFIG: Record<
@@ -86,6 +93,8 @@ export default function OfficeFilePreview({
   attachment,
   onDownload,
   formDetailPanel = false,
+  onRetry,
+  savedAttachmentIds,
 }: OfficeFilePreviewProps) {
   const { trackView } = useTrackAttachmentView()
   const t = useAppTranslation("attachments")
@@ -93,18 +102,23 @@ export default function OfficeFilePreview({
   const [isHovered, setIsHovered] = useState(false)
   const [isViewerLoading, setIsViewerLoading] = useState(false)
   const [viewerError, setViewerError] = useState<string | null>(null)
+  // Guard SSR cho createPortal — document chỉ có sau khi component mount trên client.
+  // Khởi tạo trực tiếp từ typeof window để tránh setState trong effect (gây cascading render).
+  const [mounted] = useState(() => typeof window !== "undefined")
 
   const config = getOfficeConfig(attachment.name)
-  const { viewerSrc, isWarm, warmSession, markOpened } = useOfficePreviewSession(attachment.url)
+  const { viewerSrc, isWarm, warmSession, markOpened } = useOfficePreviewSession(attachment.url ?? null)
   const hasThumbnail = !!attachment.previewImageUrl
   const isGeneratingPreview = attachment.previewStatus === "pending" && !hasThumbnail
   const isFallbackShell = !hasThumbnail
 
   const handleOpenInNewTab = () => {
+    if (!attachment.url) return
     openSafeUrl(attachment.url)
   }
 
   const handleDownload = () => {
+    if (!attachment.url) return
     if (onDownload) {
       onDownload(attachment.url, attachment.name)
     } else {
@@ -118,6 +132,21 @@ export default function OfficeFilePreview({
     setViewerError(null)
     setIsViewerLoading(true)
     setIsViewerOpen(true)
+  }
+
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi Office viewer cần URL.
+  const isPendingUpload =
+    !attachment.url &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId)
+
+  if (isPendingUpload) {
+    return (
+      <UploadingPlaceholder variant="office" fileName={attachment.name} />
+    )
   }
 
   return (
@@ -137,6 +166,7 @@ export default function OfficeFilePreview({
             attachment={attachment}
             onDownload={handleDownload}
             onOpen={handleOpenInNewTab}
+            savedAttachmentIds={savedAttachmentIds}
           />
         ) : null}
 
@@ -159,43 +189,16 @@ export default function OfficeFilePreview({
               <img
                 src={attachment.previewImageUrl ?? undefined}
                 alt={`${attachment.name} preview`}
-                className="h-full w-full object-cover object-top"
+                className="h-full w-full object-cover object-top  hover:cursor-zoom-in"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div className="absolute inset-x-0 top-0 flex justify-end p-4">
-                <div className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-[#1d1c1d]">
-                  {isWarm ? t("office.readyToPreview") : t("office.openPreview")}
-                </div>
-              </div>
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/75">
-                    {t(config.labelKey)}
-                  </p>
-                  <p className="mt-1 truncate text-sm font-semibold text-white">
-                    {attachment.name}
-                  </p>
-                </div>
-                <div className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-[12px] font-medium text-[#1d1c1d] shadow-sm">
-                  <LuExternalLink size={14} />
-                  {t("office.openPreview")}
-                </div>
-              </div>
             </>
           ) : (
             <>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.6),transparent_45%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_45%)]" />
-              <div className="relative flex h-full flex-col justify-between p-5">
+              <div className="relative flex h-full flex-col justify-between p-5 hover:cursor-zoom-in">
                 <div className="flex items-start justify-between gap-4">
                   <div className="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
                     {config.icon}
-                  </div>
-                  <div className="rounded-full bg-black/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-[#5e5d60] dark:bg-white/10 dark:text-white/70">
-                    {isGeneratingPreview
-                      ? t("office.generatingPreview")
-                      : isWarm
-                        ? t("office.readyToPreview")
-                        : t("office.openPreview")}
                   </div>
                 </div>
 
@@ -208,84 +211,76 @@ export default function OfficeFilePreview({
                       {isGeneratingPreview ? t("office.generatingFirstPage") : t(config.labelKey)}
                     </p>
                   </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-[13px] text-[#5e5d60] dark:text-white/70">
-                      <span className={`font-medium ${config.accentClass}`}>
-                        {isFallbackShell ? t("office.officeFallback") : t("office.office")}
-                      </span>
-                      <span>·</span>
-                      <span>{formatFileSize(attachment.size)}</span>
-                    </div>
-
-                    <div className="inline-flex items-center gap-2 rounded-full bg-[#1d1c1d] px-3 py-1.5 text-[12px] font-medium text-white shadow-sm dark:bg-white dark:text-[#1d1c1d]">
-                      <LuExternalLink size={14} />
-                      {t("office.clickToExpand")}
-                    </div>
-                  </div>
                 </div>
               </div>
             </>
           )}
         </button>
+
+        <UploadStatusOverlay status={attachment.uploadStatus} onRetry={onRetry} />
       </div>
 
-      <PreviewModal
-        open={isViewerOpen}
-        onClose={() => {
-          setIsViewerOpen(false)
-          setIsViewerLoading(false)
-        }}
-        title={attachment.name}
-        onDownload={handleDownload}
-      >
-        <div className="relative h-full w-full bg-white">
-          {isViewerLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-white">
-              <Skeleton className="h-16 w-16 rounded-xl" />
-              <Skeleton className="h-4 w-40" />
-              <p className="text-sm text-[#616061]">{t("office.loading")}</p>
-            </div>
-          )}
-
-          {viewerError ? (
-            <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-              <p className="text-lg font-semibold text-[#1d1c1d]">{t("office.cantOpen")}</p>
-              <p className="max-w-[420px] text-sm text-[#616061]">
-                {t("office.cantOpenDescription")}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleOpenInNewTab}
-                  className="rounded-md bg-[#1d1c1d] px-4 py-2 text-sm font-medium text-white"
-                >
-                  {t("office.openFileInNewTab")}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  className="rounded-md border border-[#d1d2d3] px-4 py-2 text-sm font-medium text-[#1d1c1d]"
-                >
-                  {t("office.downloadFile")}
-                </button>
-              </div>
-            </div>
-          ) : isViewerOpen && viewerSrc ? (
-            <iframe
-              src={viewerSrc}
-              title={attachment.name}
-              className="h-full w-full border-0 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              onLoad={() => setIsViewerLoading(false)}
-              onError={() => {
+      {isViewerOpen && mounted
+        ? createPortal(
+            <PreviewModal
+              open={isViewerOpen}
+              onClose={() => {
+                setIsViewerOpen(false)
                 setIsViewerLoading(false)
-                setViewerError("load_failed")
               }}
-            />
-          ) : null}
-        </div>
-      </PreviewModal>
+              title={attachment.name}
+              onDownload={handleDownload}
+            >
+              <div className="relative h-full w-full bg-white">
+                {isViewerLoading && (
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-white">
+                    <Skeleton className="h-16 w-16 rounded-xl" />
+                    <Skeleton className="h-4 w-40" />
+                    <p className="text-sm text-[#616061]">{t("office.loading")}</p>
+                  </div>
+                )}
+
+                {viewerError ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+                    <p className="text-lg font-semibold text-[#1d1c1d]">{t("office.cantOpen")}</p>
+                    <p className="max-w-[420px] text-sm text-[#616061]">
+                      {t("office.cantOpenDescription")}
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleOpenInNewTab}
+                        className="rounded-md bg-[#1d1c1d] px-4 py-2 text-sm font-medium text-white"
+                      >
+                        {t("office.openFileInNewTab")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownload}
+                        className="rounded-md border border-[#d1d2d3] px-4 py-2 text-sm font-medium text-[#1d1c1d]"
+                      >
+                        {t("office.downloadFile")}
+                      </button>
+                    </div>
+                  </div>
+                ) : isViewerOpen && viewerSrc ? (
+                  <iframe
+                    src={viewerSrc}
+                    title={attachment.name}
+                    className="h-full w-full border-0 bg-white"
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                    onLoad={() => setIsViewerLoading(false)}
+                    onError={() => {
+                      setIsViewerLoading(false)
+                      setViewerError("load_failed")
+                    }}
+                  />
+                ) : null}
+              </div>
+            </PreviewModal>,
+            document.body,
+          )
+        : null}
     </>
   )
 }

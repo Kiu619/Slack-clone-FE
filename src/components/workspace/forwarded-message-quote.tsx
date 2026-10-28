@@ -3,7 +3,9 @@
 import { useMemo } from "react";
 import AttachmentList from "@/components/attachment-previews/attachment-list";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { sanitizeRenderedRichText } from "@/lib/sanitize-rich-text";
+import { resolveUserDisplayInfo } from "@/lib/user-display";
 import type { Message, User } from "@/lib/types";
 import {
   mergeUserForDisplay,
@@ -19,10 +21,19 @@ export const ForwardedMessageQuote = ({
   message,
   workspaceId,
 }: ForwardedMessageQuoteProps) => {
+  const t = useAppTranslation("messageItem");
   const overlay = useWorkspaceMemberOverlay(workspaceId, message.user.id);
   const displayUser = useMemo(
     () => mergeUserForDisplay(message.user as User, overlay),
     [message.user, overlay],
+  );
+
+  const displayInfo = useMemo(
+    () =>
+      resolveUserDisplayInfo(displayUser, {
+        deletedLabel: t("deletedUser"),
+      }),
+    [displayUser, t],
   );
 
   const sanitized = useMemo(() => {
@@ -49,8 +60,6 @@ export const ForwardedMessageQuote = ({
 
   const isEdited = !!message.editedAt && !isFileOnlyPlaceholder;
 
-  const label = displayUser.displayName || displayUser.name || message.user.email;
-
   const hasAttachments = !!message.attachments?.length;
 
   return (
@@ -61,13 +70,29 @@ export const ForwardedMessageQuote = ({
       />
       <div className="flex min-w-0 flex-1 gap-2">
         <Avatar className="size-9 shrink-0 rounded-md">
-          <AvatarImage src={displayUser.avatar || ""} />
-          <AvatarFallback className="rounded-md bg-amber-500 text-xs text-white">
-            {label.slice(0, 2).toUpperCase()}
+          {displayInfo.avatar ? (
+            <AvatarImage src={displayInfo.avatar} />
+          ) : null}
+          <AvatarFallback
+            className={
+              displayInfo.isDeleted
+                ? "rounded-md bg-[#3a3d41] text-xs text-[#ababad]"
+                : "rounded-md bg-amber-500 text-xs text-white"
+            }
+          >
+            {displayInfo.initials}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="truncate text-[15px] font-bold text-[#e8e8e8]">{label}</p>
+          <p
+            className={
+              displayInfo.isDeleted
+                ? "truncate text-[15px] font-bold text-[#ababad]"
+                : "truncate text-[15px] font-bold text-[#e8e8e8]"
+            }
+          >
+            {displayInfo.name}
+          </p>
           {shouldShowContent && (
             <div className="flex flex-wrap items-center gap-1">
               <div

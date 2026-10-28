@@ -13,6 +13,9 @@ import Typography from "../ui/typography";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { useAttachmentExpanded } from "@/hooks/use-attachment-expanded";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { useRetryAttachment } from "@/hooks/use-retry-attachment";
+import { useUploadingAttachmentsContext } from "@/providers/UploadingAttachmentsProvider";
+import { use } from "react";
 
 const PdfPreview = dynamic(() => import("./pdf-preview"), { ssr: false });
 
@@ -20,6 +23,11 @@ interface AttachmentListProps {
   message: Message;
   attachments: MessageAttachment[];
   onDownload?: (url: string, name: string) => void;
+  /**
+   * Set of attachment IDs that have been saved for Later.
+   * Passed down to each preview component for FileToolbar display.
+   */
+  savedAttachmentIds?: Set<string>;
 }
 
 /**
@@ -37,9 +45,21 @@ export default function AttachmentList({
   message,
   attachments,
   onDownload,
+  savedAttachmentIds,
 }: AttachmentListProps) {
   const t = useAppTranslation("attachments")
-  const [isExpanded, handleToggle] = useAttachmentExpanded(message.id);
+  const [isExpanded, handleToggle] = useAttachmentExpanded(message.id)
+
+  // Retry hook — dùng được khi có UploadingAttachmentsProvider (trong message list).
+  // Nếu không có provider (Files tab) → hook bị throw ngay.
+  // Dùng try/catch ở đây để tránh crash ở Files tab.
+  let retryAttachment: ((a: MessageAttachment) => Promise<void>) | undefined
+  try {
+    const { retryAttachment: fn } = useRetryAttachment(message.workspaceId)
+    retryAttachment = fn
+  } catch {
+    // Files tab: không có provider, retry không hoạt động — chấp nhận
+  }
 
   if (!attachments.length) return null;
 
@@ -73,6 +93,8 @@ export default function AttachmentList({
                 message={message}
                 attachment={file}
                 onDownload={onDownload}
+                onRetry={file.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(file) : undefined}
+                savedAttachmentIds={savedAttachmentIds}
               />
             ))}
           </div>
@@ -128,6 +150,8 @@ export default function AttachmentList({
                   attachment={img}
                   allImages={images}
                   onDownload={onDownload}
+                  onRetry={img.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(img) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -142,6 +166,8 @@ export default function AttachmentList({
                   attachment={video}
                   onDownload={onDownload}
                   useExternalFullscreen
+                  onRetry={video.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(video) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -155,6 +181,8 @@ export default function AttachmentList({
                   message={message}
                   attachment={audio}
                   onDownload={onDownload}
+                  onRetry={audio.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(audio) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -168,6 +196,8 @@ export default function AttachmentList({
                   message={message}
                   attachment={file}
                   onDownload={onDownload}
+                  onRetry={file.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(file) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -181,6 +211,8 @@ export default function AttachmentList({
                   message={message}
                   attachment={file}
                   onDownload={onDownload}
+                  onRetry={file.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(file) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -194,6 +226,7 @@ export default function AttachmentList({
                   message={message}
                   attachment={file}
                   onDownload={onDownload}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>
@@ -208,6 +241,8 @@ export default function AttachmentList({
                   message={message}
                   attachment={file}
                   onDownload={onDownload}
+                  onRetry={file.uploadStatus === 'failed' && retryAttachment ? () => retryAttachment(file) : undefined}
+                  savedAttachmentIds={savedAttachmentIds}
                 />
               ))}
             </div>

@@ -15,6 +15,7 @@ import type { Channel, DirectMessageConversation } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { LuSend } from 'react-icons/lu'
 import { MdMoreVert, MdOutlineScheduleSend } from 'react-icons/md'
+import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
 import { formatDraftsScheduledTime } from './drafts-scheduled-format'
 import { resolveScheduledRowTitle } from './drafts-scheduled-resolve'
 import {
@@ -54,6 +55,8 @@ export const ScheduledTabContent = ({
 }: ScheduledTabContentProps) => {
   const ctx = { channels, conversations, userId }
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const language = useLanguageRegionStore((s) => s.language)
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat)
 
   if (rows.length === 0) {
     return (
@@ -94,9 +97,10 @@ export const ScheduledTabContent = ({
                 </span>
                 <span className="shrink-0 text-xs text-[#616061] dark:text-[#ababad]">
                   {t('scheduledSendAt')}{' '}
-                  {formatDraftsScheduledTime(
-                    new Date(row.scheduledAt).getTime(),
-                  )}
+                  {formatDraftsScheduledTime(row.scheduledAt, {
+                    language,
+                    timeFormat,
+                  })}
                 </span>
               </div>
               <p className="mt-1 line-clamp-2 text-sm text-[#616061] dark:text-[#ababad]">

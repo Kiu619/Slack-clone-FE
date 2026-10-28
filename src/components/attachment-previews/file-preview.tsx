@@ -17,6 +17,9 @@ import {
   LuFileVideo,
 } from "react-icons/lu";
 import FileToolbar from "./file-toolbar";
+import { UploadStatusOverlay } from "./upload-status-overlay";
+import { UploadingPlaceholder } from "./uploading-placeholder";
+import { FailedUploadPlaceholder } from "./failed-upload-placeholder";
 
 import { cn } from "@/lib/utils";
 import { openSafeUrl } from "@/lib/open-safe-url";
@@ -39,11 +42,12 @@ interface FilePreviewProps {
   effectiveFolderId?: string | null;
   isMember?: boolean;
   fromPublicChannel?: boolean;
-
-  uploader?: AttachmentsUser
+  uploader?: AttachmentsUser;
+  /** Callback để retry upload — được truyền từ attachment-list khi uploadStatus='failed' */
+  onRetry?: () => void;
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>;
 }
-
-
 
 export default function FilePreview({
   message,
@@ -54,8 +58,9 @@ export default function FilePreview({
   effectiveFolderId = null,
   isMember,
   fromPublicChannel,
-
-  uploader
+  uploader,
+  onRetry,
+  savedAttachmentIds,
 }: FilePreviewProps) {
   const { user: currentUser } = useUserStore();
   const [isHovered, setIsHovered] = useState(false);
@@ -63,10 +68,9 @@ export default function FilePreview({
   const commonT = useAppTranslation("common");
   const language = useLanguageRegionStore((s) => s.language);
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
 
   const formatShortDate = (iso: string) =>
-    formatMessageTime(iso, { t, commonT, language, timeFormat, dateFormat });
+    formatMessageTime(iso, { t, commonT, language, timeFormat });
 
   const workspaceId = message?.workspaceId ?? "";
   const messageUser = message?.user;
@@ -79,6 +83,7 @@ export default function FilePreview({
     : null;
 
   const handleDownload = () => {
+    if (!attachment.url) return
     if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
@@ -86,6 +91,7 @@ export default function FilePreview({
     }
   };
   const handleOpenInNewTab = () => {
+    if (!attachment.url) return
     openSafeUrl(attachment.url);
   };
 
@@ -94,6 +100,41 @@ export default function FilePreview({
 
   const isImage = isImageAttachment(attachment);
   const isVideo = isVideoAttachment(attachment);
+
+  // Attachment đang pending upload (chưa có URL thật, client vẫn đang upload lên S3/Cloudinary)
+  // → render placeholder thay vì preview component cần URL.
+  const isPendingUpload =
+    !attachment.url &&
+    attachment.uploadStatus !== "failed" &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId)
+
+  // Upload fail → render FailedUploadPlaceholder với nút Retry (tránh spinner vô hạn).
+  const isFailedUpload =
+    !attachment.url && attachment.uploadStatus === "failed"
+
+  if (isFailedUpload) {
+    return (
+      <FailedUploadPlaceholder
+        variant="file"
+        fileName={attachment.name}
+        onRetry={onRetry}
+        className={fromFilesTab ? "max-w-full" : ""}
+      />
+    )
+  }
+
+  if (isPendingUpload) {
+    return (
+      <UploadingPlaceholder
+        variant="file"
+        fileName={attachment.name}
+        className={fromFilesTab ? "max-w-full" : ""}
+      />
+    )
+  }
 
   function sharerLabel(message?: Message, uploader?: AttachmentsUser): string {
     if (uploader?.id === currentUser?.id) {
@@ -115,7 +156,7 @@ export default function FilePreview({
     <>
       <div
         className={cn(
-          "group relative flex items-center max-w-[400px] gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors  bg-white dark:bg-[#1A1D21]",
+          "group relative flex items-center w-80 gap-3 p-3 rounded-lg border border-[#797c814d] hover:border-[#797c81] transition-colors  bg-white dark:bg-[#1A1D21] truncate",
           fromFilesTab ? "max-w-full" : "",
         )}
         onMouseEnter={() => setIsHovered(true)}
@@ -134,6 +175,7 @@ export default function FilePreview({
             effectiveFolderId={effectiveFolderId}
             isMember={isMember}
             fromPublicChannel={fromPublicChannel}
+            savedAttachmentIds={savedAttachmentIds}
           />
         ) : null}
 
@@ -179,6 +221,8 @@ export default function FilePreview({
             </p>
           )}
         </div>
+
+        <UploadStatusOverlay status={attachment.uploadStatus} onRetry={onRetry} />
       </div>
     </>
   );

@@ -11,7 +11,7 @@ import { type EmojiClickData, Theme } from "emoji-picker-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { format } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { enUS, vi } from "date-fns/locale";
 import {
   computeNextMondayNineAmLocal,
   computeTomorrowNineAmLocal,
@@ -67,6 +67,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Separator } from "./ui/separator";
 import { CustomEmojiNode } from "./extensions/custom-emoji-node";
 import { Button } from "./ui/button";
+import { useAppTranslation, useLanguage, useTimeFormat } from "@/hooks/use-translation";
 
 const RecordVideoDialog = dynamic(
   () => import("./dialogs/record-video-dialog"),
@@ -141,6 +142,9 @@ const Editor = ({
   scheduleDisabled = false,
   channelPostingSettings = null,
 }: EditorProps) => {
+  const t = useAppTranslation()
+  const language = useLanguage()
+  const timeFormat = useTimeFormat()
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkDialogValue, setLinkDialogValue] = useState<LinkDialogValue>({
     text: "",
@@ -153,16 +157,19 @@ const Editor = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [openSchedulePopover, setOpenSchedulePopover] = useState(false);
 
-  const quickScheduleSlots = (() => {
-    const t = computeTomorrowNineAmLocal();
-    const m = computeNextMondayNineAmLocal();
+  const quickScheduleSlots = useMemo(() => {
+    const tTomorrow = computeTomorrowNineAmLocal();
+    const tMonday = computeNextMondayNineAmLocal();
+    const dayLocale = language === "vi" ? vi : enUS;
+    const timeStr = (d: Date) =>
+      timeFormat === "24h" ? format(d, "HH:mm") : format(d, "h:mm a");
     return {
-      tomorrowIso: t.toISOString(),
-      mondayIso: m.toISOString(),
-      tomorrowLabel: `Tomorrow at ${format(t, "h:mm a", { locale: enUS })}`,
-      mondayLabel: format(m, "EEEE 'at' h:mm a", { locale: enUS }),
+      tomorrowIso: tTomorrow.toISOString(),
+      mondayIso: tMonday.toISOString(),
+      tomorrowLabel: `${t("common.today")} ${t("common.atTime", { time: timeStr(tTomorrow) })}`,
+      mondayLabel: format(tMonday, "EEEE", { locale: dayLocale }) + " " + t("common.atTime", { time: timeStr(tMonday) }),
     };
-  })();
+  }, [t, language, timeFormat]);
 
   const { theme } = useTheme();
   const { data: workspace } = useWorkspace(workspaceId ?? "");
@@ -284,12 +291,12 @@ const Editor = ({
         Placeholder.configure({
           placeholder: () => {
             if (variant === "forward") {
-              return editorPlaceholder ?? "Add a message, if you'd like.";
+              return editorPlaceholder ?? t("editor.placeholder");
             }
             if (channelName) {
-              return `Message #${channelName}`;
+              return t("common.messageChannel", { channel: channelName });
             }
-            return "Reply...";
+            return t("common.reply");
           },
         }),
         createEditorLinkExtension(),
@@ -297,9 +304,23 @@ const Editor = ({
         Mention.configure({
           HTMLAttributes: {
             class:
-              "mention bg-[#1264a3]/20 text-[#1264a3] dark:text-[#36c5f0] px-1 py-0.5 rounded font-medium",
+              "mention bg-[#1264a3]/20 text-[#1264a3] dark:text-[#36c5f0] px-1 py-0.5 rounded font-medium cursor-pointer",
+            "data-type": "mention",
           },
           suggestion,
+          renderHTML(props) {
+            const node = props.node;
+            const attrs = (props as { options?: { HTMLAttributes?: Record<string, unknown> } }).options?.HTMLAttributes ?? {};
+            return [
+              "span",
+              {
+                ...attrs,
+                "data-id": node.attrs.id ?? "",
+                class: attrs.class as string | undefined,
+              },
+              `@${node.attrs.label ?? node.attrs.id}`,
+            ];
+          },
         }),
         customEmojiExtension,
       ],
@@ -388,9 +409,15 @@ const Editor = ({
     if (!hasContent && !hasPendingFiles) return;
 
     onSubmit?.(content);
-    editor.commands.clearContent();
-    editor.commands.focus();
-  }, [editor, disabled, onSubmit, hasPendingFiles]);
+
+    // Chỉ clear content khi KHÔNG phải đang edit message
+    // Khi variant="update", editor sẽ bị ẩn ngay sau đó qua setIsEditing(false)
+    // Optimistic update sẽ hiển thị message đã sửa ngay lập tức
+    if (variant !== "update") {
+      editor.commands.clearContent();
+      editor.commands.focus();
+    }
+  }, [editor, disabled, onSubmit, hasPendingFiles, variant]);
 
   /**
    * handleFileSelect — khi user chọn file từ file picker
@@ -557,28 +584,28 @@ const Editor = ({
             <ToolbarButton
               onClick={toggleBold}
               active={isMarkActive("bold")}
-              tooltip="Bold (Ctrl+B)"
+              tooltip={t("editor.toolbar.bold")}
             >
               <LuBold size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleItalic}
               active={isMarkActive("italic")}
-              tooltip="Italic (Ctrl+I)"
+              tooltip={t("editor.toolbar.italic")}
             >
               <LuItalic size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleStrike}
               active={isMarkActive("strike")}
-              tooltip="Strikethrough"
+              tooltip={t("editor.toolbar.strikethrough")}
             >
               <LuStrikethrough size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleUnderline}
               active={isMarkActive("underline")}
-              tooltip="Underline (Ctrl+U)"
+              tooltip={t("editor.toolbar.underline")}
             >
               <LuUnderline size={16} />
             </ToolbarButton>
@@ -588,14 +615,14 @@ const Editor = ({
             <ToolbarButton
               onClick={toggleBulletList}
               active={editor.isActive("bulletList")}
-              tooltip="Bullet list"
+              tooltip={t("editor.toolbar.bulletList")}
             >
               <LuList size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleOrderedList}
               active={editor.isActive("orderedList")}
-              tooltip="Ordered list"
+              tooltip={t("editor.toolbar.orderedList")}
             >
               <LuListOrdered size={16} />
             </ToolbarButton>
@@ -605,21 +632,21 @@ const Editor = ({
             <ToolbarButton
               onClick={openLinkDialog}
               active={editor.isActive("link")}
-              tooltip="Insert link"
+              tooltip={t("editor.toolbar.insertLink")}
             >
               <LuLink size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleCode}
               active={isMarkActive("code")}
-              tooltip="Inline code"
+              tooltip={t("editor.toolbar.inlineCode")}
             >
               <LuCode size={16} />
             </ToolbarButton>
             <ToolbarButton
               onClick={toggleCodeBlock}
               active={editor.isActive("codeBlock")}
-              tooltip="Code block"
+              tooltip={t("editor.toolbar.codeBlock")}
             >
               <LuSquareCode size={16} />
             </ToolbarButton>
@@ -668,7 +695,7 @@ const Editor = ({
               <ToolbarButton
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                 active={showEmojiPicker}
-                tooltip="Emoji"
+                tooltip={t("editor.toolbar.emoji")}
               >
                 <LuSmile size={16} />
               </ToolbarButton>
@@ -679,7 +706,7 @@ const Editor = ({
                     theme={theme === "dark" ? Theme.DARK : Theme.LIGHT}
                     width={350}
                     height={400}
-                    searchPlaceHolder="Search emoji..."
+                    searchPlaceHolder={t("common.search")}
                     previewConfig={{ showPreview: false }}
                     customEmojis={pickerCustomEmojis}
                   />
@@ -695,11 +722,11 @@ const Editor = ({
             <div className="flex items-center gap-0.5">
               <ToolbarButton
                 onClick={() => fileInputRef.current?.click()}
-                tooltip="Attach file"
+                tooltip={t("editor.toolbar.attachFile")}
               >
                 <LuPaperclip size={16} />
               </ToolbarButton>
-              <ToolbarButton tooltip="Format text">
+              <ToolbarButton tooltip={t("editor.toolbar.formatText")}>
                 <MdFormatColorText size={16} />
               </ToolbarButton>
 
@@ -729,7 +756,7 @@ const Editor = ({
                 )}
               </div>
 
-              <ToolbarButton tooltip="Mention someone (@)">
+              <ToolbarButton tooltip={t("editor.toolbar.mentionSomeone")}>
                 <LuAtSign size={16} />
               </ToolbarButton>
 
@@ -737,14 +764,14 @@ const Editor = ({
 
               <ToolbarButton
                 onClick={() => setShowVideoRecorder(true)}
-                tooltip="Record video clip"
+                tooltip={t("editor.toolbar.recordVideo")}
               >
                 <LuVideo size={16} />
               </ToolbarButton>
               <ToolbarButton
                 disabled={isRecording}
                 onClick={startRecording}
-                tooltip="Record audio clip"
+                tooltip={t("editor.toolbar.recordAudio")}
               >
                 <LuMic size={16} />
               </ToolbarButton>
@@ -757,14 +784,14 @@ const Editor = ({
                   variant="outline"
                   disabled={disabled}
                 >
-                  Cancel
+                  {t("editor.toolbar.cancel")}
                 </Button>
                 <Button
                   onClick={handleSubmit}
                   disabled={!canSubmit || disabled}
                   variant="success"
                 >
-                  Save Changes
+                  {t("editor.toolbar.saveChanges")}
                 </Button>
               </div>
             ) : (
@@ -840,7 +867,7 @@ const Editor = ({
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">Send (Enter)</p>
+                      <p className="text-xs">{t("common.sendEnter")}</p>
                     </TooltipContent>
                   </Tooltip>
 
@@ -876,13 +903,13 @@ const Editor = ({
                           </PopoverTrigger>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="text-xs">Schedule for later</p>
+                          <p className="text-xs">{t("editor.toolbar.scheduleForLater")}</p>
                         </TooltipContent>
                       </Tooltip>
                       <PopoverContent side="top" align="end">
                         <div className="flex flex-col py-2">
                           <span className="mx-4 text-[12px] text-[#8e9297]">
-                            Schedule for later...
+                            {t("common.scheduleLater")}
                           </span>
                           <div
                             role="button"
@@ -961,7 +988,7 @@ const Editor = ({
                             }}
                             className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
                           >
-                            Custom time
+                            {t("common.customTime")}
                           </div>
                         </div>
                       </PopoverContent>

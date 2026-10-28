@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import * as z from "zod";
 import {
@@ -24,21 +24,9 @@ import { useParams } from "next/navigation";
 import { TIMEZONE_OPTIONS } from "@/lib/timezone";
 import { useDialogs } from "@/hooks/use-translation";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { buildTimeOptions } from "@/helpers/time-options";
 
 const MIN_LEAD_MS_LEGACY = 0;
-
-const TIMES = Array.from({ length: 48 }).map((_, i) => {
-  const hour = Math.floor(i / 2);
-  const min = i % 2 === 0 ? "00" : "30";
-  const ampm = hour < 12 ? "AM" : "PM";
-  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return {
-    label: `${h12}:${min} ${ampm}`,
-    value: `${hour.toString().padStart(2, "0")}:${min}`,
-    hour,
-    min: parseInt(min, 10),
-  };
-});
 
 const getNextAvailableTime = () => {
   const now = new Date();
@@ -51,38 +39,6 @@ const getNextAvailableTime = () => {
 
   if (suggestHour >= 24) suggestHour = 23;
   return `${suggestHour.toString().padStart(2, "0")}:${suggestMin.toString().padStart(2, "0")}`;
-};
-
-const formatToAMPM = (hhmm: string): string => {
-  const [hours, minutes] = hhmm.split(":").map(Number);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${h12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
-};
-
-const parseSmartTime = (input: string): string | null => {
-  const clean = input.replace(/\D/g, "");
-  if (!clean) return null;
-
-  let hours = 0;
-  let minutes = 0;
-
-  if (clean.length === 1 || clean.length === 2) {
-    hours = parseInt(clean, 10);
-    minutes = 0;
-  } else if (clean.length === 3) {
-    hours = parseInt(clean[0]!, 10);
-    minutes = parseInt(clean.slice(1), 10);
-  } else if (clean.length === 4) {
-    hours = parseInt(clean.slice(0, 2), 10);
-    minutes = parseInt(clean.slice(2), 10);
-  } else {
-    return null;
-  }
-
-  if (hours > 23 || minutes > 59) return null;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
 };
 
 export function parseFormTimeToHHmm(val: string): string | null {
@@ -100,7 +56,14 @@ export function parseFormTimeToHHmm(val: string): string | null {
     if (ap === "AM" && h === 12) h = 0;
     return `${h.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
   }
-  return parseSmartTime(v);
+  if (/^(\d{1,2}):(\d{2})$/.test(v)) {
+    const [hStr, mStr] = v.split(":");
+    const h = parseInt(hStr!, 10);
+    const mm = parseInt(mStr!, 10);
+    if (h > 23 || mm > 59) return null;
+    return `${h.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
+  }
+  return null;
 }
 
 function combineDateAndHHmm(date: Date, hhmm: string): Date {
@@ -110,31 +73,33 @@ function combineDateAndHHmm(date: Date, hhmm: string): Date {
   return out;
 }
 
-const formSchema = z
-  .object({
-    date: z.date(),
-    time: z.string(),
-  })
-  .superRefine((data, ctx) => {
-    const t = useDialogs();
-    const hhmm = parseFormTimeToHHmm(data.time);
-    if (!hhmm) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: t('scheduleSend.invalidTime'),
-        path: ["time"],
-      });
-      return;
-    }
-    const at = combineDateAndHHmm(data.date, hhmm);
-    if (at.getTime() <= Date.now() + MIN_LEAD_MS_LEGACY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: t('scheduleSend.timeMustBeFuture'),
-        path: ["time"],
-      });
-    }
-  });
+type DialogsTranslator = ReturnType<typeof useDialogs>;
+
+const buildFormSchema = (t: DialogsTranslator) =>
+  z
+    .object({
+      date: z.date(),
+      time: z.string(),
+    })
+    .superRefine((data, ctx) => {
+      const hhmm = parseFormTimeToHHmm(data.time);
+      if (!hhmm) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('scheduleSend.invalidTime'),
+          path: ["time"],
+        });
+        return;
+      }
+      const at = combineDateAndHHmm(data.date, hhmm);
+      if (at.getTime() <= Date.now() + MIN_LEAD_MS_LEGACY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('scheduleSend.timeMustBeFuture'),
+          path: ["time"],
+        });
+      }
+    });
 
 export type ScheduleSendDialogDefaultValues = {
   date?: Date;
@@ -156,6 +121,9 @@ export default function ScheduleSendDialog({
 }) {
   const t = useDialogs();
   const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const timeOptions = buildTimeOptions(timeFormat);
+  const formSchema = useMemo(() => buildFormSchema(t), [t]);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -193,7 +161,7 @@ export default function ScheduleSendDialog({
     TIMEZONE_OPTIONS.find((t) => t.value === timezone)?.label ?? "Local";
 
   const selectedDate = useWatch({ control: form.control, name: "date" });
-  const filteredTimes = TIMES.filter((t) => {
+  const filteredTimes = timeOptions.filter((t) => {
     if (!selectedDate) return true;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
     if (!isToday) return true;
@@ -260,32 +228,11 @@ export default function ScheduleSendDialog({
                     <FormItem>
                       <FormControl>
                         <CustomSelect
-                          editable={true}
                           options={filteredTimes}
-                          value={(() => {
-                            const v = field.value ?? "";
-                            if (/\b(AM|PM)\b/i.test(v)) return v;
-                            if (/^\d{1,2}:\d{2}$/.test(v.trim()))
-                              return formatToAMPM(v.trim());
-                            return v;
-                          })()}
+                          value={timeOptions.find((o) => o.value === field.value)?.label ?? field.value}
                           isInvalid={fieldState.invalid}
                           onChange={(val) => {
                             field.onChange(val);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const parsed = parseSmartTime(field.value);
-                              if (parsed) {
-                                field.onChange(parsed);
-                              }
-                            }
-                          }}
-                          onBlur={() => {
-                            const parsed = parseFormTimeToHHmm(field.value);
-                            if (parsed) {
-                              field.onChange(parsed);
-                            }
                           }}
                         />
                       </FormControl>

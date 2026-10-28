@@ -3,6 +3,7 @@
 import { useEffect, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import axios from 'axios'
 import { getUserApi, magicLinkVerifyApi } from '@/apis'
@@ -11,6 +12,7 @@ import { readRedirectParam } from '@/lib/redirect-utils'
 import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
 
 const AuthCallbackContent = () => {
+  const t = useTranslations("auth")
   const searchParams = useSearchParams()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -28,7 +30,7 @@ const AuthCallbackContent = () => {
       const queryRedirect = searchParams.get('redirect')
 
       if (error) {
-        toast.error('Authentication failed. Please try again.')
+        toast.error(t('authenticationFailed'))
         router.replace('/auth')
         return
       }
@@ -37,12 +39,12 @@ const AuthCallbackContent = () => {
         try {
           const user = await getUserApi()
           queryClient.setQueryData(authKeys.me, user)
-          toast.success('Signed in successfully!')
+          toast.success(t('signedInSuccessfully'))
           const safeRedirect =
             readRedirectParam(queryRedirect) ?? '/'
           router.replace(safeRedirect)
         } catch {
-          toast.error('Authentication failed. Please try again.')
+          toast.error(t('authenticationFailed'))
           router.replace('/auth')
         }
         return
@@ -52,7 +54,7 @@ const AuthCallbackContent = () => {
         try {
           const { user, redirect } = await magicLinkVerifyApi(token)
           queryClient.setQueryData(authKeys.me, user)
-          toast.success('Signed in successfully!')
+          toast.success(t('signedInSuccessfully'))
           const safeRedirect =
             readRedirectParam(
               redirect ?? queryRedirect ?? undefined,
@@ -61,8 +63,8 @@ const AuthCallbackContent = () => {
         } catch (err) {
           const message =
             axios.isAxiosError(err) && err.response?.status === 401
-              ? 'Magic link has expired. Please request a new one.'
-              : 'Authentication failed. Please try again.'
+              ? t('magicLinkExpired')
+              : t('authenticationFailed')
           toast.error(message)
           router.replace('/auth')
         }

@@ -15,7 +15,12 @@ import { useState, useMemo } from "react";
 import { FiHash, FiPlus } from "react-icons/fi";
 import { IoMdHeadset } from "react-icons/io";
 
-import { clearMemberStatusApi, signOutApi, updateProfileApi } from "@/apis";
+import {
+  clearMemberStatusApi,
+  pauseNotificationsApi,
+  signOutApi,
+  updateProfileApi,
+} from "@/apis";
 import { useQueryClient } from "@tanstack/react-query";
 import { authKeys } from "@/lib/query-keys";
 import {
@@ -31,12 +36,15 @@ import { LucideFilePlus2 } from "lucide-react";
 import { BsCardChecklist } from "react-icons/bs";
 import { FaRegSmile, FaSmile } from "react-icons/fa";
 import { HiOutlinePencilAlt } from "react-icons/hi";
-import { MdOutlinePersonAddAlt } from "react-icons/md";
+import {
+  MdOutlineKeyboardArrowRight,
+  MdOutlinePersonAddAlt,
+} from "react-icons/md";
 import { Separator } from "./ui/separator";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { SetAStatusDialog } from "./dialogs/set-a-status-dialog";
+import PauseNotificationsDialog from "./dialogs/pause-noti-dialog";
 import { usePreferencesStore } from "@/stores/usePreferencesStore";
-import { useNewMessageStore } from "@/stores/useNewMessageStore";
 import { forceLightTheme } from "@/lib/theme-utils";
 import {
   mergeUserForDisplay,
@@ -44,7 +52,9 @@ import {
 } from "@/stores/useWorkspaceMemberStore";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { UserPresenceIndicator } from "@/components/user-presence-indicator";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { Button } from "./ui/button";
 
 const UserSidebar = ({
   userData,
@@ -57,16 +67,18 @@ const UserSidebar = ({
   const [open, setOpen] = useState(false);
   const [openAvatarPopover, setOpenAvatarPopover] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
-  const isDMsPage = pathname.includes('/dms');
 
-  const { openNewMessage: openNewMessageComposer } = useNewMessageStore();
   const { open: openProfilePanel } = useProfilePanelStore();
   const { open: openPreferences } = usePreferencesStore();
   const { clearUser } = useUserStore();
   const queryClient = useQueryClient();
 
   const [openSetAStatusDialog, setOpenSetAStatusDialog] = useState(false);
+
+  const [isPauseNotificationsOpen, setIsPauseNotificationsOpen] =
+    useState(false);
+
+  const [isPauseNotiDialogOpen, setIsPauseNotiDialogOpen] = useState(false);
 
   const memberOverlay = useWorkspaceMemberOverlay(
     currentWorkspaceData.id,
@@ -77,8 +89,62 @@ const UserSidebar = ({
     [userData, memberOverlay],
   );
 
+  const pausedUntilISO = displayUser.notificationsPausedUntil ?? null;
+  const isPaused =
+    pausedUntilISO !== null && new Date(pausedUntilISO) > new Date();
+
+  const invalidateProfile = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: authKeys.workspaceProfile(currentWorkspaceData.id),
+    });
+  };
+
+  const handlePauseNotifications = async (until: Date | null) => {
+    try {
+      await pauseNotificationsApi(
+        currentWorkspaceData.id,
+        until ? until.toISOString() : null,
+      );
+      await invalidateProfile();
+    } finally {
+      setIsPauseNotificationsOpen(false);
+      setOpenAvatarPopover(false);
+    }
+  };
+
+  const getNextMorning9 = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    return d;
+  };
+
+  const getNextMondayMorning9 = () => {
+    const d = new Date();
+    const daysUntilMonday = ((1 + 7 - d.getDay()) % 7) || 7;
+    d.setDate(d.getDate() + daysUntilMonday);
+    d.setHours(9, 0, 0, 0);
+    return d;
+  };
+
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+
+  const formatPausedUntil = (iso: string) => {
+    const d = new Date(iso);
+    const locale = language === "vi" ? "vi-VN" : "en-US";
+    return d.toLocaleString(locale, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: timeFormat === "12h",
+    });
+  };
+
   const handleUpdateStatus = async () => {
-    setOpenAvatarPopover(false)
+    setOpenAvatarPopover(false);
     await updateProfileApi(currentWorkspaceData.id, {
       isAway: !displayUser.isAway,
     });
@@ -87,20 +153,28 @@ const UserSidebar = ({
     });
     if (userData?.id) {
       await queryClient.invalidateQueries({
-        queryKey: ["workspace-member-status", currentWorkspaceData.id, userData.id],
+        queryKey: [
+          "workspace-member-status",
+          currentWorkspaceData.id,
+          userData.id,
+        ],
       });
     }
   };
 
   const handleClearStatus = async () => {
-    setOpenAvatarPopover(false)
+    setOpenAvatarPopover(false);
     await clearMemberStatusApi(currentWorkspaceData.id);
     await queryClient.invalidateQueries({
       queryKey: authKeys.workspaceProfile(currentWorkspaceData.id),
     });
     if (userData?.id) {
       await queryClient.invalidateQueries({
-        queryKey: ["workspace-member-status", currentWorkspaceData.id, userData.id],
+        queryKey: [
+          "workspace-member-status",
+          currentWorkspaceData.id,
+          userData.id,
+        ],
       });
     }
   };
@@ -109,7 +183,7 @@ const UserSidebar = ({
     await signOutApi();
     forceLightTheme();
     clearUser();
-    router.replace('/auth');
+    router.replace("/auth");
   };
 
   return (
@@ -160,22 +234,24 @@ const UserSidebar = ({
 
                   <div className="">
                     {/* Message */}
-                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none"
+                    <button
+                      className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none"
                       type="button"
                       onClick={() => {
-                        if (isDMsPage) {
-                          openNewMessageComposer();
-                        } else {
-                          router.push(`/workspace/${currentWorkspaceData.id}/`)
-                          openNewMessageComposer()
-                        }
+                        router.push(
+                          `/workspace/${currentWorkspaceData.id}/new-message`,
+                        );
                       }}
                     >
                       <div className="w-10 h-10 bg-[#5F2568] rounded-full flex items-center justify-center">
                         <HiOutlinePencilAlt size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text={t("message")} variant="p" className="text-left font-semibold" />
+                        <Typography
+                          text={t("message")}
+                          variant="p"
+                          className="text-left font-semibold"
+                        />
                         <Typography
                           text={t("messageDescription")}
                           variant="p"
@@ -190,7 +266,11 @@ const UserSidebar = ({
                         <FiHash size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text={t("channel")} variant="p" className="text-left font-semibold" />
+                        <Typography
+                          text={t("channel")}
+                          variant="p"
+                          className="text-left font-semibold"
+                        />
                         <Typography
                           text={t("channelDescription")}
                           variant="p"
@@ -205,7 +285,11 @@ const UserSidebar = ({
                         <IoMdHeadset size={20} className="text-white" />
                       </div>
                       <div>
-                        <Typography text={t("huddle")} variant="p" className="text-left font-semibold" />
+                        <Typography
+                          text={t("huddle")}
+                          variant="p"
+                          className="text-left font-semibold"
+                        />
                         <Typography
                           text={t("huddleDescription")}
                           variant="p"
@@ -215,13 +299,17 @@ const UserSidebar = ({
                     </button>
 
                     {/* Canvas */}
-                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
+                    {/* <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#0B4379] rounded-full flex items-center justify-center">
                         <LucideFilePlus2 size={20} className="text-white" />
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text={t("canvas")} variant="p" className="text-left font-semibold" />
+                          <Typography
+                            text={t("canvas")}
+                            variant="p"
+                            className="text-left font-semibold"
+                          />
                           <Typography
                             text={t("canvasDescription")}
                             variant="p"
@@ -232,16 +320,20 @@ const UserSidebar = ({
                           PRO
                         </span>
                       </div>
-                    </button>
+                    </button> */}
 
                     {/* List */}
-                    <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
+                    {/* <button className="flex w-full items-center gap-3 py-1 px-4 hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] border-none outline-none">
                       <div className="w-10 h-10 bg-[#7C4C00] rounded-full flex items-center justify-center">
                         <BsCardChecklist size={20} className="text-white" />
                       </div>
                       <div className="flex justify-between flex-1 items-center">
                         <div>
-                          <Typography text={t("list")} variant="p" className="text-left font-semibold" />
+                          <Typography
+                            text={t("list")}
+                            variant="p"
+                            className="text-left font-semibold"
+                          />
                           <Typography
                             text={t("listDescription")}
                             variant="p"
@@ -252,7 +344,7 @@ const UserSidebar = ({
                           PRO
                         </span>
                       </div>
-                    </button>
+                    </button> */}
 
                     {/* Separator */}
                     <hr className="border-gray-700" />
@@ -263,7 +355,11 @@ const UserSidebar = ({
                         <MdOutlinePersonAddAlt size={20} />
                       </div>
                       <div>
-                        <Typography text={t("invitePeople")} variant="p" className="text-left font-semibold" />
+                        <Typography
+                          text={t("invitePeople")}
+                          variant="p"
+                          className="text-left font-semibold"
+                        />
                       </div>
                     </button>
                   </div>
@@ -278,7 +374,7 @@ const UserSidebar = ({
       </div>
       <Tooltip>
         <div>
-          <Popover open={openAvatarPopover} onOpenChange={setOpenAvatarPopover} >
+          <Popover open={openAvatarPopover} onOpenChange={setOpenAvatarPopover}>
             <PopoverTrigger asChild>
               <TooltipTrigger asChild>
                 <div className="h-9 w-9 relative cursor-pointer">
@@ -303,7 +399,13 @@ const UserSidebar = ({
                 </div>
               </TooltipTrigger>
             </PopoverTrigger>
-            <PopoverContent side="right" withOverlay={true} align="end" alignOffset={-2} sideOffset={10}>
+            <PopoverContent
+              side="right"
+              withOverlay={true}
+              align="end"
+              alignOffset={-2}
+              sideOffset={10}
+            >
               <div className="py-2">
                 <div className="flex space-x-3 px-5 py-2">
                   <Avatar
@@ -342,9 +444,7 @@ const UserSidebar = ({
                 >
                   {displayUser.statusText ? (
                     <>
-                      <span
-                        className="dark:text-[#d1d2d3] truncate"
-                      >
+                      <span className="dark:text-[#d1d2d3] truncate">
                         {displayUser.statusEmoji ?? ""}
                       </span>
                       <Typography
@@ -378,10 +478,7 @@ const UserSidebar = ({
                       className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                       onClick={handleClearStatus}
                     >
-                      <Typography
-                        variant="p"
-                        text={t("clearStatus")}
-                      />
+                      <Typography variant="p" text={t("clearStatus")} />
                     </div>
                   )}
 
@@ -392,14 +489,138 @@ const UserSidebar = ({
                     <Typography
                       variant="p"
                       text={
-                        displayUser.isAway
-                          ? t("setAsActive")
-                          : t("setAsAway")
+                        displayUser.isAway ? t("setAsActive") : t("setAsAway")
                       }
                     />
                   </div>
-                  <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                    <Typography variant="p" text={t("pauseNotifications")} />
+
+                  <div
+                    onMouseEnter={() => setIsPauseNotificationsOpen(true)}
+                    onMouseLeave={() => setIsPauseNotificationsOpen(false)}
+                  >
+                    <div className="flex items-center justify-between hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
+                      <Typography variant="p" text={t("notifications")} />
+                      <div className="flex items-center gap-2">
+                        <Typography
+                          variant="p"
+                          className="text-xs"
+                          text={isPaused ? t("paused") : t("on")}
+                        />
+                        <MdOutlineKeyboardArrowRight size={13} />
+                      </div>
+                    </div>
+                    {isPauseNotificationsOpen && (
+                      <div>
+                        {isPaused ? (
+                          <div  className="absolute left-58 top-[50%] w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md z-50">
+                            <Button
+                              variant="submenu"
+                              onClick={() => handlePauseNotifications(null)}
+                              className="flex flex-col"
+                            >
+                              <Typography
+                                variant="p"
+                                text={t("resumeNotifications")}
+                              />
+                            <Typography
+                              variant="p"
+                              className="text-muted-foreground text-xs px-5 pb-1"
+                              text={t("pausedUntil", {
+                                time: formatPausedUntil(pausedUntilISO!),
+                              })}
+                            />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="absolute left-58 bottom-0  w-full border border-[#797c814d] bg-white dark:bg-[#1A1D21] py-2 shadow-lg rounded-md z-50">
+                            <Typography
+                              variant="p"
+                              className="text-muted-foreground text-xs px-5"
+                              text={t("pauseNotificationsFor")}
+                            />
+                            <Button
+                              variant="submenu"
+                              onClick={() =>
+                                handlePauseNotifications(
+                                  new Date(Date.now() + 30 * 60 * 1000),
+                                )
+                              }
+                            >
+                              <Typography
+                                variant="p"
+                                text={t("in30Minutes")}
+                              />
+                            </Button>
+                            <Button
+                              variant="submenu"
+                              onClick={() =>
+                                handlePauseNotifications(
+                                  new Date(Date.now() + 60 * 60 * 1000),
+                                )
+                              }
+                            >
+                              <Typography variant="p" text={t("in1Hour")} />
+                            </Button>
+                            <Button
+                              variant="submenu"
+                              onClick={() =>
+                                handlePauseNotifications(
+                                  new Date(Date.now() + 3 * 60 * 60 * 1000),
+                                )
+                              }
+                            >
+                              <Typography variant="p" text={t("in3Hours")} />
+                            </Button>
+                            <Button
+                              variant="submenu"
+                              onClick={() =>
+                                handlePauseNotifications(getNextMorning9())
+                              }
+                            >
+                              <Typography
+                                variant="p"
+                                text={t("untilTomorrow")}
+                              />
+                            </Button>
+                            <Button
+                              variant="submenu"
+                              onClick={() =>
+                                handlePauseNotifications(getNextMondayMorning9())
+                              }
+                            >
+                              <Typography
+                                variant="p"
+                                text={t("untilNextWeek")}
+                              />
+                            </Button>
+                            <Button
+                              variant="submenu"
+                              onClick={() => {
+                                setIsPauseNotiDialogOpen(true);
+                                setIsPauseNotificationsOpen(false);
+                              }}
+                            >
+                              <Typography variant="p" text={t("custom")} />
+                            </Button>
+
+                            <Separator className="my-2" />
+                            <Button
+                              variant="submenu"
+                              onClick={() => {
+                                openPreferences();
+                                setIsPauseNotificationsOpen(false);
+                                setOpenAvatarPopover(false);
+                              }}
+                            >
+                              <Typography
+                                variant="p"
+                                text={t("editYourWorkingHours")}
+                              />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
@@ -409,8 +630,8 @@ const UserSidebar = ({
                       openProfilePanel({
                         userData: displayUser,
                         workspaceId: currentWorkspaceData.id,
-                      })
-                      setOpenAvatarPopover(false)
+                      });
+                      setOpenAvatarPopover(false);
                     }}
                   >
                     <Typography variant="p" text={t("profile")} />
@@ -418,8 +639,8 @@ const UserSidebar = ({
                   <div
                     className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer"
                     onClick={() => {
-                      openPreferences()
-                      setOpenAvatarPopover(false)
+                      openPreferences();
+                      setOpenAvatarPopover(false);
                     }}
                   >
                     <Typography variant="p" text={t("preferences")} />
@@ -457,6 +678,13 @@ const UserSidebar = ({
         workspaceId={currentWorkspaceData.id}
         statusSource="sidebar"
         currentWorkspaceData={currentWorkspaceData}
+      />
+      <PauseNotificationsDialog
+        open={isPauseNotiDialogOpen}
+        onOpenChange={setIsPauseNotiDialogOpen}
+        onSave={async (iso) => {
+          await handlePauseNotifications(new Date(iso));
+        }}
       />
     </div>
   );

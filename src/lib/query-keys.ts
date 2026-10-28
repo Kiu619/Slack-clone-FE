@@ -56,6 +56,8 @@ export const workspaceKeys = {
       params.search,
     ] as const,
   recents: (id: string) => ['workspaces', id, 'recents'] as const,
+  memberEmails: (id: string) =>
+    ['workspaces', id, 'member-emails'] as const,
 }
 
 export const huddleKeys = {
@@ -67,6 +69,13 @@ export const huddleKeys = {
     ['huddles', 'workspace', workspaceId, 'recent', filters ?? {}] as const,
   weeklyHuddles: (workspaceId: string) =>
     ['huddles', 'workspace', workspaceId, 'weekly'] as const,
+}
+
+export const emailInviteKeys = {
+  detail: (token: string) => ['email-invite', token] as const,
+  sendOtp: (token: string) => ['email-invite', token, 'send-otp'] as const,
+  verifyOtp: (token: string) => ['email-invite', token, 'verify-otp'] as const,
+  accept: (token: string) => ['email-invite', token, 'accept'] as const,
 }
 
 export const notificationKeys = {

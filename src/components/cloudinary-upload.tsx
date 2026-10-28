@@ -5,6 +5,7 @@ import Typography from './ui/typography'
 import { ImageIcon, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { useRef, useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 
 interface LocalImageUploadProps {
@@ -18,6 +19,7 @@ export const LocalImageUpload = ({
   onChange,
   disabled
 }: LocalImageUploadProps) => {
+  const t = useTranslations("attachments.upload")
   const [preview, setPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -45,13 +47,13 @@ export const LocalImageUpload = ({
       // Validate file type
       const validTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp']
       if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image (PNG, JPG, JPEG, GIF, WEBP)')
+        toast.error(t('invalidImageType'))
         return
       }
 
       // Validate file size (10MB)
       if (file.size > 10000000) {
-        toast.error('File size must be less than 10MB')
+        toast.error(t('fileTooLarge'))
         return
       }
 

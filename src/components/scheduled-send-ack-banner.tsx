@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { CalendarClock } from 'lucide-react'
-import { formatScheduledSendAckSentence } from '@/lib/format-scheduled-send-ack'
+import { useAppTranslation } from '@/hooks/use-translation'
+import { computeScheduledSendAckI18n } from '@/lib/format-scheduled-send-ack'
 import { cn } from '@/lib/utils'
 
 type ScheduledSendAckBannerProps = {
@@ -21,10 +22,17 @@ export const ScheduledSendAckBanner = ({
   workspaceTimeZone,
   className,
 }: ScheduledSendAckBannerProps) => {
+  const t = useAppTranslation('draftsScheduled')
   const usePluralCopy = pendingScheduledCount >= 2
+
+  // Use the same i18n hook for the plural label so it localizes too.
   const sentence = usePluralCopy
-    ? `${pendingScheduledCount} messages scheduled to be sent.`
-    : formatScheduledSendAckSentence(scheduledAtIso, workspaceTimeZone)
+    ? t('ackSentence.plural', { count: pendingScheduledCount })
+    : (() => {
+        const i18n = computeScheduledSendAckI18n(scheduledAtIso, workspaceTimeZone)
+        return i18n ? t(i18n.key, i18n.params) : ''
+      })()
+
   const href = `/workspace/${workspaceId}/drafts?tab=scheduled`
 
   return (
@@ -45,7 +53,7 @@ export const ScheduledSendAckBanner = ({
           href={href}
           className="mt-0.5 inline-block font-medium text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
-          See all scheduled messages
+          {t('ackSentence.seeAll')}
         </Link>
       </div>
     </div>

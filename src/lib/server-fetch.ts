@@ -33,15 +33,96 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Refresh queue — tránh gọi /auth/refresh nhiều lần song song
+// ────────────────────────────────────────────────────────────────────────────
+
+let refreshPromise: Promise<boolean> | null = null
+
+async function tryRefresh(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers,
+        cache: 'no-store',
+      })
+      return res.ok
+    } catch {
+      return false
+    } finally {
+      setTimeout(() => {
+        refreshPromise = null
+      }, 50)
+    }
+  })()
+  return refreshPromise
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+): Promise<Response | null> {
+  const backoffs = [0, 100, 300]
+  let lastError: unknown = null
+  let lastResponse: Response | null = null
+
+  for (const backoff of backoffs) {
+    if (backoff > 0) await sleep(backoff)
+    try {
+      const res = await fetch(url, { ...init, cache: 'no-store' })
+      if (!isRetryableStatus(res.status)) return res
+      lastResponse = res
+    } catch (err) {
+      lastError = err
+      lastResponse = null
+    }
+  }
+
+  return lastResponse
+}
+
 async function serverFetch<T>(path: string): Promise<T | null> {
+  const headers = await getAuthHeaders()
+
+  let res: Response | null = null
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_URL}${path}`, {
-      headers,
-      cache: 'no-store',
-    })
+    res = await fetchWithRetry(`${API_URL}${path}`, { headers })
+  } catch {
+    return null
+  }
+
+  if (!res) return null
+
+  if (res.status === 401) {
+    const refreshed = await tryRefresh()
+    if (!refreshed) return null
+    try {
+      const retryHeaders = await getAuthHeaders()
+      res = await fetch(`${API_URL}${path}`, {
+        headers: retryHeaders,
+        cache: 'no-store',
+      })
+    } catch {
+      return null
+    }
     if (!res.ok) return null
-    return res.json() as Promise<T>
+  } else if (!res.ok) {
+    return null
+  }
+
+  try {
+    return (await res.json()) as T
   } catch {
     return null
   }

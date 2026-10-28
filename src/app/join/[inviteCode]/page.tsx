@@ -10,22 +10,43 @@ import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
 import { Button } from '@/components/ui/button'
 import Typography from '@/components/ui/typography'
 import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
+import { useAppTranslation } from '@/hooks/use-translation';
 
 export default function JoinWorkspacePage() {
   const params = useParams()
   const router = useRouter()
   const inviteCode = params.inviteCode as string
+  const t = useAppTranslation("joinWorkspace")
   const { isAuthenticated, isLoading: authLoading, user } = useAuth()
   const { mutateAsync: joinWorkspace, isPending } = useJoinWorkspace()
   const autoJoined = useRef(false)
+  const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const timeZone = useLanguageRegionStore((s) => s.timeZone)
 
-  // If not authenticated, redirect to auth with redirect back here
+  // If not authenticated, redirect to auth with redirect back here.
+  // Guard authLoading để tránh redirect nhầm khi Zustand auth store chưa hydrate
+  // từ cookie (lúc đó isAuthenticated tạm thời = false → effect sẽ nhảy sang /auth,
+  // proxy bounce /auth về / → user thấy flicker /join → /auth → /).
   useEffect(() => {
+    if (authLoading) return
     if (!isAuthenticated) {
       router.replace(`/auth?redirect=/join/${inviteCode}`)
     }
   }, [authLoading, isAuthenticated, inviteCode, router])
+
+  // Safety net: nếu authLoading=true quá lâu (auth fetch bị stuck do cookie
+  // expired / axios interceptor giữ refreshFailed / mạng chập chờn), sau 2.5s
+  // cưỡng bức redirect về /auth. Khi auth settle và page thoát loading, effect
+  // cleanup và clear timeout — không bao giờ trigger.
+  useEffect(() => {
+    if (!authLoading) return
+    safetyTimeoutRef.current = setTimeout(() => {
+      router.replace(`/auth?redirect=/join/${inviteCode}`)
+    }, 2500)
+    return () => {
+      if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current)
+    }
+  }, [authLoading, inviteCode, router])
 
   const handleJoin = async () => {
     if (autoJoined.current) return
@@ -33,7 +54,7 @@ export default function JoinWorkspacePage() {
 
     try {
       const workspace = await joinWorkspace({ inviteCode, timeZone })
-      toast.success(`You joined "${workspace.name}" successfully!`)
+      toast.success(t('joined', { name: workspace.name }))
       router.replace('/')
     } catch (err: unknown) {
       const msg =
@@ -47,10 +68,10 @@ export default function JoinWorkspacePage() {
               (err as { response: { data?: { message?: string } } }).response
                 .data?.message,
             )
-          : 'Failed to join workspace'
+          : t('failedToJoin')
 
       if (msg.includes('already a member')) {
-        toast.info('You are already a member of this workspace.')
+        toast.info(t('alreadyMember'))
         router.replace('/')
         return
       }

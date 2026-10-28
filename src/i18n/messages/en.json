@@ -6,6 +6,8 @@
     "edit": "Edit",
     "close": "Close",
     "confirm": "Confirm",
+    "done": "Done",
+    "saveChanges": "Save changes",
     "back": "Back",
     "next": "Next",
     "search": "Search",
@@ -16,6 +18,7 @@
     "info": "Info",
     "yes": "Yes",
     "no": "No",
+    "you": "You",
     "ok": "OK",
     "apply": "Apply",
     "reset": "Reset",
@@ -23,6 +26,7 @@
     "retry": "Retry",
     "today": "Today",
     "yesterday": "Yesterday",
+    "reactedWith": "Đã phản ứng với",
     "atTime": "at {time}",
     "monthShort": {
       "0": "Jan",
@@ -37,7 +41,17 @@
       "9": "Oct",
       "10": "Nov",
       "11": "Dec"
-    }
+    },
+    "reply": "Reply...",
+    "messageChannel": "Message #{channel}",
+    "customTime": "Custom time",
+    "scheduleLater": "Schedule for later...",
+    "sendEnter": "Send (Enter)",
+    "recent": "Recent",
+    "recentChannelsAndConversations": "Recent channels and conversations",
+    "noRecentChannelsOrDmsYet": "No recent channels or DMs yet",
+    "deletedUser": "Deleted user",
+    "deletedAccount": "Deleted account"
   },
   "navSidebar": {
     "addWorkspace": "Add a Workspace",
@@ -52,8 +66,14 @@
     "files": "Files",
     "later": "Later"
   },
+  "pagination": {
+    "pageOf": "Page {current} of {total} · {pageSize} per page",
+    "next": "Next",
+    "previous": "Previous"
+  },
   "preferences": {
     "title": "Preferences",
+    "availability": "Availability",
     "notifications": "Notifications",
     "appearance": "Appearance",
     "languageRegion": "Language & region",
@@ -66,7 +86,66 @@
     "discardChanges": "Discard changes",
     "keepEditing": "Keep editing",
     "saveChangesQuestion": "Save changes?",
-    "discardChangesConfirm": "Are you sure you want to discard your changes?"
+    "discardChangesConfirm": "Are you sure you want to discard your changes?",
+    "appearancePanel": {
+      "font": "Font",
+      "colorMode": "Color mode",
+      "colorModeDescription": "Choose if Slack’s appearance should be light or dark, or follow your computer’s settings.",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "slackThemes": "Slack themes",
+      "customTheme": "Custom theme",
+      "singleColor": "Single color",
+      "visionAssistive": "Vision assistive",
+      "funAndNew": "Fun and new",
+      "themeColors": "Theme colors",
+      "share": "Share",
+      "copied": "Copied",
+      "import": "Import",
+      "surpriseMe": "Surprise me",
+      "systemNavigation": "System navigation",
+      "selectedItems": "Selected items",
+      "windowGradient": "Window gradient",
+      "windowGradientDescription": "Blend Window background and Selected items colors together in window backgrounds.",
+      "themeCopiedToClipboard": "Theme strings copied to clipboard!",
+      "themeImportedSuccessfully": "Theme imported successfully!"
+    },
+    "notificationsPanel": {
+      "messagingDefaults": "Messaging defaults",
+      "messagingDefaultsDescription": "Tell us what you'd generally like to be notified about. You can also set specific rules for specific conversations.",
+      "howToNotifyYou": "How to notify you",
+      "desktopNotifications": "Desktop notifications",
+      "blockedInBrowserSettings": "Blocked in browser settings",
+      "alsoNotifyYouAbout": "Also notify you about",
+      "threadReplies": "Thread replies",
+      "newHuddles": "New huddles",
+      "sounds": "Sounds",
+      "notificationSoundMessages": "Notification sound (messages)",
+      "notificationSoundHuddles": "Notification sound (huddles)"
+    }
+  },
+  "availability": {
+    "workingHours": "Working hours",
+    "workingHoursDescription": "You'll only receive notifications in the hours you choose. Outside of those times, notifications will be paused.",
+    "allowNotifications": "Allow notifications:",
+    "to": "To",
+    "on": "On",
+    "off": "Off",
+    "everyDay": "Every day",
+    "weekdays": "Weekdays",
+    "custom": "Custom",
+    "endTimeMustBeAfterStartTime": "End time must be after start time",
+    "customNeedsAtLeastOneDay": "Set at least one day to enable custom schedule",
+    "days": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
   },
   "languageRegion": {
     "title": "Language & region",
@@ -75,7 +154,6 @@
     "languageDescription": "Select the language Slack uses in menus, buttons, and other text.",
     "timeZone": "Time zone",
     "timeZoneDescription": "Choose the time zone for your area. Messages will show their local times accordingly.",
-    "dateFormat": "Date format",
     "timeFormat": "Time format",
     "selectLanguage": "Select language...",
     "selectTimeZone": "Select time zone...",
@@ -85,6 +163,44 @@
     "savedSuccessfully": "Language & region settings saved!",
     "saveError": "Couldn't save your language settings. Try again.",
     "syncError": "Failed to sync language settings."
+  },
+  "messages": {
+    "noMessagesOnDate": "There are no messages on the selected date",
+    "errorLoadingMessages": "There was an error loading messages",
+    "noMessagesToDisplay": "There are no messages to display",
+    "errorLoadingFirstMessages": "There was an error loading the first messages",
+    "errorLoadingMostRecentMessages": "There was an error loading the most recent messages",
+    "saved": "Saved for later",
+    "removed": "Removed from Later",
+    "failedToSave": "Failed to save"
+  },
+  "userProfile": {
+    "updateFailed": "Failed to update profile"
+  },
+  "threadNotifications": {
+    "updateFailed": "Failed to update notification setting"
+  },
+  "memberPreferences": {
+    "syncFailed": "Failed to sync language settings"
+  },
+  "recorder": {
+    "cameraPermissionRequired": "Cannot access camera. Please grant permission.",
+    "browserDoesNotSupportVideoRecording": "Browser does not support video recording (Canvas error).",
+    "microphonePermissionRequired": "Cannot access microphone. Please grant permission."
+  },
+  "messageComposer": {
+    "selectChannelOrConversationFirst": "Please select a channel or conversation before scheduling.",
+    "scheduleWithAttachmentsNotSupported": "Scheduling messages with file attachments is not supported yet.",
+    "messageContentRequired": "Message content cannot be empty.",
+    "messageScheduled": "Message scheduled.",
+    "scheduleFailed": "Schedule failed.",
+    "fileUploadError": "An error occurred while uploading files. Please try again.",
+    "messageSentWithFiles": "Sent message with {count} file(s)",
+    "messageSentWithFilesPartial": "Message sent — {success}/{total} files uploaded, {failed} failed (see Retry).",
+    "messageSentFilesAllFailed": "Message sent but all {count} files failed to upload.",
+    "pendingFilesNotSavedToDraft": "Unsaved attachments were not included in the draft — only the draft text was saved.",
+    "fileTooLarge": "File \"{name}\" exceeds the 100MB limit. Please choose a smaller file.",
+    "unsupportedFileType": "File \"{name}\" is not supported — format could not be recognized."
   },
   "appearance": {
     "title": "Appearance",
@@ -118,7 +234,53 @@
     "password": "Password",
     "forgotPassword": "Forgot password?",
     "noAccount": "Don't have an account?",
-    "hasAccount": "Already have an account?"
+    "hasAccount": "Already have an account?",
+    "magicLinkSent": "Check your email for a magic link!",
+    "signedInSuccessfully": "Signed in successfully!",
+    "authenticationFailed": "Authentication failed. Please try again.",
+    "magicLinkExpired": "Magic link has expired. Please request a new one.",
+    "couldNotStartSignIn": "Could not start sign-in"
+  },
+  "joinWorkspace": {
+    "joined": "You joined \"{name}\" successfully!",
+    "alreadyMember": "You are already a member of this workspace.",
+    "failedToJoin": "Failed to join workspace"
+  },
+  "joinEmailInvite": {
+    "titleWorkspace": "Join {workspace} on Slack Clone",
+    "invitedAs": "You accept an invitation to {email}",
+    "firstLastName": "Your first and last name",
+    "continue": "Continue",
+    "terms": "By continuing, you're agreeing to our Terms and Privacy Policy",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithGithub": "Continue with GitHub",
+    "verifyTitle": "Enter the 6-digit code we sent to {email}",
+    "resendCode": "Resend code",
+    "resendIn": "Resend in {seconds}s",
+    "verifySubmitting": "Verifying…",
+    "tooManyAttempts": "Too many wrong attempts. Try again in 15 minutes.",
+    "alreadyAcceptedTitle": "You've already accepted this invitation",
+    "alreadyAcceptedDescription": "You're already a member of {workspace}. There's nothing else to do here.",
+    "expiredTitle": "This invitation has expired",
+    "expiredDescription": "Ask the person who invited you to send a new invitation.",
+    "invalidTitle": "Invitation link is invalid",
+    "invalidDescription": "This invitation may have been removed or has been revoked.",
+    "loading": "Loading invitation…",
+    "mismatchTitle": "Wrong account",
+    "mismatchDescription": "This invitation was sent to {inviteEmail}. Sign in with the account that received this email to continue.",
+    "goToHome": "Go to home instead",
+    "goToWorkspace": "Go to workspace",
+    "sendCodeFailed": "Could not send verification code. Try again.",
+    "verifyFailed": "Invalid or expired code. Try again.",
+    "acceptFailed": "Could not complete joining the workspace. Try again.",
+    "couldNotStartGoogle": "Could not start Google sign-in",
+    "couldNotStartGithub": "Could not start GitHub sign-in"
+  },
+  "workspaceCreate": {
+    "imageUploadFailed": "Cannot upload image. Please try again.",
+    "inviteCodeCopied": "Invite code copied to clipboard",
+    "created": "Workspace \"{name}\" created successfully!",
+    "somethingWentWrong": "Something went wrong. Please try again."
   },
   "workspace": {
     "title": "Workspace",
@@ -128,6 +290,25 @@
     "addChannel": "Add channels",
     "createChannel": "Create channel",
     "browseChannels": "Browse channels"
+  },
+  "chat": {
+    "timeline": {
+      "renamedChannelTo": "renamed the channel to: <b>{value}</b>",
+      "removedChannelName": "removed the channel name",
+      "setChannelTopic": "set the channel topic: <b>{value}</b>",
+      "removedChannelTopic": "removed the channel topic",
+      "setChannelDescription": "set the channel description: <b>{value}</b>",
+      "removedChannelDescription": "removed the channel description",
+      "changedPostingPermissions": "changed the channel posting permissions",
+      "changedToPrivate": "changed the channel to private",
+      "changedToPublic": "changed the channel to public",
+      "setDmTopic": "set the conversation topic: <b>{value}</b>",
+      "removedDmTopic": "removed the conversation topic",
+      "setDmDescription": "set the conversation description: <b>{value}</b>",
+      "removedDmDescription": "removed the conversation description",
+      "dmMerged": "Moved messages from a previous conversation into this one.",
+      "dmMergedOut": "Messages from this conversation were moved into your combined conversation."
+    }
   },
   "channel": {
     "title": "Channel",
@@ -180,6 +361,8 @@
     "moreActions": "More actions",
     "editMessage": "Edit message",
     "markUnread": "Mark unread",
+    "markedAsUnread": "Marked as unread",
+    "failedToMarkUnread": "Failed to mark as unread",
     "remindMe": "Remind me",
     "in30Minutes": "In 30 minutes",
     "in1Hour": "In 1 hour",
@@ -187,6 +370,8 @@
     "tomorrowAt9Am": "Tomorrow at 9:00 AM",
     "mondayAt9Am": "Monday at 9:00 AM",
     "turnOffNotificationsForReplies": "Turn off notifications for replies",
+    "turnOnNotificationsForReplies": "Turn on notifications for replies",
+    "notificationsUpdated": "Notification settings updated",
     "copyLink": "Copy link",
     "copyMessage": "Copy message",
     "pinToChannel": "Pin to channel",
@@ -219,7 +404,12 @@
     "are": "are",
     "were": "were",
     "was": "was",
-    "for": "for"
+    "for": "for",
+    "incomplete": "Incomplete",
+    "dueIn": "Due in",
+    "noRecentChannelsOrDmsYet": "No recent channels or DMs yet",
+    "deletedUser": "Deleted user",
+    "deletedAccount": "Deleted account"
   },
   "errors": {
     "networkError": "Network error. Please check your connection.",
@@ -404,7 +594,8 @@
     "huddleTitle": "Huddle: {name} - Slack",
     "huddlePreviewTitle": "Slack - Huddle Preview - {name}",
     "enterFullscreen": "Enter fullscreen",
-    "closeSpotlight": "Close spotlight"
+    "closeSpotlight": "Close spotlight",
+    "popupBlocked": "Your browser blocked the huddle preview window. Please allow pop-ups and try again."
   },
   "newMessage": {
     "title": "New message",
@@ -459,11 +650,12 @@
       "editTopic": "Edit topic",
       "editDescription": "Edit description",
       "namePlaceholder": "channel-name",
-      "nameHint": "Lowercase letters, numbers, hyphens and underscores only.",
+      "nameHint": "Letters, numbers, hyphens and spaces only — emoji and underscores are not allowed.",
+      "channelNameInvalidChars": "These characters aren't allowed: {chars}",
       "topicPlaceholder": "What is this channel about?",
       "descriptionPlaceholder": "Add a description to the channel",
       "nameMustBe2to80": "Name must be 2–80 characters",
-      "nameOnlyLowercase": "Only lowercase letters, numbers, hyphens and underscores",
+      "nameOnlyLowercase": "Only letters, numbers, hyphens and spaces",
       "channelNameUpdated": "Channel name updated",
       "topicUpdated": "Topic updated",
       "descriptionUpdated": "Description updated",
@@ -486,7 +678,10 @@
       "removedFromChannel": "Removed from channel",
       "couldNotAddMember": "Could not add member",
       "couldNotRemoveMember": "Could not remove member",
-      "clear": "Clear"
+      "confirmRemoveMember": "Remove from this channel?",
+      "confirmRemoveMemberDesc": "Are you sure you want to remove {name} from this channel? They will no longer have access to this channel.",
+      "clear": "Clear",
+      "deletedUser": "Deleted user"
     },
     "settings": {
       "edit": "Edit",
@@ -541,6 +736,7 @@
       "moreActions": "More actions",
       "openInNewTab": "Open in new tab",
       "saveForLater": "Save for later",
+      "removeFromLater": "Remove from later",
       "addToFolder": "Add to folder",
       "moveToFolder": "Move to folder",
       "deleteFile": "Delete file"
@@ -571,6 +767,7 @@
     "folder": {
       "addedToFolder": "Added to folder",
       "couldNotAdd": "Could not add to folder",
+      "alreadyInFolder": "This file is already in this folder",
       "loading": "Loading folders…",
       "noFolders": "No folders yet",
       "createFolder": "Create folder",
@@ -608,7 +805,17 @@
     "deleted": {
       "title": "Attachment was deleted",
       "description": "This file is no longer available because it has been deleted."
-    }
+    },
+    "delete": {
+      "fileDeleted": "File deleted successfully",
+      "fileDeleteFailed": "Failed to delete file. You might not have permission."
+    },
+    "upload": {
+      "invalidImageType": "Please select a valid image (PNG, JPG, JPEG, GIF, WEBP)",
+      "fileTooLarge": "File size must be less than 10MB"
+    },
+    "todayAt": "today at",
+  "yesterdayAt": "yesterday at"
   },
   "dialogs": {
     "common": {
@@ -620,6 +827,11 @@
     "confirmDeleteFile": {
       "title": "Confirm Delete File",
       "description": "Are you sure you want to delete this file?"
+    },
+    "pauseNoti": {
+      "title": "Pause notifications until…",
+      "time": "Time",
+      "save": "Save"
     },
     "editProfile": {
       "title": "Edit your profile",
@@ -661,7 +873,34 @@
       "done": "Done",
       "add": "Add",
       "couldNotAddMembers": "Could not add members",
-      "couldNotComplete": "Could not complete"
+      "couldNotComplete": "Could not complete",
+      "addAllSuccessOne": "Added {count} member",
+      "addAllSuccessMany": "Added {count} members",
+      "addAllAlreadyInChannel": "Everyone was already in this channel"
+    },
+    "invitePeople": {
+      "title": "Invite people to {workspace}",
+      "subtitle": "We'll send them an email to join this workspace.",
+      "emailAddressesLabel": "Email addresses",
+      "emailAddressesPlaceholder": "name@example.com, another@example.com",
+      "optionalAddToChannels": "Optional: Add to channels",
+      "channelsPlaceholder": "Search channels",
+      "copyInviteLink": "Copy invite link",
+      "inviteLinkCopied": "Invite link copied to clipboard",
+      "couldNotCopyInviteLink": "Could not copy invite link",
+      "sendInvitation": "Send invitation",
+      "sending": "Sending…",
+      "noMatchingChannels": "No matching channels",
+      "sendOneInvitationEmail": "Sent 1 invitation email",
+      "sendManyInvitationEmails": "Sent {count} invitation emails",
+      "alreadyInWorkspaceSkipped": "{count} address{count, plural, one {} other {es}} already in the workspace (skipped).",
+      "alreadyInWorkspaceInline": "is already in this workspace",
+      "alreadyInWorkspaceTooltip": "Already a member — will be skipped on send",
+      "sendDisabledMemberHint": "Remove members from the list to send",
+      "someEmailsFailed": "Some emails failed: {emails}",
+      "noInvitationEmailsSent": "No invitation emails sent.",
+      "couldNotSendInvitations": "Could not send invitations",
+      "channelIsPrivate": "Private channel"
     },
     "deactivateUser": {
       "title": "Deactivate user",
@@ -686,6 +925,26 @@
       "deleting": "Deleting",
       "delete": "Delete"
     },
+    "leaveChannel": {
+      "title": "Leave channel",
+      "description": "Are you sure you want to leave {name}?",
+      "leaving": "Leaving",
+      "leave": "Leave"
+    },
+    "createChannel": {
+      "title": "Create a channel",
+      "nameLabel": "Channel name",
+      "namePlaceholder": "e.g. plan-budget",
+      "visibilityLabel": "Visibility",
+      "publicLabel": "Public",
+      "publicDescription": "Anyone in the workspace can view and join this channel.",
+      "privateLabel": "Private",
+      "privateDescription": "Only specific people you invite can view this channel.",
+      "creatingButton": "Creating...",
+      "createButton": "Create Channel",
+      "createdSuccess": "#{name} created!",
+      "failedToCreate": "Failed to create channel"
+    },
     "createFolder": {
       "title": "Create a folder",
       "name": "Name",
@@ -695,6 +954,7 @@
       "creating": "Saving…",
       "create": "Create folder",
       "createdSuccess": "Folder created",
+      "addedToFolder": "File added to folder",
       "failedToCreate": "Failed to create folder"
     },
     "renameFolder": {
@@ -775,7 +1035,17 @@
       "clearFilters": "Clear filters",
       "done": "Done",
       "clearAll": "Clear all",
-      "noResultsFound": "No results found"
+      "noResultsFound": "No results found",
+      "fromPlaceholder": "ex. Zoe Maxwell",
+      "inPlaceholder": "ex. #project-unicorn",
+      "anyTime": "Any time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "last90Days": "Last 90 days",
+      "last180Days": "Last 180 days",
+      "last365Days": "Last 365 days"
     },
     "filterFilesSearch": {
       "title": "Filter by",
@@ -876,8 +1146,7 @@
       "save": "Save",
       "statusUpdatedSuccess": "Status updated successfully",
       "statusUpdateFailed": "Failed to update status. Please try again."
-    },
-    "recordVideo": {
+    },    "recordVideo": {
       "title": "Record video clip",
       "turnOnCamera": "Turn on camera",
       "turnOffCamera": "Turn off camera",
@@ -917,7 +1186,7 @@
     },
     "changeAccountType": {
       "title": "Change account type",
-      "description": "Select the account type {name} should have for {workspace}.",
+      "description": "Select the account type <strong>{name}</strong> should have for <strong>{workspace}</strong>.",
       "chooseAccountType": "Choose account type",
       "primaryOwner": "Primary Workspace Owner",
       "owner": "Workspace Owner",
@@ -946,6 +1215,8 @@
     "tomorrowAt9Am": "Tomorrow at 9:00 AM",
     "mondayAt9Am": "Monday at 9:00 AM",
     "turnOffNotificationsForReplies": "Turn off notifications for replies",
+    "turnOnNotificationsForReplies": "Turn on notifications for replies",
+    "notificationsUpdated": "Notification settings updated",
     "copyLink": "Copy link",
     "copyName": "Copy name",
     "linkCopiedToClipboard": "Link copied to clipboard",
@@ -986,9 +1257,14 @@
     "members2": "Members",
     "clear": "Clear",
     "deactivatedAccount": "Deactivated account",
+    "deletedAccount": "Deleted account",
     "you2": "(you)",
     "cancel": "Cancel",
     "save": "Save",
+    "removedFromDm": "Removed from conversation",
+    "couldNotRemoveMember": "Could not remove member",
+    "confirmRemoveMember": "Remove from this conversation?",
+    "confirmRemoveMemberDesc": "Are you sure you want to remove {name} from this conversation? They will no longer have access to this DM.",
     "adding": "Adding…",
     "add": "Add",
     "done": "Done",
@@ -1084,94 +1360,97 @@
       "fileTypesCount": "{count, plural, one {# file type} other {# file types}}"
     }
   },
-"search": {
-        "title": "Search",
-        "titleWithQuery": "Search: {query}",
-        "searchType": {
-          "messages": "Messages",
-          "dms": "DMs",
-          "files": "Files",
-          "channels": "Channels"
-        },
-        "sortOptions": {
-          "relevance": "Relevance",
-          "newest": "Newest",
-          "oldest": "Oldest",
-          "lastUpdated": "Last Updated",
-          "recentlyViewed": "Recently Viewed"
-        },
-        "sortBy": "Sort: {label}",
-        "filters": {
-          "from": "From",
-          "in": "In",
-          "with": "With",
-          "places": "{count} places",
-          "teammates": "{count} teammates"
-        },
-        "searchPeople": "Search people...",
-        "searchChannelsOrDMs": "Search channels or DMs...",
-        "suggestions": "Suggestions",
-        "recent": "Recent",
-        "clearAll": "Clear all",
-        "noPeopleFound": "No people found",
-        "noResultsFound": "No results found",
-        "results": "{count, plural, one {# result} other {# results}}",
-        "refreshing": "Refreshing...",
-        "noMessagesMatched": "No messages matched the current search.",
-        "noChannelsMatched": "No channels matched the current search.",
-        "noConversationsMatched": "No conversations matched the current search.",
-        "noFilesFound": "Nothing turned up",
-        "searchFailed": "Search failed",
-        "failedToLoadFiles": "Failed to load files",
-        "pagination": {
-          "pageOf": "Page {current} of {total} · {pageSize} per page"
-        },
-        "dateOptions": {
-          "anyTime": "Any time",
-          "today": "Today",
-          "yesterday": "Yesterday",
-          "last7Days": "Last 7 days",
-          "last30Days": "Last 30 days",
-          "last90Days": "Last 90 days",
-          "last180Days": "Last 180 days",
-          "last365Days": "Last 365 days"
-        },
-        "dateSet": "Date set",
-        "allTypes": "All Types",
-        "types": "{count} Types",
-        "noTopic": "No topic",
-        "noMessagesYet": "No messages yet",
-        "filterBy": "Filter by",
-        "anyType": "Any type",
-        "pdfs": "PDFs",
-        "images": "Images",
-        "videos": "Videos",
-        "audio": "Audio",
-        "snippets": "Snippets",
-        "date": "Date",
-        "fileType": "File type",
-        "messageHas": "Message has...",
-        "aFileAttached": "A file attached",
-        "aLinkShared": "A link shared",
-        "aSlackAppAction": "A Slack app action",
-        "sentInDM": "Sent in a DM",
-        "messageIs": "Message is...",
-        "inAThread": "In a thread",
-        "saved": "Saved",
-        "pinned": "Pinned",
-        "clearFilters": "Clear filters",
-        "searchAction": "Search",
-        "learnMoreAboutSearch": "Learn more about search",
-        "privateChannel": "Private channel",
-        "channel": "Channel",
-        "groupDM": "Group DM",
-        "directMessage": "Direct message",
-        "noChannelsFound": "No channels found",
-        "noConversationsFound": "No conversations found",
-        "workspaceMember": "Workspace member",
-        "directMessages": "Direct messages",
-        "channels": "Channels"
-      },
+  "search": {
+    "title": "Search",
+    "titleWithQuery": "Search: {query}",
+    "searchType": {
+      "messages": "Messages",
+      "dms": "DMs",
+      "files": "Files",
+      "channels": "Channels"
+    },
+    "sortOptions": {
+      "relevance": "Relevance",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "lastUpdated": "Last Updated",
+      "recentlyViewed": "Recently Viewed"
+    },
+    "sortBy": "Sort: {label}",
+    "filters": {
+      "from": "From",
+      "in": "In",
+      "with": "With",
+      "places": "{count} places",
+      "teammates": "{count} teammates"
+    },
+    "searchPeople": "Search people...",
+    "searchChannelsOrDMs": "Search channels or DMs...",
+    "suggestions": "Suggestions",
+    "recent": "Recent",
+    "clearAll": "Clear all",
+    "noPeopleFound": "No people found",
+    "noResultsFound": "No results found",
+    "results": "{count, plural, one {# result} other {# results}}",
+    "refreshing": "Refreshing...",
+    "noMessagesMatched": "No messages matched the current search.",
+    "noChannelsMatched": "No channels matched the current search.",
+    "noConversationsMatched": "No conversations matched the current search.",
+    "noFilesFound": "Nothing turned up",
+    "searchFailed": "Search failed",
+    "failedToLoadFiles": "Failed to load files",
+    "pagination": {
+      "pageOf": "Page {current} of {total} · {pageSize} per page",
+      "next": "Next",
+      "previous": "Previous"
+    },
+    "dateOptions": {
+      "anyTime": "Any time",
+      "alltime": "Any time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "last90Days": "Last 90 days",
+      "last180Days": "Last 180 days",
+      "last365Days": "Last 365 days"
+    },
+    "dateSet": "Date set",
+    "allTypes": "All Types",
+    "types": "{count} Types",
+    "noTopic": "No topic",
+    "noMessagesYet": "No messages yet",
+    "filterBy": "Filter by",
+    "anyType": "Any type",
+    "pdfs": "PDFs",
+    "images": "Images",
+    "videos": "Videos",
+    "audio": "Audio",
+    "snippets": "Snippets",
+    "date": "Date",
+    "fileType": "File type",
+    "messageHas": "Message has...",
+    "aFileAttached": "A file attached",
+    "aLinkShared": "A link shared",
+    "aSlackAppAction": "A Slack app action",
+    "sentInDM": "Sent in a DM",
+    "messageIs": "Message is...",
+    "inAThread": "In a thread",
+    "saved": "Saved",
+    "pinned": "Pinned",
+    "clearFilters": "Clear filters",
+    "searchAction": "Search",
+    "learnMoreAboutSearch": "Learn more about search",
+    "privateChannel": "Private channel",
+    "channel": "Channel",
+    "groupDM": "Group DM",
+    "directMessage": "Direct message",
+    "noChannelsFound": "No channels found",
+    "noConversationsFound": "No conversations found",
+    "workspaceMember": "Workspace member",
+    "directMessages": "Direct messages",
+    "channels": "Channels"
+  },
   "huddle": {
     "header": {
       "leaveHuddle": "Leave huddle",
@@ -1244,7 +1523,9 @@
       "startHuddleInChannel": "Start a huddle in a channel to see it here."
     },
     "pagination": {
-      "pageOf": "Page {current} of {total} · {pageSize} per page"
+      "pageOf": "Page {current} of {total} · {pageSize} per page",
+      "next": "Next",
+      "previous": "Previous"
     }
   },
   "workspaceShell": {
@@ -1321,6 +1602,13 @@
       "scheduledNoChannelOrDM": "Scheduled message is not attached to a channel or DM.",
       "convertedToDraft": "Converted to draft.",
       "draftSaveFailed": "Failed to save draft."
+    },
+    "ackSentence": {
+      "today": "Your message will be sent today at {time}.",
+      "future": "Your message will be sent on {date} at {time}.",
+      "invalid": "Your message will be sent at the scheduled time.",
+      "plural": "{count} messages scheduled to be sent.",
+      "seeAll": "See all scheduled messages"
     }
   },
   "workspaceSidePanel": {
@@ -1371,7 +1659,20 @@
     },
     "toast": {
       "archived": "Archived",
-      "movedBackToInProgress": "Moved back to In Progress"
+      "movedBackToInProgress": "Moved back to In Progress",
+      "reminderCreated": "Reminder created",
+      "failedToCreateReminder": "Failed to create reminder",
+      "failedToUpdateItem": "Failed to update item",
+      "failedToRemoveItem": "Failed to remove item",
+      "removedFromLater": "Removed from Later",
+      "failedToClearItems": "Failed to clear items",
+      "clearedCompletedItems": "Cleared completed items",
+      "reminderSetFor": "Reminder set for {date}",
+      "reminderCleared": "Reminder cleared",
+      "savedToLater": "Saved to Later",
+      "failedToSetReminder": "Failed to set reminder",
+      "markedAsCompleted": "Marked as completed",
+      "markedAsInProgress": "Marked as in progress"
     },
     "reminderPresets": {
       "in30Minutes": "In 30 minutes",
@@ -1465,7 +1766,6 @@
       "changeAccountType": "Change account type",
       "deactivateAccount": "Deactivate account",
       "reactivateAccount": "Reactivate account",
-      "deleteDeactivatedAccount": "Delete deactivated account",
       "deactivated": "Deactivated",
       "active": "Active",
       "pageOf": "Page {current} of {total} · {pageSize} per page",
@@ -1538,6 +1838,8 @@
     },
     "status": {
       "deactivatedAccount": "Deactivated account",
+      "deletedAccount": "Deleted account",
+      "deletedUser": "Deleted user",
       "addNamePronunciation": "Add a name pronunciation",
       "editStatus": "Edit status",
       "setStatus": "Set a status"
@@ -1588,7 +1890,14 @@
         "inlineCode": "Inline code",
         "codeBlock": "Code block",
         "formatText": "Format text",
-        "emoji": "Emoji"
+        "emoji": "Emoji",
+        "attachFile": "Attach file",
+        "mentionSomeone": "Mention someone (@)",
+        "recordVideo": "Record video clip",
+        "recordAudio": "Record audio clip",
+        "cancel": "Cancel",
+        "saveChanges": "Save Changes",
+        "scheduleForLater": "Schedule for later"
       }
     }
   },
@@ -1636,7 +1945,9 @@
       "deleteFailed": "Delete failed",
       "couldNotUpload": "Could not upload: {filename}",
       "fileAddedToFolder": "File added to folder",
-      "filesAddedToFolder": "{count} files added to folder"
+      "filesAddedToFolder": "{count} files added to folder",
+      "filesAddedToFolderPartial": "Added {success}/{total} files to folder, {failed} failed (see list).",
+      "allUploadsFailed": "Could not upload {count} files. Please try again."
     },
     "message": {
       "dropToAttach": "Drop to attach",
@@ -1710,12 +2021,43 @@
       "label": "New"
     },
     "welcome": {
-      "channelTitle": "This is the beginning of the channel",
-      "channelDescription": "This is the start of the channel {channelName}. Send a message to welcome people!"
+      "privateBadge": "private",
+      "deactivatedLabel": "Deactivated user",
+      "createdByYou": "You created this {privateLabel} channel on {date}. This is the beginning of {channelName} channel.",
+      "createdByYouNoDate": "You created this {privateLabel} channel. This is the beginning of {channelName} channel.",
+      "createdByOther": "{creatorName} created this {privateLabel} channel on {date}. This is the beginning of {channelName} channel.",
+      "createdByOtherNoDate": "{creatorName} created this {privateLabel} channel. This is the beginning of {channelName} channel.",
+      "deactivatedCreator": "Deactivated user created this {privateLabel} channel on {date}. This is the beginning of {channelName} channel.",
+      "deactivatedCreatorNoDate": "Deactivated user created this {privateLabel} channel. This is the beginning of {channelName} channel.",
+      "noCreator": "This is the beginning of {channelName} channel."
     },
     "loadingOlderMessages": "Loading older messages...",
     "loadingNewerMessages": "Loading newer messages...",
-    "newMessage": "{count, plural, =1 {# new message} other {# new messages}}"
+    "newMessage": "{count, plural, =1 {# new message} other {# new messages}}",
+    "datePositionNotFound": "Could not determine the position of the selected date"
+  },
+  "editor": {
+    "placeholder": "Thêm tin nhắn nếu bạn muốn.",
+    "toolbar": {
+      "bold": "Đậm (Ctrl+B)",
+      "italic": "Nghiêng (Ctrl+I)",
+      "strikethrough": "Gạch ngang",
+      "underline": "Gạch chân (Ctrl+U)",
+      "bulletList": "Danh sách gạch đầu dòng",
+      "orderedList": "Danh sách có thứ tự",
+      "insertLink": "Chèn liên kết",
+      "inlineCode": "Mã nội tuyến",
+      "codeBlock": "Khối mã",
+      "formatText": "Định dạng văn bản",
+      "emoji": "Emoji",
+      "attachFile": "Đính kèm tệp",
+      "mentionSomeone": "Nhắc ai đó (@)",
+      "recordVideo": "Ghi video clip",
+      "recordAudio": "Ghi audio clip",
+      "cancel": "Hủy",
+      "saveChanges": "Lưu thay đổi",
+      "scheduleForLater": "Lên lịch gửi sau"
+    }
   },
   "userSidebar": {
     "create": "Create",
@@ -1735,7 +2077,19 @@
     "clearStatus": "Clear status",
     "setAsActive": "Set yourself as active",
     "setAsAway": "Set yourself as away",
-    "pauseNotifications": "Pause notifications",
+    "notifications": "Notifications",
+    "pauseNotificationsFor": "Pause notifications for",
+    "resumeNotifications": "Resume notifications",
+    "pausedUntil": "Paused until {time}",
+    "on": "On",
+    "paused": "Paused",
+    "in30Minutes": "In 30 minutes",
+    "in1Hour": "In 1 hour",
+    "in3Hours": "In 3 hours",
+    "untilTomorrow": "Until tomorrow",
+    "untilNextWeek": "Until next week",
+    "custom": "Custom",
+    "editYourWorkingHours": "Edit your working hours",
     "profile": "Profile",
     "preferences": "Preferences",
     "signOut": "Sign out of {workspaceName}"

@@ -6,6 +6,7 @@ import type { MessageDraftSummary } from '@/lib/message-drafts'
 import { previewPlainFromDraftHtml } from '@/lib/message-drafts'
 import Typography from '@/components/ui/typography'
 import { Button } from '@/components/ui/button'
+import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
 import { formatDraftsScheduledTime } from './drafts-scheduled-format'
 import { resolveDraftSummaryTitle } from './drafts-scheduled-resolve'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,8 @@ export const DraftsTabContent = ({
 }: DraftsTabContentProps) => {
   const ctx = { channels, conversations, userId }
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
+  const language = useLanguageRegionStore((s) => s.language)
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat)
 
   if (summaries.length === 0) {
     return (
@@ -91,7 +94,10 @@ export const DraftsTabContent = ({
                 {resolveDraftSummaryTitle(row, ctx)}
               </span>
               <span className="shrink-0 text-xs text-[#616061] dark:text-[#ababad]">
-                {formatDraftsScheduledTime(row.updatedAt)}
+                {formatDraftsScheduledTime(new Date(row.updatedAt).toISOString(), {
+                  language,
+                  timeFormat,
+                })}
               </span>
             </div>
             <p className="mt-1 line-clamp-2 text-sm text-[#616061] dark:text-[#ababad]">

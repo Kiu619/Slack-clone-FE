@@ -12,6 +12,15 @@ export const apiClient = axios.create({
   },
 })
 
+// Auth recovery requests must bypass the response interceptor. In particular,
+// sending /auth/refresh through apiClient would make a failed refresh join its
+// own pending queue while isRefreshing=true and never settle.
+const authRecoveryClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+})
+
 /**
  * Maps error codes from backend to user-friendly messages.
  * These are displayed via toast notifications.
@@ -113,8 +122,9 @@ apiClient.interceptors.response.use(
 
       isRefreshing = true
       try {
-        await apiClient.post('/auth/refresh')
+        await authRecoveryClient.post('/auth/refresh')
         isRefreshing = false
+        refreshFailed = false
         // Resolve tất cả request đang chờ với retry của chúng
         const queue = pendingQueue
         pendingQueue = []
@@ -124,23 +134,21 @@ apiClient.interceptors.response.use(
         isRefreshing = false
         refreshFailed = true
         flushQueue(refreshError)
+        // A revoked but not-yet-expired refresh JWT still looks usable to the
+        // Next proxy (the proxy only decodes exp). Clear both HttpOnly cookies
+        // before navigating, otherwise /auth can bounce back to / forever.
+        try {
+          await authRecoveryClient.post('/auth/sign-out')
+        } catch {
+          // The redirect below is still required if the API is unavailable.
+        }
         redirectToAuth()
         return Promise.reject(refreshError)
       }
     }
 
-    // Handle other errors: show toast based on error code
-    const errorData = error.response?.data as
-      | { code?: string; message?: string }
-      | undefined
-    const errorCode = errorData?.code
-    const errorMessage = errorData?.message
-
-    if (errorCode && ERROR_CODE_MESSAGES[errorCode]) {
-      toast.error(ERROR_CODE_MESSAGES[errorCode])
-    } else if (errorMessage && status !== 401) {
-      toast.error(errorMessage)
-    }
+    // Let components handle their own error display (for i18n support)
+    // Error will be thrown for component's onError to catch
 
     return Promise.reject(error)
   },

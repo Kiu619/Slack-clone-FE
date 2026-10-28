@@ -30,16 +30,17 @@ function WeeklyHuddleCard({
       : item.entityLabel || "DM";
 
   const handleStartHuddle = () => {
-    openHuddlePreviewWindow({
-      workspaceId,
-      entityType: item.entityType,
-      entityId: item.entityId,
-      label: displayName,
-      mode: "start",
-    });
+    openHuddlePreviewWindow(
+      {
+        workspaceId,
+        entityType: item.entityType,
+        entityId: item.entityId,
+        label: displayName,
+        mode: "start",
+      },
+      { popupBlockedMessage: t("popupBlocked") },
+    );
   };
-
-  const timeText = item.huddleCount === 1 ? "time" : "times";
 
   return (
     <div
@@ -53,7 +54,7 @@ function WeeklyHuddleCard({
           {t('weeklySection.startHuddleIn', { name: displayName })}
         </span>
         <span className="truncate text-xs text-gray-400">
-          {t('youHuddledHere', { count: item.huddleCount }, { time: timeText })}
+          {t('youHuddledHere', { count: item.huddleCount })}
         </span>
         <Button
           variant="outline"

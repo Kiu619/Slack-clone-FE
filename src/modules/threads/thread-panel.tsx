@@ -6,6 +6,7 @@ import MessageItem from '@/components/message-item'
 import { useMessageComposer } from '@/hooks/use-message-composer'
 import { useChannel } from '@/hooks/use-channel'
 import { useLaterSavedMessageIds } from '@/hooks/use-saved-items'
+import { UploadingAttachmentsProvider } from '@/providers/UploadingAttachmentsProvider'
 import { getMessageByIdApi } from '@/apis'
 import { useAddReaction, useDeleteMessage, useThreadMessages, useToggleLaterMessage, useTogglePin, useUpdateMessage } from '@/hooks/use-messages'
 import { useChannelChatSocket, useConversationChatSocket, useSocket, useThreadSocket } from '@/hooks/use-socket'
@@ -107,9 +108,24 @@ export default function ThreadPanel({
     return ids
   }, [parentMessage?.id, resolvedMessageId, data])
 
-  const { savedMessageIdSet, remindAtByMessageId } = useLaterSavedMessageIds(
+  const threadAttachmentIdsForLater = useMemo(() => {
+    const ids: string[] = []
+    if (data?.pages) {
+      for (const p of data.pages) {
+        for (const m of p.messages) {
+          if (m.attachments) {
+            ids.push(...m.attachments.map((a) => a.id))
+          }
+        }
+      }
+    }
+    return ids
+  }, [data])
+
+  const { savedMessageIdSet, remindAtByMessageId, savedAttachmentIdSet } = useLaterSavedMessageIds(
     workspaceId,
     threadMessageIdsForLater,
+    threadAttachmentIdsForLater,
   )
 
   useThreadSocket(parentMessage?.id || '', isConnected, {})
@@ -250,6 +266,7 @@ export default function ThreadPanel({
           onSaveForLater={(id) => handleSaveForLater(id)}
           isSavedForLater={savedMessageIdSet.has(parentMessage!.id)}
           savedLaterRemindAtIso={remindAtByMessageId.get(parentMessage!.id)}
+          savedAttachmentIds={savedAttachmentIdSet}
           parentMessage={true}
           hideReplyButton={true}
           isInsideThreadPanel={true}
@@ -298,6 +315,7 @@ export default function ThreadPanel({
   }
 
   return (
+    <UploadingAttachmentsProvider>
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21]">
       {/* Header (Toolbar) */}
       <PanelHeader title={t("thread")} onClose={handleClose} />
@@ -341,6 +359,7 @@ export default function ThreadPanel({
                 onSaveForLater={(id) => handleSaveForLater(id)}
                 isSavedForLater={savedMessageIdSet.has(reply.id)}
                 savedLaterRemindAtIso={remindAtByMessageId.get(reply.id)}
+                savedAttachmentIds={savedAttachmentIdSet}
                 hideReplyButton={true}
                 isInsideThreadPanel={true}
                 canReplyInThread={postingPermission?.canReply ?? true}
@@ -437,5 +456,6 @@ export default function ThreadPanel({
         />
       </div>
     </div>
+    </UploadingAttachmentsProvider>
   )
 }

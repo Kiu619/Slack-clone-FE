@@ -26,6 +26,7 @@ import {
 import { Button } from '../ui/button'
 import Typography from '../ui/typography'
 import { MdOutlineCloudDownload } from 'react-icons/md'
+import { useDialogs } from '@/hooks/use-translation';
 
 // Helper
 function fmtTime(sec: number) {
@@ -222,6 +223,8 @@ export default function RecordVideoDialog({
 
   const isScreenSharing = !!screenStream
 
+  const t = useDialogs()
+
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="720px">
       {/* ── PREVIEW / RECORDING STATE ── */}
@@ -229,7 +232,7 @@ export default function RecordVideoDialog({
         <>
           <CustomDialogHeader onOpenChange={onOpenChange} className="px-5 py-3 border-[#797c814d]">
             <div className="flex items-center gap-3">
-              <Typography variant="h4">Record video clip</Typography>
+              <Typography variant="h4">{t("recordVideo.title")}</Typography>
               {/* {mode === 'recording' && (
                 <div className="flex items-center gap-2 text-red-500">
                   <span className="relative flex h-2 w-2">
@@ -277,7 +280,7 @@ export default function RecordVideoDialog({
                     {isCameraOff ? <LuVideoOff size={18} /> : <LuVideo size={18} />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p className="text-xs">{isCameraOff ? 'Turn on camera' : 'Turn off camera'}</p></TooltipContent>
+                <TooltipContent><p className="text-xs">{isCameraOff ? t("recordVideo.turnOnCamera") : t("recordVideo.turnOffCamera")}</p></TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -288,7 +291,7 @@ export default function RecordVideoDialog({
                     {isMicMuted ? <LuMicOff size={18} /> : <LuMic size={18} />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p className="text-xs">{isMicMuted ? 'Unmute' : 'Mute'}</p></TooltipContent>
+                <TooltipContent><p className="text-xs">{isMicMuted ? t("recordVideo.unmute") : t("recordVideo.mute")}</p></TooltipContent>
               </Tooltip>
 
             </div>
@@ -334,7 +337,7 @@ export default function RecordVideoDialog({
                       className="flex items-center gap-1.5 text-sm font-bold"
                     >
                       <LuCloud size={16} />
-                      Upload Video
+                      {t("recordVideo.uploadVideo")}
                     </Button>
                   </>
                 )}
@@ -351,7 +354,7 @@ export default function RecordVideoDialog({
                           className="flex items-center gap-1.5 rounded font-bold text-sm"
                         >
                           <LuMonitor size={16} />
-                          Share Screen
+                          {t("recordVideo.shareScreen")}
                         </Button>
                       ) : (
                         <Button
@@ -359,7 +362,7 @@ export default function RecordVideoDialog({
                           className="flex items-center gap-1.5 rounded font-bold text-sm"
                         >
                           <LuMonitorOff size={16} />
-                          Stop Sharing
+                          {t("recordVideo.stopSharing")}
                         </Button>
                       )
                     }
@@ -368,7 +371,7 @@ export default function RecordVideoDialog({
                       onClick={startRecording}
                       className='font-bold'
                     >
-                      Record
+                      {t("recordVideo.record")}
                     </Button>
                   </>
                 )}
@@ -382,7 +385,7 @@ export default function RecordVideoDialog({
                         className="flex items-center gap-1.5 px-3 py-1.5 font-bold"
                       >
                         <LuMonitor size={16} />
-                        Stop Sharing
+                        {t("recordVideo.stopSharing")}
                       </Button>
                     ) : (
                       <Button
@@ -390,7 +393,7 @@ export default function RecordVideoDialog({
                         className="flex items-center gap-1.5 px-3 py-1.5 font-bold"
                       >
                         <LuMonitor size={16} />
-                        Share Screen
+                        {t("recordVideo.shareScreen")}
                       </Button>
                     )}
 
@@ -407,18 +410,18 @@ export default function RecordVideoDialog({
                           {recordingState === 'recording' ? (
                             <>
                               <LuPause size={16} className="fill-current" />
-                              Pause
+                              {t("recordVideo.pause")}
                             </>
                           ) : (
                             <>
                               <LuPlay size={16} className="fill-current" />
-                              Resume
+                              {t("recordVideo.resume")}
                             </>
                           )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p className="text-xs">{recordingState === 'recording' ? 'Press Space to pause' : 'Press Space to resume'}</p>
+                        <p className="text-xs">{recordingState === 'recording' ? t("recordVideo.pressSpaceToPause") : t("recordVideo.pressSpaceToResume")}</p>
                       </TooltipContent>
                     </Tooltip>
 
@@ -428,7 +431,7 @@ export default function RecordVideoDialog({
                       variant="error"
                       className='font-bold'
                     >
-                      Stop
+                      {t("recordVideo.stop")}
                     </Button>
                   </>
                 )}
@@ -447,7 +450,7 @@ export default function RecordVideoDialog({
               className="flex items-center gap-1.5 font-bold"
             >
               <LuRefreshCw size={16} />
-              Start Over
+              {t("recordVideo.startOver")}
             </Button>
           </CustomDialogHeader>
 
@@ -504,14 +507,14 @@ export default function RecordVideoDialog({
                 className="flex items-center gap-1.5 text-[13px] font-bold"
               >
                 <MdOutlineCloudDownload size={15} />
-                Download
+                {t("recordVideo.download")}
               </Button>
               <Button
                 onClick={handleDone}
                 className="font-semibold"
                 variant="success"
               >
-                Done
+                {t("recordVideo.done")}
               </Button>
             </div>
           </CustomDialogFooter>

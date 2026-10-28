@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   CustomDialog,
@@ -28,11 +29,11 @@ interface Props {
   saving?: boolean;
 }
 
-const roleOptions: Array<{ value: WorkspaceMemberRole; label: string }> = [
-  { value: "primary_owner", label: "Primary Workspace Owner" },
-  { value: "owner", label: "Workspace Owner" },
-  { value: "admin", label: "Workspace Admin" },
-  { value: "member", label: "Regular Member" },
+const ROLE_VALUES: WorkspaceMemberRole[] = [
+  "primary_owner",
+  "owner",
+  "admin",
+  "member",
 ];
 
 export default function ChangeAccountTypeDialog({
@@ -43,20 +44,31 @@ export default function ChangeAccountTypeDialog({
   onSave,
   saving = false,
 }: Props) {
+  const t = useTranslations("dialogs.changeAccountType");
+  const tCommon = useTranslations("common");
+
   const initialRole = member.role ?? "member";
   const [selectedRole, setSelectedRole] =
     useState<WorkspaceMemberRole>(initialRole);
 
-  const description = useMemo(() => {
-    const memberName =
-      member.name?.trim() || member.displayName?.trim() || member.email;
-    return (
-      <>
-        Select the account type <strong>{memberName}</strong> should have for{" "}
-        <strong>{workspace.name}</strong>.
-      </>
-    );
-  }, [member.displayName, member.email, member.name, workspace.name]);
+  const memberName =
+    member.name?.trim() || member.displayName?.trim() || member.email;
+
+  const roleOptions = useMemo(
+    () =>
+      ROLE_VALUES.map((value) => ({
+        value,
+        label:
+          value === "primary_owner"
+            ? t("primaryOwner")
+            : value === "owner"
+              ? t("owner")
+              : value === "admin"
+                ? t("admin")
+                : t("member"),
+      })),
+    [t],
+  );
 
   const canSave = selectedRole !== initialRole && !saving;
 
@@ -67,19 +79,23 @@ export default function ChangeAccountTypeDialog({
         className="border-[#ece8ec] px-7 py-6"
       >
         <CustomDialogTitle className="text-[28px] font-bold tracking-[-0.03em]">
-          Change account type
+          {t("title")}
         </CustomDialogTitle>
       </CustomDialogHeader>
 
       <CustomDialogBody className="px-7 py-5">
         <div className="flex flex-col gap-6">
           <Typography className="text-[18px] leading-7">
-            {description}
+            {t.rich("description", {
+              name: memberName,
+              workspace: workspace.name,
+              strong: (chunks) => <strong>{chunks}</strong>,
+            })}
           </Typography>
 
           <div className="flex flex-col gap-3">
             <Typography className="text-[16px] font-semibold">
-              Choose account type
+              {t("chooseAccountType")}
             </Typography>
 
             <div className="flex flex-col gap-3">
@@ -128,7 +144,7 @@ export default function ChangeAccountTypeDialog({
           onClick={() => onOpenChange(false)}
           className="h-10 rounded-[6px] border-[#cfcacf] px-5 text-[14px] font-semibold"
         >
-          Cancel
+          {tCommon("cancel")}
         </Button>
         <Button
           type="button"
@@ -140,10 +156,10 @@ export default function ChangeAccountTypeDialog({
           {saving ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Saving
+              {t("saving")}
             </span>
           ) : (
-            "Save changes"
+            t("saveChanges")
           )}
         </Button>
       </CustomDialogFooter>

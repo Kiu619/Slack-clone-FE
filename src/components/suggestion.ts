@@ -54,6 +54,12 @@ export const createSuggestion = (
       const map = overlayMap()
       const q = query.trim().toLowerCase()
 
+      // Chỉ gợi ý các thành viên đang còn 'active' trong workspace.
+      // Lưu ý: workspaceMembers được truyền vào từ API `getWorkspaceMembers` không bao gồm
+      // user đã bị hard-delete (đã được loại bỏ trước khi trả về), nên filter `isActiveWorkspaceMember`
+      // đã đủ để chặn cả user 'deactivated' lẫn user 'deleted' (không tồn tại trong list).
+      // Nếu sau này backend trả về user có status 'deleted', filter này vẫn catch được
+      // vì 'deleted' !== 'active'.
       const members = workspaceMembers
         .filter(isActiveWorkspaceMember)
         .filter((item) => {

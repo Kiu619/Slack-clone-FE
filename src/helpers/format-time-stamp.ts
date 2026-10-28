@@ -1,15 +1,7 @@
-import { isToday, isYesterday, format } from "date-fns"
-import type { DateFormat, Language, TimeFormat } from "@/stores/useLanguageRegionStore"
-
-const DATE_FORMAT_PATTERNS: Record<DateFormat, string> = {
-  en_US: "MM/dd/yyyy",
-  vi_VN: "dd/MM/yyyy",
-}
-
-const TIME_FORMAT_PATTERNS: Record<TimeFormat, string> = {
-  "12h": "hh:mm a",
-  "24h": "HH:mm",
-}
+import { isToday, isYesterday } from "date-fns"
+import type { Language, TimeFormat } from "@/stores/useLanguageRegionStore"
+import { formatDate } from "@/lib/format-date"
+import { formatTime } from "@/lib/format-time"
 
 const YESTERDAY_STRINGS: Record<Language, string> = {
   en: "Yesterday at",
@@ -18,11 +10,11 @@ const YESTERDAY_STRINGS: Record<Language, string> = {
 
 export function formatTimestamp(
   dateStr: string,
-  opts: { dateFormat: DateFormat; timeFormat: TimeFormat; language: Language },
+  opts: { timeFormat: TimeFormat; language: Language },
 ): string {
   const date = new Date(dateStr)
-  const timeStr = format(date, TIME_FORMAT_PATTERNS[opts.timeFormat])
+  const timeStr = formatTime(date, opts.timeFormat)
   if (isToday(date)) return timeStr
   if (isYesterday(date)) return `${YESTERDAY_STRINGS[opts.language]} ${timeStr}`
-  return `${format(date, DATE_FORMAT_PATTERNS[opts.dateFormat])} ${timeStr}`
+  return `${formatDate(date, opts.language)} ${timeStr}`
 }

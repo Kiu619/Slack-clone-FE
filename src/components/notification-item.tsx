@@ -28,6 +28,7 @@ import { FiHash } from "react-icons/fi";
 import { useAppTranslation } from "@/hooks/use-translation";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 import { formatMessageTime } from "@/lib/format-message-time";
+import { resolveUserDisplayInfo } from "@/lib/user-display";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -51,7 +52,6 @@ export default function NotificationItem({
   const commonT = useAppTranslation("common");
   const language = useLanguageRegionStore((s) => s.language);
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
   const storeMessage = useMessageStore(
     useCallback(
       (state) =>
@@ -67,15 +67,30 @@ export default function NotificationItem({
   );
   const actorDisplay = useMemo(() => {
     if (!actor) return null;
+    // Khi user đã bị xoá khỏi workspace, backend trả về name = "Deleted user", avatar = null,
+    // và membershipStatus = "deleted" (xem notification.service.ts).
+    // Vẫn giữ email trống vì backend đã sanitize (chỉ set '' cho hard-deleted user).
     const base: User = {
       id: actor.id,
-      email: "",
+      email: (actor as User & { email?: string }).email ?? "",
       name: actor.name,
-      displayName: actor.name,
+      displayName: actor.displayName ?? actor.name,
       avatar: actor.avatar,
+      membershipStatus: (actor as User).membershipStatus,
     };
     return mergeUserForDisplay(base, memberOverlay);
   }, [actor, memberOverlay]);
+
+  // Resolved display info: xử lý nhất quán với phần còn lại của UI
+  // - Deleted user → "Deleted user" + avatar null
+  // - Deactivated   → tên thật + badge "Deactivated"
+  const displayInfo = useMemo(
+    () =>
+      resolveUserDisplayInfo(actorDisplay, {
+        deletedLabel: t("common.deletedUser"),
+      }),
+    [actorDisplay, t],
+  );
 
   const getIcon = () => {
     switch (type) {
@@ -133,7 +148,6 @@ export default function NotificationItem({
       commonT,
       language,
       timeFormat,
-      dateFormat,
     });
   };
 
@@ -185,9 +199,9 @@ export default function NotificationItem({
       onClick={() => onClick?.(notification)}
       className={cn(
         "group relative mb-2.5 flex items-start gap-3 rounded-[18px] border   px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors",
-        "hover:border-white/14 hover:bg-[#22252c]",
+        "hover:border-white/14 hover:bg-[rgba(232,226,226,0.4)]  dark:hover:bg-[#22252c]",
         isSelected && "border-white/16 bg-[#252a33]",
-        !isRead && "before:absolute before:inset-y-3 before:left-0 before:w-[3px] before:rounded-full before:bg-[#d946ef]",
+        !isRead && "before:absolute before:inset-y-3 before:left-0 before:w-0.75 before:rounded-full before:bg-[#d946ef]",
       )}
     >
       <div
@@ -207,9 +221,14 @@ export default function NotificationItem({
       <div className="flex-1 flex items-start gap-x-3 min-w-0 cursor-pointer">
         <div className="relative shrink-0">
           <Avatar size="default" className="rounded-md">
-            <AvatarImage src={actorDisplay?.avatar || ""} />
-            <AvatarFallback className="rounded-md bg-sky-500 text-white text-[10px]">
-              {(actorDisplay?.displayName ?? actorDisplay?.name)?.charAt(0).toUpperCase() || "U"}
+            {displayInfo.avatar ? <AvatarImage src={displayInfo.avatar} /> : null}
+            <AvatarFallback
+              className={cn(
+                "rounded-md text-[10px] text-white",
+                displayInfo.isDeleted ? "bg-[#3a3d41]" : "bg-sky-500",
+              )}
+            >
+              {displayInfo.initials}
             </AvatarFallback>
           </Avatar>
           <div className="absolute -bottom-1 -right-1 rounded-full bg-[#111318] p-1 shadow-sm ring-1 ring-white/10">
@@ -221,16 +240,38 @@ export default function NotificationItem({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-1.5">
-                <Typography variant="p" className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
-                  {actorDisplay?.displayName || actorDisplay?.name || t("someone")}
+                <Typography
+                  variant="p"
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[15px] font-semibold",
+                    displayInfo.isDeleted && "text-[#ababad]",
+                  )}
+                >
+                  {displayInfo.name || t("someone")}
                 </Typography>
-                {actorDisplay ? (
+                {actorDisplay && !displayInfo.isDeleted && !displayInfo.isDeactivated ? (
                   <UserStatusEmojiInline
                     statusEmoji={actorDisplay.statusEmoji}
                     statusText={actorDisplay.statusText}
                     emojiClassName="text-[13px]"
                     interactive={Boolean(actorDisplay.statusText?.trim())}
                   />
+                ) : null}
+                {displayInfo.isDeactivated ? (
+                  <span
+                    className="shrink-0 rounded bg-[#e8e8e8] px-1.5 py-0.5 text-[11px] font-semibold text-[#616061] dark:bg-[#2f3338] dark:text-[#ababad]"
+                    title={t("status.deactivatedAccount")}
+                  >
+                    deactivated
+                  </span>
+                ) : null}
+                {displayInfo.isDeleted ? (
+                  <span
+                    className="shrink-0 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-red-300"
+                    title={t("common.deletedAccount")}
+                  >
+                    deleted
+                  </span>
                 ) : null}
               </div>
               <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
@@ -245,13 +286,13 @@ export default function NotificationItem({
 
             <div className="relative h-8 w-[92px] shrink-0">
               <div className="absolute inset-0 flex items-center justify-end transition-opacity duration-150 group-hover:opacity-0">
-                <span className="whitespace-nowrap text-[12px] text-[#c7cad1]">
+                <span className="whitespace-nowrap text-[12px]">
                   {formatTime(createdAt)}
                 </span>
               </div>
 
               <div className="absolute inset-0 flex items-center justify-end opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#1a1d22] p-0.5 shadow-sm">
+                <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white dark:bg-[#1a1d22] p-0.5 shadow-sm">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -297,13 +338,13 @@ export default function NotificationItem({
               {sanitizedPreviewContent ? (
                 <Typography
                   variant="p"
-                  className="line-clamp-2 break-words text-[15px] font-medium text-white"
+                  className="line-clamp-2 wrap-break-word text-[15px] font-medium"
                   dangerouslySetInnerHTML={{ __html: sanitizedPreviewContent }}
                 />
               ) : (
                 <Typography
                   variant="p"
-                  className="line-clamp-2 break-words text-[15px] font-medium text-white"
+                  className="line-clamp-2 wrap-break-word text-[15px] font-medium"
                 >
                   {attachmentPreviewText}
                 </Typography>

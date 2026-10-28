@@ -19,6 +19,7 @@ export function useAuth() {
     data: user,
     isLoading,
     isError,
+    refetch: refetchUser,
   } = useQuery<AccountUser>({
     queryKey: authKeys.me,
     queryFn: async () => {
@@ -60,5 +61,6 @@ export function useAuth() {
     isAuthenticated: !isError && !!user,
     logout: logoutMutation.mutate,
     isLoggingOut: logoutMutation.isPending,
+    refetch: refetchUser,
   }
 }

@@ -10,6 +10,7 @@ import Typography from "../ui/typography";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { useFolderDialogStore } from "@/stores/useFolderDialogStore";
 
 const ITEM =
   "px-5 py-1.5 cursor-pointer text-sm hover:text-white hover:bg-selection-hover";
@@ -19,8 +20,10 @@ type Props = {
   attachmentId: string;
   className?: string;
   /** Mở flow tạo folder (thường chuyển tab Folders + dialog) */
-  onRequestCreateFolder?: () => void;
+  onRequestCreateFolder?: (attachmentId: string) => void;
   effectiveFolderId?: string | null;
+  /** True nếu đang trong DM conversation, false nếu trong channel */
+  isDM?: boolean;
 };
 
 export function AddToFolderSubmenu({
@@ -29,17 +32,25 @@ export function AddToFolderSubmenu({
   className,
   onRequestCreateFolder,
   effectiveFolderId,
+  isDM = false,
 }: Props) {
   const t = useAppTranslation("attachments")
   const queryClient = useQueryClient();
+  const folderDialog = useFolderDialogStore();
+
+  // Use prop if provided, otherwise fallback to Zustand store
+  const handleCreateFolder = onRequestCreateFolder
+    ? () => onRequestCreateFolder?.(attachmentId)
+    : () => folderDialog.open(targetId, isDM ?? false, attachmentId);
+
   const { data, isPending } = useQuery({
     queryKey: folderKeys.list(targetId),
-    queryFn: () => listChannelFoldersApi(targetId),
+    queryFn: () => listChannelFoldersApi(targetId, isDM),
   });
 
   const { mutate, isPending: isAdding } = useMutation({
     mutationFn: (folderId: string) =>
-      addAttachmentToFolderApi(targetId, folderId, attachmentId),
+      addAttachmentToFolderApi(targetId, folderId, attachmentId, isDM),
     onSuccess: () => {
       toast.success(t("folder.addedToFolder"));
       void queryClient.invalidateQueries({
@@ -48,7 +59,7 @@ export function AddToFolderSubmenu({
       void queryClient.invalidateQueries({
         predicate: (q) =>
           Array.isArray(q.queryKey) &&
-          q.queryKey[0] === "channels" &&
+          (q.queryKey[0] === "channels" || q.queryKey[0] === "conversations") &&
           q.queryKey[1] === targetId &&
           q.queryKey[2] === "folders" &&
           q.queryKey.length >= 5 &&
@@ -56,10 +67,15 @@ export function AddToFolderSubmenu({
       });
     },
     onError: (err: unknown) => {
-      const msg = isAxiosError(err)
-        ? ((err.response?.data as { message?: string })?.message ?? err.message)
-        : t("folder.couldNotAdd");
-      toast.error(typeof msg === "string" ? msg : t("folder.couldNotAdd"));
+      if (isAxiosError(err) && err.response?.status === 409) {
+        // Attachment already exists in folder (backend returns ConflictException)
+        toast.error(t("folder.alreadyInFolder"));
+      } else {
+        const msg = isAxiosError(err)
+          ? ((err.response?.data as { message?: string })?.message ?? err.message)
+          : t("folder.couldNotAdd");
+        toast.error(typeof msg === "string" ? msg : t("folder.couldNotAdd"));
+      }
     },
   });
 
@@ -79,18 +95,16 @@ export function AddToFolderSubmenu({
         <p className="px-3 text-[13px] text-[#616061] dark:text-[#ababad] mb-2">
           {t("folder.noFolders")}
         </p>
-        {onRequestCreateFolder ? (
-          <button
-            type="button"
-            className={ITEM + " w-full text-left"}
-            onClick={(e) => {
-              e.stopPropagation();
-              onRequestCreateFolder();
-            }}
-          >
-            <Typography variant="p" text={t("folder.createFolder")} />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={ITEM + " w-full text-left"}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCreateFolder();
+          }}
+        >
+          <Typography variant="p" text={t("folder.createFolder")} />
+        </button>
       </div>
     );
   }
@@ -122,19 +136,15 @@ export function AddToFolderSubmenu({
             </div>
           ),
       )}
-      {onRequestCreateFolder ? (
-        <>
-          <Button
-            variant="submenu"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRequestCreateFolder();
-            }}
-          >
-            <Typography variant="p" text={t("folder.newFolder")} />
-          </Button>
-        </>
-      ) : null}
+      <Button
+        variant="submenu"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleCreateFolder();
+        }}
+      >
+        <Typography variant="p" text={t("folder.newFolder")} />
+      </Button>
     </div>
   );
 }

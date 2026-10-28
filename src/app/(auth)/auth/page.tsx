@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { FcGoogle } from 'react-icons/fc'
 import { RxGithubLogo } from 'react-icons/rx'
 import { z } from 'zod'
+import { useTranslations } from 'next-intl'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +44,7 @@ const AuthPage = () => {
 }
 
 const AuthPageContent = () => {
+  const t = useTranslations("auth")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const searchParams = useSearchParams()
 
@@ -65,7 +67,7 @@ const AuthPageContent = () => {
         email: values.email,
         redirect: redirect ?? undefined,
       })
-      toast.success('Check your email for a magic link!')
+      toast.success(t('magicLinkSent'))
       form.reset()
     } catch (err) {
       const message = axios.isAxiosError(err)
@@ -80,17 +82,16 @@ const AuthPageContent = () => {
   async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
     try {
       await (provider === 'google'
-        ? initGoogleOAuthApi(redirect ?? undefined)
-        : initGithubOAuthApi(redirect ?? undefined))
+        ? initGoogleOAuthApi({ redirect: redirect ?? undefined })
+        : initGithubOAuthApi({ redirect: redirect ?? undefined }))
       window.location.href = `${API_URL}/auth/${provider}`
     } catch (err) {
       const message = axios.isAxiosError(err)
-        ? err.response?.data?.message ?? 'Could not start sign-in'
-        : 'Could not start sign-in'
+        ? err.response?.data?.message ?? t('couldNotStartSignIn')
+        : t('couldNotStartSignIn')
       toast.error(message)
     }
   }
-
   function handleGoogleSignIn() {
     void handleOAuth('google')
   }

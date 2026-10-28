@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { HuddlePageItem, RecentHuddlesResponse } from "@/lib/huddle";
-import { formatDistanceToNow } from "date-fns";
 import { RiHeadphoneLine } from "react-icons/ri";
 import {
   Tooltip,
@@ -38,7 +37,9 @@ import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
 import { useAppTranslation } from "@/hooks/use-translation";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { useNowMs } from "@/hooks/use-now-ms";
 import { formatMessageTime } from "@/lib/format-message-time";
+import { formatRelativeTimeLoose } from "@/lib/format-relative-time";
 
 type HuddleListItemProps = {
   huddle: HuddlePageItem;
@@ -72,7 +73,7 @@ export function HuddleListItem({
   const pathname = usePathname();
   const language = useLanguageRegionStore((s) => s.language);
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
+  const nowMs = useNowMs();
   const { setFocusedMessageId } = useMessageFocusStore();
   const [openSeeParticipantsDialog, setOpenSeeParticipantsDialog] =
     useState(false);
@@ -81,8 +82,8 @@ export function HuddleListItem({
   const queryClient = useQueryClient();
   const isActive = huddle.status === "active";
   const displayTime = huddle.endedAt
-    ? formatMessageTime(huddle.endedAt, { t, commonT, language, timeFormat, dateFormat })
-    : formatDistanceToNow(new Date(huddle.startedAt), { addSuffix: true });
+    ? formatMessageTime(huddle.endedAt, { t, commonT, language, timeFormat })
+    : formatRelativeTimeLoose(new Date(huddle.startedAt), nowMs, { addSuffix: true }, language);
 
   const { saveMessage } = useSavedItems();
   const feedMessageId = huddle.feedMessageId;
@@ -115,7 +116,14 @@ export function HuddleListItem({
 
   const displayDuration = huddle.endedAt
     ? formatDuration(huddle.durationSeconds)
-    : t('startedAgo', { time: formatDistanceToNow(new Date(huddle.startedAt), { addSuffix: false }) });
+    : t('startedAgo', {
+        time: formatRelativeTimeLoose(
+          new Date(huddle.startedAt),
+          nowMs,
+          { addSuffix: false },
+          language,
+        ),
+      });
 
   const handleClick = () => {
     if (!feedMessageId) return;

@@ -7,6 +7,16 @@ import {
 } from "@/apis";
 import Avatar from "@/components/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import Typography from "@/components/ui/typography";
@@ -37,10 +47,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 function displayLabel(m: ChannelMember): string {
   return (
-    m.displayName?.trim() ||
-    m.name?.trim() ||
-    m.email.split("@")[0] ||
-    m.email
+    m.displayName?.trim() || m.name?.trim() || m.email.split("@")[0] || m.email
   );
 }
 
@@ -75,11 +82,14 @@ function MemberRow({
   addPending: boolean;
   removePending: boolean;
   onAdd: () => void;
-  onRemove: () => void;
+  onRemove: (m: ChannelMember) => void;
   t: ReturnType<typeof useAppTranslation>;
 }) {
   const overlay = useWorkspaceMemberOverlay(workspaceId, m.id);
-  const row = useMemo(() => mergeChannelMemberWithOverlay(m, overlay), [m, overlay]);
+  const row = useMemo(
+    () => mergeChannelMemberWithOverlay(m, overlay),
+    [m, overlay],
+  );
   const isYou = currentUserId === row.id;
   const primary = displayLabel(row);
   const secondary = secondaryLine(row);
@@ -105,7 +115,7 @@ function MemberRow({
           <div className="flex min-w-0 items-center gap-1">
             <div className="min-w-0 flex-1">
               <Typography
-                text={isYou ? `${primary} ${t('you')}` : primary}
+                text={isYou ? `${primary} ${t("you")}` : primary}
                 className="truncate text-sm font-bold text-[#1d1c1d] dark:text-[#f9f8f9]"
               />
             </div>
@@ -139,22 +149,24 @@ function MemberRow({
             onAdd();
           }}
         >
-          {t('addToChannel')}
+          {t("addToChannel")}
         </Button>
       ) : null}
 
       {showRemove ? (
-        <button
+        <Button
           type="button"
-          className="shrink-0 px-2 py-1 text-[13px] font-semibold text-[#1264a3] hover:underline disabled:opacity-50 dark:text-[#1d9bd1]"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
           disabled={removePending}
           onClick={(e) => {
             e.stopPropagation();
-            onRemove();
+            onRemove(m);
           }}
         >
-          {t('remove')}
-        </button>
+          {removePending ? "..." : t("remove")}
+        </Button>
       ) : null}
     </li>
   );
@@ -169,9 +181,10 @@ export default function MembersTab({
   onOpenChange: (open: boolean) => void;
   isMember: boolean;
 }) {
-  const t = useAppTranslation('channel.members')
+  const t = useAppTranslation("channel.members");
   const [openAddMemberDialog, setOpenAddMemberDialog] = useState(false);
   const [addMemberDialogNonce, setAddMemberDialogNonce] = useState(0);
+  const [removeTarget, setRemoveTarget] = useState<ChannelMember | null>(null);
   const workspaceId = currentChannelData.workspaceId;
   const channelId = currentChannelData.id;
   const isDefaultChannel = currentChannelData.isDefaultChannel;
@@ -231,13 +244,13 @@ export default function MembersTab({
       addChannelMemberApi(workspaceId, channelId, userId),
     onSuccess: () => {
       invalidateMemberQueries();
-      toast.success(t('addedToChannel'));
+      toast.success(t("addedToChannel"));
     },
     onError: (e: unknown) => {
       const msg = isAxiosError(e)
-        ? (e.response?.data as { message?: string })?.message ?? e.message
-        : t('couldNotAddMember');
-      toast.error(typeof msg === "string" ? msg : t('couldNotAddMember'));
+        ? ((e.response?.data as { message?: string })?.message ?? e.message)
+        : t("couldNotAddMember");
+      toast.error(typeof msg === "string" ? msg : t("couldNotAddMember"));
     },
   });
 
@@ -246,19 +259,23 @@ export default function MembersTab({
       removeChannelMemberApi(workspaceId, channelId, memberUserId),
     onSuccess: () => {
       invalidateMemberQueries();
-      toast.success(t('removedFromChannel'));
+      toast.success(t("removedFromChannel"));
     },
     onError: (e: unknown) => {
       const msg = isAxiosError(e)
-        ? (e.response?.data as { message?: string })?.message ?? e.message
-        : t('couldNotRemoveMember');
-      toast.error(typeof msg === "string" ? msg : t('couldNotRemoveMember'));
+        ? ((e.response?.data as { message?: string })?.message ?? e.message)
+        : t("couldNotRemoveMember");
+      toast.error(typeof msg === "string" ? msg : t("couldNotRemoveMember"));
     },
   });
 
   const handleAddPeople = useCallback(() => {
     setAddMemberDialogNonce((n) => n + 1);
     setOpenAddMemberDialog(true);
+  }, []);
+
+  const handleRemove = useCallback((m: ChannelMember) => {
+    setRemoveTarget(m);
   }, []);
 
   const openMemberProfile = useCallback(
@@ -277,6 +294,15 @@ export default function MembersTab({
     [openProfile, workspaceId],
   );
 
+  const displayName = (m: ChannelMember): string => {
+    return (
+      m.displayName?.trim() ||
+      m.name?.trim() ||
+      m.email.split("@")[0] ||
+      m.email
+    );
+  };
+
   const showEmpty =
     !isPending &&
     (searchKey
@@ -287,7 +313,7 @@ export default function MembersTab({
     return (
       <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
         <Typography
-          text={t('couldNotLoadMembers')}
+          text={t("couldNotLoadMembers")}
           className="text-[14px] font-semibold text-[#1d1c1d] dark:text-[#f9f8f9]"
         />
         <button
@@ -295,92 +321,162 @@ export default function MembersTab({
           onClick={() => void refetch()}
           className="text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
         >
-          {t('tryAgain')}
+          {t("tryAgain")}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="relative shrink-0">
-        <FiSearch
-          className="pointer-events-none absolute left-2.5 top-1/2 size-4.5 -translate-y-1/2 text-[#616061] sm:left-3 dark:text-[#ababad]"
-          aria-hidden
-        />
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={t('findMembers')}
-          autoComplete="off"
-          className={cn(
-            "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
-            inputValue ? "pr-16" : "pr-3",
-          )}
-        />
-        {inputValue ? (
+    <div>
+      {removeTarget && (
+        <AlertDialog
+          open={!!removeTarget}
+          onOpenChange={(open) => {
+            if (!open) setRemoveTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("confirmRemoveMember")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("confirmRemoveMemberDesc", {
+                  name: displayName(removeTarget),
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (removeTarget) {
+                    removeMutation.mutate(removeTarget.id);
+                    setRemoveTarget(null);
+                  }
+                }}
+              >
+                {removeMutation.isPending ? "..." : t("remove")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="relative shrink-0">
+          <FiSearch
+            className="pointer-events-none absolute left-2.5 top-1/2 size-4.5 -translate-y-1/2 text-[#616061] sm:left-3 dark:text-[#ababad]"
+            aria-hidden
+          />
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={t("findMembers")}
+            autoComplete="off"
+            className={cn(
+              "h-10 rounded-lg border-[#dddddd] bg-white pl-9 text-[14px] placeholder:text-[#616061] sm:pl-10 sm:text-[15px] dark:border-[#35373B] dark:bg-[#1A1D21] dark:placeholder:text-[#ababad]",
+              inputValue ? "pr-16" : "pr-3",
+            )}
+          />
+          {inputValue ? (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
+              onClick={() => setInputValue("")}
+            >
+              {t("clear")}
+            </button>
+          ) : null}
+        </div>
+
+        {isMember ? (
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[13px] font-semibold text-[#1264a3] hover:underline dark:text-[#1d9bd1]"
-            onClick={() => setInputValue("")}
+            onClick={handleAddPeople}
+            className="flex w-full shrink-0 items-center gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-black/4 dark:hover:bg-white/6"
           >
-            {t('clear')}
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1264a3]/12 text-[#1264a3] dark:bg-[#1d9bd1]/15 dark:text-[#1d9bd1]">
+              <LuUserPlus className="size-5" aria-hidden />
+            </span>
+            <Typography
+              text={t("addPeople")}
+              className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
+            />
           </button>
         ) : null}
-      </div>
 
-      {isMember ? (
-        <button
-          type="button"
-          onClick={handleAddPeople}
-          className="flex w-full shrink-0 items-center gap-3 rounded-md px-1 py-2 text-left transition-colors hover:bg-black/4 dark:hover:bg-white/6"
-        >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#1264a3]/12 text-[#1264a3] dark:bg-[#1d9bd1]/15 dark:text-[#1d9bd1]">
-            <LuUserPlus className="size-5" aria-hidden />
-          </span>
-          <Typography
-            text={t('addPeople')}
-            className="text-[15px] font-semibold text-[#1264a3] dark:text-[#1d9bd1]"
-          />
-        </button>
-      ) : null}
+        <div className="min-h-0 flex-1">
+          {isPending ? (
+            <ul className="flex flex-col gap-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <li
+                  key={i}
+                  className="flex items-center gap-3 rounded-md border border-transparent px-1 py-2"
+                >
+                  <Skeleton className="size-9 shrink-0 rounded-md bg-[#e8e8e8] dark:bg-[#2a2d31]" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-40 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
+                    <Skeleton className="h-3 w-28 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : showEmpty ? (
+            <p className="py-6 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
+              {searchKey ? t("noMembersMatchSearch") : t("noMembersInChannel")}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {inChannel.length > 0 ? (
+                <section>
+                  <Typography
+                    text={t("inThisChannel")}
+                    className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
+                  />
+                  <ul className="flex flex-col gap-1">
+                    {inChannel.map((m) => {
+                      const isYou = currentUser?.id === m.id;
+                      const isDeactivated =
+                        m.membershipStatus === "deactivated";
+                      const showRemove =
+                        !isDefaultChannel &&
+                        !isYou &&
+                        canRemoveOthers &&
+                        isDeactivated;
+                      return (
+                        <MemberRow
+                          key={m.id}
+                          m={m}
+                          workspaceId={workspaceId}
+                          currentUserId={currentUser?.id}
+                          onOpenProfile={openMemberProfile}
+                          onCloseDialog={() => onOpenChange(false)}
+                          showRemove={showRemove}
+                          showAdd={false}
+                          addPending={addMutation.isPending}
+                          removePending={removeMutation.isPending}
+                          onAdd={() => addMutation.mutate(m.id)}
+                          onRemove={handleRemove}
+                          t={t}
+                        />
+                      );
+                    })}
+                  </ul>
+                </section>
+              ) : null}
 
-      <div className="min-h-0 flex-1">
-        {isPending ? (
-          <ul className="flex flex-col gap-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <li
-                key={i}
-                className="flex items-center gap-3 rounded-md border border-transparent px-1 py-2"
-              >
-                <Skeleton className="size-9 shrink-0 rounded-md bg-[#e8e8e8] dark:bg-[#2a2d31]" />
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <Skeleton className="h-4 w-40 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
-                  <Skeleton className="h-3 w-28 bg-[#e8e8e8] dark:bg-[#2a2d31]" />
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : showEmpty ? (
-          <p className="py-6 text-center text-[13px] text-[#616061] dark:text-[#ababad]">
-            {searchKey
-              ? t('noMembersMatchSearch')
-              : t('noMembersInChannel')}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {inChannel.length > 0 ? (
-              <section>
-                <Typography
-                  text={t('inThisChannel')}
-                  className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
-                />
-                <ul className="flex flex-col gap-1">
-                  {inChannel.map((m) => {
-                    const isYou = currentUser?.id === m.id;
-                    const showRemove =
-                      !isDefaultChannel && !isYou && canRemoveOthers;
-                    return (
+              {showNotInSection && inChannel.length > 0 ? (
+                <div className="border-t border-[#dddddd] pt-2 dark:border-[#35373B]" />
+              ) : null}
+
+              {showNotInSection ? (
+                <section>
+                  <Typography
+                    text={t("notInThisChannel")}
+                    className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
+                  />
+                  <ul className="flex flex-col gap-1">
+                    {notInChannel.map((m) => (
                       <MemberRow
                         key={m.id}
                         m={m}
@@ -388,61 +484,29 @@ export default function MembersTab({
                         currentUserId={currentUser?.id}
                         onOpenProfile={openMemberProfile}
                         onCloseDialog={() => onOpenChange(false)}
-                        showRemove={showRemove}
-                        showAdd={false}
+                        showRemove={false}
+                        showAdd
                         addPending={addMutation.isPending}
                         removePending={removeMutation.isPending}
                         onAdd={() => addMutation.mutate(m.id)}
                         onRemove={() => removeMutation.mutate(m.id)}
                         t={t}
                       />
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          )}
+        </div>
 
-            {showNotInSection && inChannel.length > 0 ? (
-              <div className="border-t border-[#dddddd] pt-2 dark:border-[#35373B]" />
-            ) : null}
-
-            {showNotInSection ? (
-              <section>
-                <Typography
-                  text={t('notInThisChannel')}
-                  className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-[#616061] dark:text-[#ababad]"
-                />
-                <ul className="flex flex-col gap-1">
-                  {notInChannel.map((m) => (
-                    <MemberRow
-                      key={m.id}
-                      m={m}
-                      workspaceId={workspaceId}
-                      currentUserId={currentUser?.id}
-                      onOpenProfile={openMemberProfile}
-                      onCloseDialog={() => onOpenChange(false)}
-                      showRemove={false}
-                      showAdd
-                      addPending={addMutation.isPending}
-                      removePending={removeMutation.isPending}
-                      onAdd={() => addMutation.mutate(m.id)}
-                      onRemove={() => removeMutation.mutate(m.id)}
-                      t={t}
-                    />
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-          </div>
-        )}
+        <AddChannelMemberDialog
+          key={`${channelId}-${addMemberDialogNonce}`}
+          open={openAddMemberDialog}
+          onOpenChange={setOpenAddMemberDialog}
+          currentChannelData={currentChannelData}
+        />
       </div>
-
-      <AddChannelMemberDialog
-        key={`${channelId}-${addMemberDialogNonce}`}
-        open={openAddMemberDialog}
-        onOpenChange={setOpenAddMemberDialog}
-        currentChannelData={currentChannelData}
-      />
     </div>
   );
 }

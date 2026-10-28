@@ -201,26 +201,57 @@ export default function FolderTab({
         currentChannelData?.workspaceId ?? currentConversationData?.workspaceId;
       if (!workspaceId) return;
 
-      let ok = 0;
-      for (const file of files) {
-        try {
-          await uploadFileToFolder(
-            file,
-            workspaceId,
-            targetId,
-            effectiveFolderId,
-            isDM,
-          );
-          ok += 1;
-        } catch {
-          toast.error(t("folder.couldNotUpload", { filename: file.name }));
-        }
-      }
-      if (ok > 0) {
-        toast.success(
-          ok === 1 ? t("folder.fileAddedToFolder") : t("folder.filesAddedToFolder", { count: ok }),
-        );
+      // Parallel upload + finalize — tương tự use-message-composer:
+      // await Promise.allSettled để toast chỉ hiển thị SAU khi mọi file settle
+      // (success hoặc fail). Trước đây dùng for-await tuần tự + per-file toast.error
+      // → spam toast khi drop nhiều file và mạng chết.
+      const results = await Promise.allSettled(
+        files.map(async (file) => {
+          try {
+            await uploadFileToFolder(
+              file,
+              workspaceId,
+              targetId,
+              effectiveFolderId,
+              isDM,
+            );
+            return { fileName: file.name, ok: true as const };
+          } catch {
+            return { fileName: file.name, ok: false as const };
+          }
+        }),
+      );
+
+      const total = files.length;
+      const successCount = results.filter(
+        (r) => r.status === "fulfilled" && r.value.ok,
+      ).length;
+      const failedCount = total - successCount;
+
+      // Chỉ invalidate khi có ít nhất 1 file thành công (tránh refresh query vô ích).
+      if (successCount > 0) {
         invalidateAfterFolderUpload();
+      }
+
+      if (failedCount === 0) {
+        // Tất cả thành công → toast như cũ.
+        toast.success(
+          total === 1
+            ? t("folder.fileAddedToFolder")
+            : t("folder.filesAddedToFolder", { count: total }),
+        );
+      } else if (successCount === 0) {
+        // Toàn bộ fail → toast lỗi tổng hợp (1 toast thay vì spam per-file).
+        toast.error(t("folder.allUploadsFailed", { count: total }));
+      } else {
+        // Partial → toast success kèm số lượng fail để user biết cần retry.
+        toast.success(
+          t("folder.filesAddedToFolderPartial", {
+            success: successCount,
+            total,
+            failed: failedCount,
+          }),
+        );
       }
     },
     [
@@ -231,6 +262,7 @@ export default function FolderTab({
       targetId,
       isDM,
       invalidateAfterFolderUpload,
+      t,
     ],
   );
 

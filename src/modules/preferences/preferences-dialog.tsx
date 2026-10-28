@@ -1,34 +1,38 @@
-"use client"
+"use client";
 
 import {
   CustomDialog,
   CustomDialogHeader,
   CustomDialogTitle,
-} from "@/components/custom-dialog"
-import Typography from "@/components/ui/typography"
-import { updateProfileApi } from "@/apis"
-import { cn } from "@/lib/utils"
-import { usePreferencesStore } from "@/stores/usePreferencesStore"
-import { useThemeStore } from "@/stores/useThemeStore"
-import { useAppTranslation } from "@/hooks/use-translation"
-import { AnimatePresence, motion } from "framer-motion"
+} from "@/components/custom-dialog";
+import Typography from "@/components/ui/typography";
+import { updateProfileApi } from "@/apis";
+import { cn } from "@/lib/utils";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
+import { useThemeStore } from "@/stores/useThemeStore";
+import { useAppTranslation } from "@/hooks/use-translation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Accessibility,
   Activity,
   Bell,
+  Clock,
   Globe,
   Laptop,
   MessageSquare,
   Monitor,
   Shield,
   Volume2,
-} from "lucide-react"
-import { useParams } from "next/navigation"
-import { useState } from "react"
-import PreferencesAppearance from "./appearance"
-import PreferencesLanguageRegion from "./language-region"
+} from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import PreferencesAppearance from "./appearance";
+import PreferencesLanguageRegion from "./language-region";
+import PreferencesNotifications from "./notifications";
+import PreferencesAvailability from "./availability";
 
 const TABS = [
+  { id: "availability", icon: Clock },
   { id: "notifications", icon: Bell },
   { id: "appearance", icon: Monitor },
   { id: "messages-media", icon: MessageSquare },
@@ -37,9 +41,10 @@ const TABS = [
   { id: "audio-video", icon: Volume2 },
   { id: "privacy", icon: Shield },
   { id: "advanced", icon: Activity },
-]
+];
 
 const TAB_LABELS: Record<string, string> = {
+  availability: "availability",
   notifications: "notifications",
   appearance: "appearance",
   "messages-media": "messagesMedia",
@@ -48,80 +53,82 @@ const TAB_LABELS: Record<string, string> = {
   "audio-video": "audioVideo",
   privacy: "privacyVisibility",
   advanced: "advanced",
-}
+};
 
 export function PreferencesDialog() {
-  const t = useAppTranslation("preferences")
+  const t = useAppTranslation("preferences");
 
-  const { isOpen, close } = usePreferencesStore()
-  const [activeTab, setActiveTab] = useState("notifications")
-  const [overlayTransparent, setOverlayTransparent] = useState(false)
-  const { workspaceId } = useParams() as { workspaceId: string }
+  const { isOpen, close } = usePreferencesStore();
+  const [activeTab, setActiveTab] = useState("availability");
+  const [overlayTransparent, setOverlayTransparent] = useState(false);
+  const { workspaceId } = useParams() as { workspaceId: string };
 
-  const { theme, savedTheme, resetTheme, confirmTheme } = useThemeStore()
+  const { theme, savedTheme, resetTheme, confirmTheme } = useThemeStore();
 
-  const [pendingTab, setPendingTab] = useState<string | null>(null)
-  const [isClosingPending, setIsClosingPending] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
+  const [isClosingPending, setIsClosingPending] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
-  const isDirty = JSON.stringify(theme) !== JSON.stringify(savedTheme)
+  const isDirty = JSON.stringify(theme) !== JSON.stringify(savedTheme);
 
   const handleTabChange = (tabId: string) => {
     if (activeTab === "appearance" && isDirty) {
-      setPendingTab(tabId)
-      setShowConfirmation(true)
-      return
+      setPendingTab(tabId);
+      setShowConfirmation(true);
+      return;
     }
-    setActiveTab(tabId)
-    setOverlayTransparent(tabId === "appearance" || tabId === "language")
-  }
+    setActiveTab(tabId);
+    setOverlayTransparent(tabId === "appearance" || tabId === "language");
+  };
 
   const handleDialogClose = () => {
     if (activeTab === "appearance" && isDirty) {
-      setIsClosingPending(true)
-      setShowConfirmation(true)
-      return
+      setIsClosingPending(true);
+      setShowConfirmation(true);
+      return;
     }
-    close()
-  }
+    close();
+  };
 
   const proceedWithNavigation = () => {
     if (isClosingPending) {
-      close()
+      close();
     } else if (pendingTab) {
-      setActiveTab(pendingTab)
-      setOverlayTransparent(pendingTab === "appearance" || pendingTab === "language")
+      setActiveTab(pendingTab);
+      setOverlayTransparent(
+        pendingTab === "appearance" || pendingTab === "language",
+      );
     }
-    resetPendingActions()
-  }
+    resetPendingActions();
+  };
 
   const resetPendingActions = () => {
-    setPendingTab(null)
-    setIsClosingPending(false)
-    setShowConfirmation(false)
-  }
+    setPendingTab(null);
+    setIsClosingPending(false);
+    setShowConfirmation(false);
+  };
 
   const handleUndo = () => {
-    resetTheme()
-    proceedWithNavigation()
-  }
+    resetTheme();
+    proceedWithNavigation();
+  };
 
   const handleSave = async () => {
-    if (!workspaceId) return
+    if (!workspaceId) return;
     try {
       await updateProfileApi(workspaceId, {
         theme: JSON.stringify(theme),
-      })
-      confirmTheme()
-      proceedWithNavigation()
+      });
+      confirmTheme();
+      proceedWithNavigation();
     } catch (error) {
-      console.error("Failed to save theme", error)
+      console.error("Failed to save theme", error);
     }
-  }
+  };
 
   const handleKeepEditing = () => {
-    resetPendingActions()
-  }
+    resetPendingActions();
+  };
 
   return (
     <CustomDialog
@@ -147,13 +154,13 @@ export function PreferencesDialog() {
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-1.5 mt-1 text-sm transition-all duration-200 dark:text-[#d1d2d3] hover:bg-white/5 rounded-sm",
                   activeTab === tab.id &&
-                    "bg-[#1164A3] text-white hover:bg-[#1164A3] font-medium"
+                    "bg-[#1164A3] text-white hover:bg-[#1164A3] font-medium",
                 )}
               >
                 <tab.icon
                   size={18}
                   className={cn(
-                    activeTab === tab.id ? "text-white" : "dark:text-[#d1d2d3]"
+                    activeTab === tab.id ? "text-white" : "dark:text-[#d1d2d3]",
                   )}
                 />
                 <span>{t(TAB_LABELS[tab.id])}</span>
@@ -174,11 +181,18 @@ export function PreferencesDialog() {
                 transition={{ duration: 0.15 }}
                 className="px-8 py-6"
               >
+                {activeTab === "availability" && (
+                  <PreferencesAvailability workspaceId={workspaceId} />
+                )}
                 {activeTab === "appearance" && <PreferencesAppearance />}
-
+                {activeTab === "notifications" && (
+                  <PreferencesNotifications workspaceId={workspaceId} />
+                )}
                 {activeTab === "language" && <PreferencesLanguageRegion />}
 
-                {!["appearance", "language"].includes(activeTab) && (
+                {!["availability", "appearance", "language", "notifications"].includes(
+                  activeTab,
+                ) && (
                   <div className="flex flex-col items-center justify-center py-20 dark:text-[#d1d2d3]/50">
                     <Laptop size={64} className="mb-6 opacity-10" />
                     <Typography
@@ -230,5 +244,5 @@ export function PreferencesDialog() {
         </div>
       </div>
     </CustomDialog>
-  )
+  );
 }

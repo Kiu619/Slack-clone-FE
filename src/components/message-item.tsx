@@ -15,9 +15,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useUpdateMessage } from "@/hooks/use-messages";
+import { useNowMs } from "@/hooks/use-now-ms";
 import { useRemindMe } from "@/hooks/use-saved-items";
+import { useToggleThreadMute } from "@/hooks/use-toggle-thread-mute";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { useWorkspaceCustomEmojis } from "@/hooks/use-workspace-custom-emojis";
+import { useFinalizeAttachment } from "@/hooks/use-finalize-attachment";
 import {
     buildCustomEmojiLookup,
     extractCustomEmojiName,
@@ -26,17 +29,22 @@ import {
     toPickerCustomEmojis,
 } from "@/lib/custom-emojis";
 import { sanitizeRenderedRichText } from "@/lib/sanitize-rich-text";
+import { inferAttachmentTypeFromMime } from "@/lib/attachment-type";
+import { updateAttachmentInMessageCache } from "@/lib/update-attachment-in-cache";
+import { addPendingUploadEntry } from "@/lib/pending-upload-storage";
+import { renderTimelineContent } from "@/lib/timeline-content";
 import type { Message, User } from "@/lib/types";
 import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import { useMessageStore } from "@/stores/useMessageStore";
-import { useLanguageRegionStore, type DateFormat, type TimeFormat } from "@/stores/useLanguageRegionStore";
+import { useLanguageRegionStore, type Language, type TimeFormat } from "@/stores/useLanguageRegionStore";
 import {
     mergeUserForDisplay,
     useWorkspaceMemberOverlay,
     useWorkspaceMemberStore,
 } from "@/stores/useWorkspaceMemberStore";
-import { format, formatDistanceToNowStrict, isPast } from "date-fns";
-import { useCallback, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatRelativeTime } from "@/lib/format-relative-time";
 import { LuLink, LuPencil, LuTrash2, LuUndo2 } from "react-icons/lu";
 import Editor, { PendingFile } from "./editor";
 
@@ -50,12 +58,12 @@ import type { HuddleMessageSnapshot } from "@/lib/huddle";
 import type { WorkspaceMessageSearchLocation } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type EmojiClickData, Theme } from "emoji-picker-react";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
 import { BiMessageRoundedDetail } from "react-icons/bi";
-import { FiBellOff, FiHash } from "react-icons/fi";
+import { FiBell, FiBellOff, FiHash } from "react-icons/fi";
 import {
     MdBookmark,
     MdBookmarkBorder,
@@ -77,6 +85,7 @@ import { Separator } from "./ui/separator";
 import Typography from "./ui/typography";
 import { UserStatusEmojiInline } from "./user-status-emoji-inline";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { resolveUserDisplayInfo } from "@/lib/user-display";
 const EmojiPicker = dynamic(() => import("emoji-picker-react"));
 
 const EMPTY_MEMBER_MAP = {} as const;
@@ -122,6 +131,11 @@ interface MessageItemProps {
    * (e.g. message preview inside Later list â€” `saved-item` used by `later-side-panel`).
    */
   hideSaveForLaterUi?: boolean;
+  /**
+   * Set of attachment IDs that have been saved for Later (type='attachment').
+   * Used by FileToolbar to show "Remove from Later" vs "Save for Later".
+   */
+  savedAttachmentIds?: Set<string>;
 
   parentMessage?: boolean;
   hideReplyButton?: boolean;
@@ -213,19 +227,6 @@ function getPlainText(html: string): string {
   return html.replace(/<[^>]*>?/gm, "").trim();
 }
 
-/** Wall-clock relative copy for the Later banner (not memoized â€” needs current time). */
-function savedLaterDueLabelFromIso(
-  remindAtIso: string,
-  isIncomplete: boolean,
-): string | null {
-  const d = new Date(remindAtIso);
-  if (Number.isNaN(d.getTime())) return null;
-  if (isIncomplete && isPast(d)) {
-    return `Incomplete Â· ${formatDistanceToNowStrict(d, { addSuffix: true })}`;
-  }
-  return `Due in ${formatDistanceToNowStrict(d)}`;
-}
-
 export default function MessageItem({
   messageId,
   message: initialMessage,
@@ -247,6 +248,7 @@ export default function MessageItem({
   isSavedForLater = false,
   savedLaterRemindAtIso = null,
   hideSaveForLaterUi = false,
+  savedAttachmentIds,
   parentMessage = false,
   hideReplyButton = false,
   isInsideThreadPanel = false,
@@ -290,10 +292,19 @@ export default function MessageItem({
 
   const { open: openProfilePanel } = useProfilePanelStore();
   const { setFocusedMessageId } = useMessageFocusStore();
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
   const language = useLanguageRegionStore((s) => s.language);
+  const nowMs = useNowMs();
   const t = useAppTranslation("messageItem");
+  const tChat = useAppTranslation("chat");
+
+  // Single source of truth cho mọi hiển thị (avatar/name/initials) của author.
+  // - Deleted user → "Deleted user" + avatar null (default fallback)
+  // - Deactivated   → tên thật + avatar thật + UI sẽ thêm badge
+  const displayInfo = useMemo(
+    () => resolveUserDisplayInfo(displayUser, { deletedLabel: t("deletedUser") }),
+    [displayUser, t],
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [moreActionPopoverOpen, setMoreActionPopoverOpen] = useState(false);
 
@@ -307,11 +318,54 @@ export default function MessageItem({
     isPending: isRemindPending,
   } = useRemindMe();
 
+  const { mutate: toggleThreadMute, isPending: isTogglingThreadMute } = useToggleThreadMute(workspaceId);
+
+  // Mute state là của thread (parent) — derive từ parent entity để mọi message
+  // trong cùng thread hiển thị nhất quán, không phụ thuộc reply có sẵn trong store.
+  const threadId = message?.parentId ?? message?.id;
+  const parentEntity = useMessageStore((s) =>
+    threadId ? s.entities[threadId] : undefined,
+  );
+  const viewerIsMuted = parentEntity?.viewerIsMuted ?? false;
+
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [deletedAttachmentIds, setDeletedAttachmentIds] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [forwardDialogOpen, setForwardDialogOpen] = useState(false);
   const { uploadFileBinary } = useFileUpload();
+  const queryClient = useQueryClient();
+  const { finalize: finalizeAttachment } = useFinalizeAttachment();
+
+  // Ref for message content container to delegate mention click events
+  const messageContentRef = useRef<HTMLDivElement>(null);
+
+  // Handle click on @mention to open profile panel
+  useEffect(() => {
+    const container = messageContentRef.current;
+    if (!container) return;
+
+    const handleMentionClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const mention = target.closest("[data-type='mention'][data-id]");
+      if (!mention) return;
+
+      e.stopPropagation();
+      const userId = mention.getAttribute("data-id");
+      if (!userId) return;
+
+      const memberData = memberOverlayMap[userId];
+      // Nếu không có data trong overlay, vẫn mở panel với chỉ id
+      // (profile-panel sẽ tự fetch member status từ API)
+      const userForProfile: User = memberData
+        ? ({ ...(memberData as User), id: userId } as User)
+        : ({ id: userId } as User);
+
+      openProfilePanel({ userData: userForProfile, workspaceId });
+    };
+
+    container.addEventListener("click", handleMentionClick);
+    return () => container.removeEventListener("click", handleMentionClick);
+  }, [memberOverlayMap, workspaceId, openProfilePanel]);
 
   /** File chá»‰nh sá»­a Ä‘Æ°á»£c trong editor â€” loáº¡i attachment thuá»™c forward quote. */
   const editableBodyAttachments = useMemo(
@@ -367,6 +421,12 @@ export default function MessageItem({
     });
   }, [customEmojiLookup, workspace?.emojiOneClickSlots]);
 
+  const isTimelineRoot =
+    message?.type === "timeline" ||
+    (message?.type === "text" &&
+      message?.allowEdit === false &&
+      !message?.parentId);
+
   /**
    * Sanitize HTML tá»« Tiptap trÆ°á»›c khi dangerouslySetInnerHTML
    * DOMPurify loáº¡i bá» cÃ¡c script/XSS nguy hiá»ƒm nhÆ°ng giá»¯ láº¡i
@@ -374,9 +434,12 @@ export default function MessageItem({
    */
   const sanitizedContent = useMemo(() => {
     const content = message?.content ?? "";
-    const sanitized = sanitizeRenderedRichText(content);
+    const localized = isTimelineRoot
+      ? renderTimelineContent(content, tChat)
+      : content;
+    const sanitized = sanitizeRenderedRichText(localized);
     return replaceCustomEmojiShortcodesInHtml(sanitized, customEmojiLookup);
-  }, [customEmojiLookup, message?.content]);
+  }, [customEmojiLookup, message?.content, isTimelineRoot, tChat]);
 
   const handleEmojiSelect = useCallback(
     (emojiData: EmojiClickData) => {
@@ -434,15 +497,14 @@ export default function MessageItem({
   const canDeleteMessage = isOwner && !isDeleted && !isHuddleMessage;
 
   const isForwardedMessage = Boolean(message.forwardSnapshot);
-  const isTimelineRoot =
-    message.type === "timeline" ||
-    (message.type === "text" &&
-      message.allowEdit === false &&
-      !message.parentId);
 
   const getHuddleParticipantLabel = useCallback(
     (participant: HuddleMessageSnapshot["participants"][number]) => {
       if (participant.userId === currentUserId) return t("you");
+      // deleted user ưu tiên hiển thị "Deleted user" thay vì "Deactivated user"
+      if (participant.membershipStatus === "deleted") {
+        return t("deletedUser");
+      }
       if (participant.membershipStatus === "deactivated") {
         return t("deactivatedUser");
       }
@@ -591,11 +653,8 @@ export default function MessageItem({
       ) : (
         <BiMessageRoundedDetail size={14} />
       );
-    const author =
-      displayUser.displayName ?? displayUser.name ?? displayUser.email ?? "User";
-    const avatarLabel = (displayUser.displayName || displayUser.name || "U")
-      .slice(0, 2)
-      .toUpperCase();
+    const author = displayInfo.name;
+    const avatarLabel = displayInfo.initials;
 
     return (
       <div
@@ -616,14 +675,21 @@ export default function MessageItem({
         )}
       >
         <div className="flex items-start gap-3">
-          {displayUser.avatar ? (
+          {displayInfo.avatar ? (
             <Avatar
-              src={displayUser.avatar ?? ""}
+              src={displayInfo.avatar}
               className="size-10 rounded-lg"
               alt={author}
             />
           ) : (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f2cd00] text-[11px] font-bold">
+            <div
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold",
+                displayInfo.isDeleted
+                  ? "bg-[#3a3d41] text-[#ababad]"
+                  : "bg-[#f2cd00] text-[#1d1c1d]",
+              )}
+            >
               {avatarLabel}
             </div>
           )}
@@ -648,7 +714,7 @@ export default function MessageItem({
               </div>
 
               <div className="shrink-0 text-[12px] leading-5 text-[#a2a6ad]">
-                {formatTimestamp(message.createdAt, { dateFormat, timeFormat, language })}
+                {formatTimestamp(message.createdAt, { timeFormat, language })}
               </div>
             </div>
 
@@ -685,6 +751,7 @@ export default function MessageItem({
                   <AttachmentList
                     message={message}
                     attachments={message.attachments}
+                    savedAttachmentIds={savedAttachmentIds}
                     onDownload={(url, name) => {
                       const a = document.createElement("a");
                       a.href = url;
@@ -738,7 +805,7 @@ export default function MessageItem({
                   </Typography>
                   <Typography className="text-xs text-[#797c81]">
                     {t("lastReply")}{" "}
-                    {message.lastReplyAt ? formatTimestamp(message.lastReplyAt, { dateFormat, timeFormat, language }) : ""}
+                    {message.lastReplyAt ? formatTimestamp(message.lastReplyAt, { timeFormat, language }) : ""}
                   </Typography>
                 </div>
               )}
@@ -752,6 +819,37 @@ export default function MessageItem({
     );
   }
 
+  /** Wall-clock relative copy for the Later banner (not memoized — needs current time). */
+function savedLaterDueLabelFromIso(
+  remindAtIso: string,
+  isSaved: boolean,
+  language: Language,
+  nowMs: number,
+): string | null {
+  if (!isSaved) return null;
+  const d = new Date(remindAtIso);
+  if (Number.isNaN(d.getTime())) return null;
+  const remindMs = d.getTime();
+  if (remindMs <= nowMs) {
+    return `${t("incomplete")} · ${formatRelativeTime(d, nowMs, { addSuffix: true }, language)}`;
+  }
+  return `${t("dueIn")} ${formatRelativeTime(d, nowMs, {}, language)}`;
+}
+
+
+  // Background priority (high → low): highlight > pinned > also-send-to-channel > saved > none.
+  const hasHighlightBg =
+    isTemporaryHighlight ||
+    (message.isPinned && !hideSaveForLaterUi) ||
+    (message.alsoSendToChannel && message.parentId && isInsideThreadPanel);
+  const hasSavedBg = isSavedForLater && !hideSaveForLaterUi;
+
+  const bgClass = hasHighlightBg
+    ? "bg-[#FDF9F0] dark:bg-[#22221f] hover:bg-[#F9F3EA] dark:hover:bg-[#2a2a26]"
+    : hasSavedBg
+      ? "bg-[#E8F5FA] dark:bg-[#1A2A33] hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529]"
+      : "hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529]";
+
   return (
     <div
       ref={rowRef}
@@ -759,11 +857,7 @@ export default function MessageItem({
       className={cn(
         "group relative flex flex-col px-4 transition-colors",
         isCompactForLayout ? "py-0.5" : "py-1.5",
-        isTemporaryHighlight ||
-          message.isPinned ||
-          (message.alsoSendToChannel && message.parentId && isInsideThreadPanel)
-          ? "bg-[#FDF9F0] dark:bg-[#22221f] hover:bg-[#F9F3EA] dark:hover:bg-[#2a2a26]"
-          : "hover:bg-[rgba(232,226,226,0.4)] dark:hover:bg-[#222529]",
+        bgClass,
       )}
       onMouseEnter={() => {
         onHoverChange?.(message.id, true);
@@ -785,13 +879,13 @@ export default function MessageItem({
           <span>{t("savedForLater")}</span>
           {(() => {
             const dueLine = savedLaterRemindAtIso
-              ? savedLaterDueLabelFromIso(savedLaterRemindAtIso, isSavedForLater)
+              ? savedLaterDueLabelFromIso(savedLaterRemindAtIso, isSavedForLater, language, nowMs)
               : null;
             if (!dueLine) return null;
             return (
               <>
                 <span className="shrink-0 opacity-90" aria-hidden>
-                  Â·
+                  ·
                 </span>
                 <span className="min-w-0">{dueLine}</span>
               </>
@@ -827,9 +921,9 @@ export default function MessageItem({
                   </div>
                 ) : (
                   <Avatar
-                    src={displayUser.avatar ?? ""}
+                    src={displayInfo.avatar ?? ""}
                     className="w-9 h-9 rounded-lg cursor-pointer"
-                    alt={displayUser.displayName ?? displayUser.email}
+                    alt={displayInfo.name}
                   />
                 )}
               </div>
@@ -863,14 +957,15 @@ export default function MessageItem({
           {!isCompactForLayout && !isHuddleMessage && displayUser && (
             <div className="flex items-center gap-x-2 mb-0.5 flex-wrap">
               <div className="flex items-center gap-1 min-w-0">
-                <span className="text-[15px] font-bold cursor-pointer hover:underline truncate"
+                <span
+                  className="text-[15px] font-bold cursor-pointer hover:underline truncate"
                   style={selectedTextColor ? { color: selectedTextColor } : undefined}
                   onClick={(e) => {
                     e.stopPropagation();
                     openProfilePanel({ userData: displayUser, workspaceId });
                   }}
                 >
-                  {displayUser.displayName ?? displayUser.email}
+                  {displayInfo.name}
                 </span>
                 <UserStatusEmojiInline
                   statusEmoji={displayUser.statusEmoji}
@@ -879,7 +974,7 @@ export default function MessageItem({
                 />
               </div>
               <span className="text-[11px] dark:text-[#797c81] shrink-0" style={selectedTextColor ? { color: selectedTextColor } : undefined}>
-                {formatTimestamp(message.createdAt, { dateFormat, timeFormat, language })}
+                {formatTimestamp(message.createdAt, { timeFormat, language })}
               </span>
               {(message as any).isUnread && (
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -912,7 +1007,7 @@ export default function MessageItem({
                 </span>
               </div>
               <span className="text-[11px] dark:text-[#797c81] shrink-0">
-                {formatTimestamp(message.createdAt, { dateFormat, timeFormat, language })}
+                {formatTimestamp(message.createdAt, { timeFormat, language })}
               </span>
             </div>
           ) : null}
@@ -995,41 +1090,160 @@ export default function MessageItem({
                   setDeletedAttachmentIds([]);
                 }}
                 onSubmit={async (content) => {
-                  try {
-                    setIsUploading(true);
-                    // 1. Upload new files if any
-                    let newAttachments: any[] = [];
-                    if (pendingFiles.length > 0) {
-                      newAttachments = await Promise.all(
-                        pendingFiles.map((pf) => uploadFileBinary(pf.file))
-                      );
-                    }
+                  // Ẩn editor ngay khi user nhấn Save
+                  // Optimistic update sẽ hiển thị message đã sửa ngay lập tức
+                  setIsEditing(false);
+                  setIsUploading(true);
 
-                    // 2. Call update mutation
+                  // Snapshot pendingFiles TRƯỚC để upload async dùng sau onSuccess
+                  // (vì setPendingFiles([]) trong onSuccess sẽ clear state).
+                  const filesSnapshot: PendingFile[] = [...pendingFiles];
+                  const messageId = message.id;
+                  const hasFiles = filesSnapshot.length > 0;
+
+                  // Build optimistic attachments với pendingUpload=true (giống Create flow).
+                  // Gọi updateMessage NGAY → useUpdateMessage.onMutate merge vào store
+                  // → message hiển thị file bubbles với placeholder/spinner NGAY.
+                  // KHÔNG chờ upload xong → tránh layout shift.
+                  const optimisticAttachments = hasFiles
+                    ? filesSnapshot.map((pf) => ({
+                        url: undefined,
+                        type: inferAttachmentTypeFromMime(pf.file.type),
+                        name: pf.file.name,
+                        size: pf.file.size,
+                        mimeType: pf.file.type,
+                        pendingUpload: true,
+                        pendingUploadId: pf.id,
+                      }))
+                    : [];
+
+                  try {
                     updateMessage({
-                      messageId: message.id,
+                      messageId,
                       content,
-                      attachments: newAttachments,
+                      attachments: optimisticAttachments,
                       deletedAttachmentIds,
                       parentId: message.parentId || undefined,
                     }, {
-                      onSuccess: () => {
-                        setIsEditing(false);
+                      onSuccess: async () => {
                         setPendingFiles([]);
                         setDeletedAttachmentIds([]);
                         setIsUploading(false);
+
+                        // Upload files async (giống Create flow).
+                        // Sau khi upload xong → gọi API finalize để PATCH URL thật lên server.
+                        if (hasFiles) {
+                          const results = await Promise.allSettled(
+                            filesSnapshot.map(
+                              async ({ id: uploadId, file }) => {
+                                try {
+                                  const uploaded = await uploadFileBinary(
+                                    file,
+                                    uploadId,
+                                  );
+                                  const finalizeResult =
+                                    await finalizeAttachment({
+                                      messageId,
+                                      pendingUploadId: uploadId,
+                                      url: uploaded.url,
+                                      mimeType:
+                                        uploaded.mimeType ?? file.type,
+                                      width: uploaded.width,
+                                      height: uploaded.height,
+                                      duration: uploaded.duration,
+                                      fileCategory: uploaded.fileCategory,
+                                    });
+                                  // Patch cache: gắn URL từ backend + clear uploadStatus.
+                                  updateAttachmentInMessageCache(
+                                    queryClient,
+                                    { pendingUploadId: uploadId },
+                                    (a) => {
+                                      if (
+                                        a.pendingUploadId !== uploadId
+                                      )
+                                        return a;
+                                      return {
+                                        ...a,
+                                        url: finalizeResult.url,
+                                        uploadStatus: null,
+                                        uploadId: undefined,
+                                        pendingUploadId: null,
+                                        previewImageUrl:
+                                          finalizeResult.previewImageUrl ?? null,
+                                      }
+                                    },
+                                    workspaceId,
+                                  );
+                                  return { uploadId, ok: true as const }
+                                } catch (err) {
+                                  console.error(
+                                    "[message-item] upload/finalize failed:",
+                                    err,
+                                  )
+                                  // Persist vào localStorage để retry khi refresh.
+                                  addPendingUploadEntry({
+                                    messageId,
+                                    pendingUploadId: uploadId,
+                                    fileName: file.name,
+                                    mimeType: file.type,
+                                    size: file.size,
+                                    savedAt: new Date().toISOString(),
+                                  })
+                                  // Patch attachment với uploadStatus='failed' → hiện Retry.
+                                  updateAttachmentInMessageCache(
+                                    queryClient,
+                                    { pendingUploadId: uploadId },
+                                    { uploadStatus: "failed" },
+                                    workspaceId,
+                                  )
+                                  return { uploadId, ok: false as const }
+                                }
+                              },
+                            ),
+                          )
+
+                          const total = filesSnapshot.length
+                          const failedCount = results.filter(
+                            (r) =>
+                              r.status === "fulfilled" && !r.value.ok,
+                          ).length
+                          const successCount = total - failedCount
+
+                          if (failedCount > 0) {
+                            if (successCount === 0) {
+                              toast.error(
+                                tChat("messageSentFilesAllFailed", {
+                                  count: total,
+                                }),
+                              )
+                            } else {
+                              toast.success(
+                                tChat("messageSentWithFilesPartial", {
+                                  success: successCount,
+                                  total,
+                                  failed: failedCount,
+                                }),
+                              )
+                            }
+                          }
+                        }
                       },
                       onError: () => {
+                        // Restore editing mode nếu API thất bại
+                        setIsEditing(true);
                         setIsUploading(false);
                       }
                     });
                   } catch (error) {
                     console.error("Failed to update message:", error);
+                    // Restore editing mode nếu có exception
+                    setIsEditing(true);
                     setIsUploading(false);
                   }
                 }}
                 disabled={isUpdatingMessage || isUploading}
                 pendingFiles={pendingFiles}
+                hasPendingFiles={pendingFiles.length > 0}
                 onRemoveFile={(id) => setPendingFiles(prev => prev.filter(f => f.id !== id))}
                 onFileAttach={(files) => {
                   const newItems: PendingFile[] = files.map((file) => ({
@@ -1044,7 +1258,7 @@ export default function MessageItem({
             </div>
           ) : (
             shouldShowContent && (
-              <div className="flex items-center gap-1">
+              <div ref={messageContentRef} className="flex items-center gap-1">
                 <div
                   className={`text-[15px] leading-relaxed message-content ${isDeleted ? "text-[#797c81] italic" : "dark:text-[#d1d2d3]"
                     }`}
@@ -1085,6 +1299,7 @@ export default function MessageItem({
                 <AttachmentList
                   message={message}
                   attachments={message.attachments}
+                  savedAttachmentIds={savedAttachmentIds}
                   onDownload={(url, name) => {
                     // Download file
                     const a = document.createElement("a");
@@ -1141,7 +1356,7 @@ export default function MessageItem({
                 <Typography className="text-xs text-[#797c81]">
                   {t("lastReply")}{" "}
                   {message.lastReplyAt
-                    ? formatTimestamp(message.lastReplyAt, { dateFormat, timeFormat, language })
+                    ? formatTimestamp(message.lastReplyAt, { timeFormat, language })
                     : ""}
                 </Typography>
               </div>
@@ -1428,11 +1643,29 @@ export default function MessageItem({
                     {isMember == false && fromPublicChannel ? null : (
                       <Button
                         variant="submenu"
+                        disabled={isTogglingThreadMute}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!threadId) return
+                          toggleThreadMute(
+                            { parentId: threadId, isMuted: !viewerIsMuted },
+                            {
+                              onSuccess: () => {
+                                toast.success(t("notificationsUpdated"))
+                                setMoreActionPopoverOpen(false)
+                              },
+                            },
+                          )
+                        }}
                       >
-                        <FiBellOff size={16} />
+                        {viewerIsMuted ? <FiBell size={16} /> : <FiBellOff size={16} />}
                         <Typography
                           variant="p"
-                          text={t("turnOffNotificationsForReplies")}
+                          text={
+                            viewerIsMuted
+                              ? t("turnOnNotificationsForReplies")
+                              : t("turnOffNotificationsForReplies")
+                          }
                         />
                       </Button>
                     )}

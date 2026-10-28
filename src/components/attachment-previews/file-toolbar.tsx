@@ -1,7 +1,9 @@
 "use client"
 
-import { useChannelFolderActions } from "@/contexts/channel-folder-actions";
+import { useTrackAttachmentView } from "@/hooks/use-attachments";
 import { useDeleteAttachment, useSaveForLater } from "@/hooks/use-messages";
+import { useRemoveSavedAttachment } from "@/hooks/use-saved-items";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { Message, MessageAttachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useFileDetailStore } from "@/stores/useFileDetailStore";
@@ -18,10 +20,7 @@ import { Separator } from "../ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import Typography from "../ui/typography";
 import { AddToFolderSubmenu } from "./add-to-folder-submenu";
-
 import { ICON_TRANSITION, TOOLBAR_ITEM_STYLE } from "@/constants/styles";
-import { useTrackAttachmentView } from "@/hooks/use-attachments";
-import { useAppTranslation } from "@/hooks/use-translation";
 
 interface Props {
   isHovered: boolean
@@ -32,18 +31,27 @@ interface Props {
   effectiveFolderId?: string | null
   isMember?: boolean;
   fromPublicChannel?: boolean;
+  /**
+   * Set of attachment IDs that have been saved for Later.
+   * Used to determine whether to show "Save for Later" or "Remove from Later".
+   */
+  savedAttachmentIds?: Set<string>;
 }
 
-const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effectiveFolderId = null, isMember, fromPublicChannel }: Props) => {
+const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effectiveFolderId = null, isMember, fromPublicChannel, savedAttachmentIds }: Props) => {
   const currentUser = useUserStore((state) => state.user)
-  const { requestNewFolder } = useChannelFolderActions()
+
   const { trackView } = useTrackAttachmentView()
   const t = useAppTranslation("attachments")
   const isOwner = message.user.id === currentUser?.id
 
+  // isDM: message có conversationId → đang ở DM
+  const isDM = !!message.conversationId
+
   const [isAddToFolderOpen, setIsAddToFolderOpen] = useState(false)
   const [isShareFileModalOpen, setIsShareFileModalOpen] = useState<boolean>(false);
   const [isConfirmDeleteFileDialogOpen, setIsConfirmDeleteFileDialogOpen] = useState<boolean>(false);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const openFileDetail = useFileDetailStore((s) => s.open);
 
   const { mutate: deleteAttachment } = useDeleteAttachment(message.channelId || message.conversationId || '');
@@ -51,25 +59,36 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
   const handleOpenDetail = () => {
     trackView({ id: attachment.id, workspaceId: attachment.workspaceId });
     openFileDetail({ attachment, message });
+    closePopover();
   };
 
   const handleDelete = () => {
     deleteAttachment(attachment.id, {
       onSuccess: () => {
-        toast.success("File deleted successfully");
+        toast.success(t("delete.fileDeleted"));
       },
       onError: () => {
-        toast.error("Failed to delete file. You might not have permission.");
+        toast.error(t("delete.fileDeleteFailed"));
       }
     });
   }
 
-  const { mutate: saveForLater } = useSaveForLater(attachment?.workspaceId!)
-  const handleSaveForLater = (
-    (attachmentId: string) => {
-      saveForLater({ type: "attachment", attachmentId });
+  const isAttachmentSaved = savedAttachmentIds?.has(attachment.id) ?? false;
+
+  const { mutate: saveForLater, isPending: isSavingForLater } = useSaveForLater(attachment?.workspaceId!)
+  const { mutate: removeSavedAttachment, isPending: isRemovingFromLater } = useRemoveSavedAttachment(attachment?.workspaceId!)
+
+  const handleToggleSaveForLater = () => {
+    if (isAttachmentSaved) {
+      removeSavedAttachment(attachment.id)
+    } else {
+      saveForLater({ type: "attachment", attachmentId: attachment.id })
     }
-  );
+    setIsPopoverOpen(false)
+  }
+
+  // Close popover helper for menu items
+  const closePopover = () => setIsPopoverOpen(false)
 
   return (
     <div
@@ -130,14 +149,13 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
           <p className="text-xs">{t("toolbar.viewDetails")}</p>
         </TooltipContent>
       </Tooltip>
-      <Popover>
+      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <p className={TOOLBAR_ITEM_STYLE}
                 onClick={(e) => {
                   e.stopPropagation()
-                  // onMoreActions?.()
                 }}
               >
                 <MdMoreVert size={20}
@@ -160,13 +178,11 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
         >
           <div className="py-2 ">
             <div className="flex flex-col space-y-1">
-              <Button variant="submenu" onClick={onOpen}>
-                <Typography variant="p" text={t("toolbar.openInNewTab")} onClick={onOpen} />
+              <Button variant="submenu" onClick={() => { onOpen?.(); closePopover(); }}>
+                <Typography variant="p" text={t("toolbar.openInNewTab")} onClick={() => { onOpen?.(); closePopover(); }} />
               </Button>
-              <Button variant="submenu" onClick={() => {
-                handleSaveForLater(attachment?.id!)
-              }}>
-                <Typography variant="p" text={t("toolbar.saveForLater")} />
+              <Button variant="submenu" onClick={handleToggleSaveForLater} disabled={isSavingForLater || isRemovingFromLater}>
+                <Typography variant="p" text={isAttachmentSaved ? t("toolbar.removeFromLater") : t("toolbar.saveForLater")} />
               </Button>
 
 
@@ -189,8 +205,8 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
                         <AddToFolderSubmenu
                           targetId={message.channelId || message.conversationId || ''}
                           attachmentId={attachment.id}
-                          onRequestCreateFolder={requestNewFolder}
                           effectiveFolderId={effectiveFolderId}
+                          isDM={isDM}
                         />
                       </div>
                     )}
@@ -207,6 +223,7 @@ const FileToolbar = ({ isHovered, attachment, message, onDownload, onOpen, effec
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsConfirmDeleteFileDialogOpen(true);
+                    closePopover();
                   }}
                 />
               )}

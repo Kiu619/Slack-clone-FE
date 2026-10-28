@@ -11,6 +11,9 @@ import {
 import { useChannels } from '@/hooks/use-channel'
 import { useConversations } from '@/hooks/use-conversations'
 import { useGlobalSync } from '@/hooks/use-global-sync'
+import { useBrowserNotificationInit } from '@/hooks/use-browser-notification-init'
+import { useNotificationNavigation } from '@/hooks/use-notification-navigation'
+import { browserNotificationService } from '@/services/browser-notification-service'
 import { useLaterOverdueSummary } from '@/hooks/use-saved-items'
 import { useDmUnreadSummary } from '@/hooks/use-conversations'
 import { usePrefetchSidebarMutedItems } from '@/hooks/use-prefetch-sidebar-muted-items'
@@ -20,15 +23,19 @@ import { useSocket, useWorkspaceSocket } from '@/hooks/use-socket'
 import { useWorkspaces } from '@/hooks/use-workspace'
 import { useWorkspacePanelResize } from '@/hooks/use-workspace-panel-resize'
 import { useUnreadNotificationsCount } from '@/hooks/use-notification-summary'
+import { useIsPanelFullwidth } from '@/hooks/use-mobile'
+import { cn } from '@/lib/utils'
 import { getDmDisplayName } from '@/lib/dm-members'
 import { mergeAccountWithWorkspaceProfile } from '@/lib/merge-user'
 import { getContrastTextColor } from "@/lib/color-contrast";
-import { authKeys, channelKeys, huddleKeys, isChannelMembersQueryKey, messageKeys, workspaceKeys } from '@/lib/query-keys'
+import { authKeys, channelKeys, huddleKeys, isChannelMembersQueryKey, messageKeys, notificationKeys, workspaceKeys } from '@/lib/query-keys'
+import { shouldNotifyHuddle } from '@/lib/huddle-notification-guard'
 import type { HuddlePageItem, HuddleSessionSnapshot, HuddleStateSnapshot, HuddleTarget, RecentHuddlesResponse, WorkspaceHuddlesResponse } from '@/lib/huddle'
 import type {
   AccountUser,
   ChannelMember,
   ChannelMembersDirectory,
+  NotificationOverrideSetting,
   User,
   Workspace,
   WorkspaceMember,
@@ -48,6 +55,7 @@ import { useUserStore } from '@/stores/useUserStore'
 import { useGlobalSearchStore } from '@/stores/useGlobalSearchStore'
 import { mergeUserForDisplay } from '@/stores/useWorkspaceMemberStore'
 import { useWorkspaceMemberStore } from '@/stores/useWorkspaceMemberStore'
+import { WorkingHoursPauseGuard } from '@/modules/workspace/working-hours-pause-guard'
 import { useWorkspacePresenceStore } from '@/stores/useWorkspacePresenceStore'
 import { useCurrentHuddleStore } from '@/stores/useCurrentHuddleStore'
 import { useWorkspaceHuddlesStore } from '@/stores/useWorkspaceHuddlesStore'
@@ -358,6 +366,7 @@ export default function WorkspaceShell({
   const isLaterPage = pathname.includes("/later");
   const isSearchPage = pathname.includes("/search");
   const isHuddlesPage = pathname.includes("/huddles");
+  const isNewMessageRoute = pathname.endsWith('/new-message');
 
   const storeTheme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
@@ -394,6 +403,27 @@ export default function WorkspaceShell({
   const { data: conversations = [] } = useConversations(workspaceId)
   const { data: memberPrefs, isLoading: memberPrefsLoading } = useMemberPreferences(workspaceId)
 
+  // Initialize browser notifications
+  useBrowserNotificationInit(workspaceId)
+  const { navigateToNotification } = useNotificationNavigation()
+
+  // Set up click handler for browser notifications.
+  // Two payload kinds: activity notifications (channel/DM/thread) routed via
+  // useNotificationNavigation, and `later:due` reminder notifications routed
+  // straight to the workspace's Later panel.
+  useEffect(() => {
+    browserNotificationService.setOnNotificationClick((payload) => {
+      if (payload.kind === 'later-due') {
+        const targetWs = payload.workspaceId || workspaceId
+        if (!targetWs) return
+        router.push(`/workspace/${targetWs}/later`)
+        return
+      }
+      // payload.kind === 'activity'
+      navigateToNotification(payload.notification, workspaceId)
+    })
+  }, [navigateToNotification, workspaceId, router])
+
   // Hydrate the language/region store from server cache on first load.
   // This ensures I18nProvider reads the correct locale immediately (no flash).
   useHydrateLanguageRegionStore({
@@ -405,11 +435,17 @@ export default function WorkspaceShell({
   const { unreadCount: activityUnreadCount } = useUnreadNotificationsCount()
   const { overdueCount: laterOverdueCount } = useLaterOverdueSummary()
   const isCreatingNewMessage = useNewMessageStore((s) => s.isCreating)
+  const setIsCreating = useNewMessageStore((s) => s.setIsCreating)
   const memberOverlayMap = useWorkspaceMemberStore(
     useShallow((s) => s.byWorkspace[workspaceId] ?? {}),
   )
   const mainPanelView = useMainPanelStore((s) => s.view)
   const mainPanelViewPathname = useMainPanelStore((s) => s.viewPathname)
+
+  // Sync store flag với URL: /workspace/:id/new-message là source of truth
+  useEffect(() => {
+    setIsCreating(pathname.endsWith('/new-message'))
+  }, [pathname, setIsCreating])
 
   usePrefetchSidebarMutedItems({
     workspaceId,
@@ -707,6 +743,41 @@ export default function WorkspaceShell({
           )
         }
 
+        // Fire sound + browser notification when a new huddle starts in this workspace
+        if (data.reason === 'start' && data.session) {
+          const scope: 'channel' | 'conversation' =
+            entityType === 'channel' ? 'channel' : 'conversation'
+          const entitySetting = queryClient.getQueryData<NotificationOverrideSetting>(
+            notificationKeys.setting(workspaceId, scope, data.target.entityId),
+          )
+
+          if (
+            shouldNotifyHuddle({
+              memberPrefs,
+              entitySetting,
+              currentUserId,
+              startedById: data.session.startedById,
+            })
+          ) {
+            const label = resolveEntityLabel(entityType, data.target.entityId)
+            const title = `Huddle started in ${label}`
+            const body = data.session.topic
+              ? `Topic: ${data.session.topic}`
+              : 'Join the conversation'
+            const soundType = memberPrefs?.huddleSoundType ?? 'bell'
+
+            // Sound: independent of browser permission
+            browserNotificationService.playSound(soundType)
+
+            // Desktop notification: only when canShow() (auto-skipped otherwise)
+            browserNotificationService.show(
+              title,
+              { body, tag: `huddle-${data.session.id}` },
+              soundType,
+            )
+          }
+        }
+
         // Update Zustand store FIRST - this is the primary source of truth for UI
         const target: HuddleTarget = {
           workspaceId: data.target.workspaceId,
@@ -966,7 +1037,7 @@ export default function WorkspaceShell({
           },
         )
       },
-      [queryClient, workspaceId, currentUserId, channels, conversations, memberOverlayMap],
+      [queryClient, workspaceId, currentUserId, channels, conversations, memberOverlayMap, memberPrefs],
     ),
     onEntitySync: useCallback((data: { domain: string; action: string; payload: Record<string, unknown> }) => {
       if (data.domain !== 'USER') return
@@ -1099,11 +1170,15 @@ export default function WorkspaceShell({
     [account, accountUser, workspaceProfile],
   )
 
+  const isPanelFullwidth = useIsPanelFullwidth()
+
   const setUser = useUserStore((s) => s.setUser)
   const isFileDetailOpen = useFileDetailStore((s) => s.isOpen)
   const isProfilePanelOpen = useProfilePanelStore((s) => s.isOpen)
   const isThreadPanelOpen = useThreadPanelStore((s) => s.isOpen)
   const resetMainPanel = useMainPanelStore((s) => s.reset)
+  const isAnyPanelOpen =
+    isFileDetailOpen || isProfilePanelOpen || isThreadPanelOpen
 
 
 
@@ -1195,6 +1270,7 @@ export default function WorkspaceShell({
         ["--color-workspace-text-active" as string]: selectedItemTextColor,
       }}
     >
+      <WorkingHoursPauseGuard workspaceId={workspaceId} displayUser={displayUser} />
       {!isSettingsPage && (
         <Toolbar
           workspaceId={workspaceId}
@@ -1260,83 +1336,129 @@ export default function WorkspaceShell({
               </>
             )}
 
-            {/* Main Content (Channels/Messages) */}
-            <div className={isSettingsPage ? "flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col" : "flex-1 min-w-0 min-h-0 h-full bg-white dark:bg-[#1A1D21] py-2 overflow-hidden flex flex-col"}>
-              {isSearchPage ? (
-                children
-              ) : isCreatingNewMessage ? (
-                <NewMessageComposer workspaceId={workspaceId} />
-              ) : mainPanelView.type === 'channel' ? (
-                <ChannelView
-                  channelId={mainPanelView.channelId}
-                  workspaceId={workspaceId}
-                />
-              ) : mainPanelView.type === 'dm' ? (
-                <DMView
-                  conversationId={mainPanelView.conversationId}
-                  workspaceId={workspaceId}
-                />
-              ) : (
-                children
+            {/* Main Content (Channels/Messages) + Panels wrapper */}
+            <div className={cn(
+              "flex-1 min-w-0 min-h-0 h-full overflow-hidden flex",
+              !isSettingsPage && isPanelFullwidth && "relative",
+            )}>
+              {/* Main Content */}
+              <div className={cn(
+                isSettingsPage
+                  ? "flex-1 min-w-0 min-h-0 h-full overflow-hidden flex flex-col"
+                  : "flex-1 min-w-0 min-h-0 h-full bg-white dark:bg-[#1A1D21] py-2 overflow-hidden flex flex-col",
+                !isSettingsPage && isPanelFullwidth && isAnyPanelOpen && "invisible",
+              )}>
+                {isSearchPage ? (
+                  children
+                ) : isNewMessageRoute ? (
+                  <NewMessageComposer workspaceId={workspaceId} />
+                ) : isCreatingNewMessage ? (
+                  <NewMessageComposer workspaceId={workspaceId} />
+                ) : mainPanelView.type === 'channel' ? (
+                  <ChannelView
+                    channelId={mainPanelView.channelId}
+                    workspaceId={workspaceId}
+                  />
+                ) : mainPanelView.type === 'dm' ? (
+                  <DMView
+                    conversationId={mainPanelView.conversationId}
+                    workspaceId={workspaceId}
+                  />
+                ) : (
+                  children
+                )}
+              </div>
+
+              {/* File Detail Panel */}
+              {isFileDetailOpen && (
+                <>
+                  {!isPanelFullwidth && (
+                    <div
+                      className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
+                      onMouseDown={() => startResizing('file-detail')}
+                    />
+                  )}
+                  <div
+                    ref={fileDetailPanelRef}
+                    className={cn(
+                      'h-full border-l border-[#797c814d] shrink-0 overflow-y-auto bg-white dark:bg-[#1A1D21]',
+                      isPanelFullwidth && 'absolute inset-0 z-30 w-full border-l-0',
+                    )}
+                    style={
+                      isPanelFullwidth
+                        ? undefined
+                        : {
+                            ...(dragResizeKind !== 'file-detail'
+                              ? { width: fileDetailWidth }
+                              : {}),
+                          }
+                    }
+                  >
+                    <FileDetailPanel />
+                  </div>
+                </>
+              )}
+
+              {/* Profile Panel */}
+              {isProfilePanelOpen && (
+                <>
+                  {!isPanelFullwidth && (
+                    <div
+                      className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
+                      onMouseDown={() => startResizing('profile')}
+                    />
+                  )}
+                  <div
+                    ref={profilePanelRef}
+                    className={cn(
+                      'h-full border-l border-[#797c814d] shrink-0 overflow-y-auto',
+                      isPanelFullwidth && 'absolute inset-0 z-30 w-full border-l-0',
+                    )}
+                    style={
+                      isPanelFullwidth
+                        ? undefined
+                        : {
+                            ...(dragResizeKind !== 'profile'
+                              ? { width: profilePanelWidth }
+                              : {}),
+                          }
+                    }
+                  >
+                    <ProfilePanel />
+                  </div>
+                </>
+              )}
+
+              {/* Thread Panel */}
+              {isThreadPanelOpen && (
+                <>
+                  {!isPanelFullwidth && (
+                    <div
+                      className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
+                      onMouseDown={() => startResizing('profile')}
+                    />
+                  )}
+                  <div
+                    ref={profilePanelRef}
+                    className={cn(
+                      'h-full border-l border-[#797c814d] shrink-0 overflow-y-auto',
+                      isPanelFullwidth && 'absolute inset-0 z-40 w-full border-l-0',
+                    )}
+                    style={
+                      isPanelFullwidth
+                        ? undefined
+                        : {
+                            ...(dragResizeKind !== 'profile'
+                              ? { width: profilePanelWidth }
+                              : {}),
+                          }
+                    }
+                  >
+                    <ThreadPanel workspaceId={workspaceId} />
+                  </div>
+                </>
               )}
             </div>
-
-            {/* File Detail Panel */}
-            {isFileDetailOpen && (
-              <>
-                <div
-                  className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
-                  onMouseDown={() => startResizing('file-detail')}
-                />
-                <div
-                  ref={fileDetailPanelRef}
-                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{
-                    ...(dragResizeKind !== 'file-detail' ? { width: fileDetailWidth } : {}),
-                  }}
-                >
-                  <FileDetailPanel />
-                </div>
-              </>
-            )}
-
-            {/* Profile Panel */}
-            {isProfilePanelOpen && (
-              <>
-                <div
-                  className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
-                  onMouseDown={() => startResizing('profile')}
-                />
-                <div
-                  ref={profilePanelRef}
-                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{
-                    ...(dragResizeKind !== 'profile' ? { width: profilePanelWidth } : {}),
-                  }}
-                >
-                  <ProfilePanel />
-                </div>
-              </>
-            )}
-
-            {/* Thread Panel */}
-            {isThreadPanelOpen && (
-              <>
-                <div
-                  className="w-0.5 hover:w-1 cursor-col-resize hover:bg-sky-500/50 transition-colors z-10"
-                  onMouseDown={() => startResizing('profile')}
-                />
-                <div
-                  ref={profilePanelRef}
-                  className="h-full border-l border-[#797c814d] shrink-0 overflow-y-auto"
-                  style={{
-                    ...(dragResizeKind !== 'profile' ? { width: profilePanelWidth } : {}),
-                  }}
-                >
-                  <ThreadPanel workspaceId={workspaceId} />
-                </div>
-              </>
-            )}
           </div>
         </main>
       </div>

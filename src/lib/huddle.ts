@@ -21,7 +21,7 @@ export type HuddleParticipantSnapshot = {
   name: string | null
   displayName: string | null
   avatar: string | null
-  membershipStatus: 'active' | 'deactivated'
+  membershipStatus: 'active' | 'deactivated' | 'deleted'
   joinedAt: string
   leftAt: string | null
   isMuted: boolean

@@ -51,9 +51,16 @@ export function proxy(request: NextRequest) {
   // auth-internal: must render regardless of auth state (e.g. OAuth callback)
   if (access === 'auth-internal') return NextResponse.next()
 
-  // public + authenticated: bounce home
+  // public + authenticated: bounce home.
+  // Ngoại lệ: /join/[inviteCode] — user đã đăng nhập paste link mời phải thấy
+  // được page "Accept Invitation" thay vì bị đẩy về /. /join rỗng vẫn bounce như cũ.
   if (access === 'public' && isAuthenticated) {
-    return NextResponse.redirect(new URL('/', request.url))
+    const isJoinWithCode =
+      pathname.startsWith('/join/') && pathname.length > '/join/'.length
+    if (!isJoinWithCode) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    // else: fall through, let /join/[inviteCode] render
   }
 
   // protected + unauthenticated: bounce to /auth with redirect param

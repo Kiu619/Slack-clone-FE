@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback } from 'react'
+import { useAppTranslation } from "@/hooks/use-translation";
 import { toast } from 'sonner'
 
 export function useAudioRecorder() {
+  const t = useAppTranslation('recorder')
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -52,9 +54,9 @@ export function useAudioRecorder() {
 
     } catch (error) {
       console.error('Error accessing microphone:', error)
-      toast.error('Không thể truy cập microphone. Vui lòng cấp quyền.')
+      toast.error(t('microphonePermissionRequired'))
     }
-  }, [])
+  }, [t])
 
   const stopRecording = useCallback((): Promise<Blob | null> => {
     return new Promise((resolve) => {

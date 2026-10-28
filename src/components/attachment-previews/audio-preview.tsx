@@ -1,6 +1,5 @@
 'use client'
 
-import { useChannelFolderActions } from '@/contexts/channel-folder-actions'
 import { Message, MessageAttachment } from '@/lib/types'
 import { useFileDetailStore } from '@/stores/useFileDetailStore'
 import { useEffect, useRef, useState } from 'react'
@@ -18,6 +17,8 @@ import { useTrackAttachmentView } from '@/hooks/use-attachments'
 import { useSaveForLater } from '@/hooks/use-messages'
 import { Button } from '../ui/button'
 import { useAppTranslation } from '@/hooks/use-translation'
+import { UploadStatusOverlay } from './upload-status-overlay'
+import { UploadingPlaceholder } from './uploading-placeholder'
 
 interface AudioPreviewProps {
   message?: Message
@@ -26,6 +27,10 @@ interface AudioPreviewProps {
   initialDuration?: number
   onDownload?: (url: string, name: string) => void
   onRemove?: () => void
+  /** Callback retry — truyền từ attachment-list (lấy từ UploadingAttachmentsContext) */
+  onRetry?: () => void
+  /** Set of attachment IDs saved for Later — for consistency with other preview components */
+  savedAttachmentIds?: Set<string>
 }
 
 export default function AudioPreview({
@@ -35,10 +40,11 @@ export default function AudioPreview({
   initialDuration,
   onDownload,
   onRemove,
+  onRetry,
+  savedAttachmentIds,
 }: AudioPreviewProps) {
   const { trackView } = useTrackAttachmentView()
   const t = useAppTranslation("attachments")
-  const { requestNewFolder } = useChannelFolderActions()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(attachment?.duration || initialDuration || 0)
@@ -122,6 +128,20 @@ export default function AudioPreview({
       saveForLater({ type: "attachment", attachmentId });
     }
   );
+
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi WaveSurfer cần URL.
+  const isPendingUpload =
+    !attachment?.url &&
+    !fileUrl &&
+    (attachment?.uploadStatus === "uploading" ||
+      attachment?.uploadStatus === "pending" ||
+      !!attachment?.uploadId ||
+      !!attachment?.pendingUploadId)
+
+  if (isPendingUpload) {
+    return <UploadingPlaceholder variant="audio" fileName={attachment?.name} />
+  }
 
   return (
     <div className="relative flex items-center gap-3 p-3 bg-white dark:bg-[#1A1D21] border border-[#797c814d] rounded-lg max-w-[400px] w-full group overflow-hidden">
@@ -225,7 +245,6 @@ export default function AudioPreview({
                           <AddToFolderSubmenu
                             targetId={message.channelId || message.conversationId || ''}
                             attachmentId={attachment.id}
-                            onRequestCreateFolder={requestNewFolder}
                           />
                         </div>
                       )}
@@ -267,6 +286,8 @@ export default function AudioPreview({
           </>
         )}
       </div>
+
+      <UploadStatusOverlay status={attachment?.uploadStatus} onRetry={onRetry} />
     </div>
   )
 }

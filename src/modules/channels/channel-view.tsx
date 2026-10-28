@@ -12,11 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Channel } from "@/lib/types";
 import FolderTab from "@/components/header-tabs/folder-tab";
 import { CreateFolderDialog } from "@/components/dialogs/create-folder-dialog";
-import { ChannelFolderActionsProvider } from "@/contexts/channel-folder-actions";
 import PinsTab from "@/components/header-tabs/pins-tab";
 import { getChannelMemberStatusApi } from "@/apis";
 import { useQuery } from "@tanstack/react-query";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { useFolderDialogStore } from "@/stores/useFolderDialogStore";
 
 function ChannelThreadDeepLink({ enabled }: { enabled: boolean }) {
   useOpenThreadFromSearchParams(enabled);
@@ -34,17 +34,10 @@ function ChannelWorkspaceBody({
 }) {
   const t = useAppTranslation('channel.detail')
   const [activeTab, setActiveTab] = useState<ChannelViewTab>("messages");
-  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const folderDialog = useFolderDialogStore();
 
   return (
-    <ChannelFolderActionsProvider
-      value={{
-        requestNewFolder: () => {
-          setActiveTab("folders");
-          setCreateFolderOpen(true);
-        },
-      }}
-    >
+    <>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col h-full">
         <Header
           currentChannelData={channel}
@@ -78,13 +71,16 @@ function ChannelWorkspaceBody({
             />
           )}
         </div>
-        <CreateFolderDialog
-          open={createFolderOpen}
-          onOpenChange={setCreateFolderOpen}
-          targetId={channel.id}
-        />
       </div>
-    </ChannelFolderActionsProvider>
+      <CreateFolderDialog
+        open={folderDialog.isOpen && folderDialog.targetId === channel.id && !folderDialog.isDM}
+        onOpenChange={(open) => {
+          if (!open) folderDialog.close();
+        }}
+        targetId={channel.id}
+        attachmentId={folderDialog.attachmentId ?? undefined}
+      />
+    </>
   );
 }
 

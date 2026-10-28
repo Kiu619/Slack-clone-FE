@@ -168,6 +168,9 @@ export default function ProfilePanel() {
   const isDeactivatedMember =
     mergedMemberStatus?.membershipStatus === "deactivated" ||
     displayUser?.membershipStatus === "deactivated";
+  const isDeletedMember =
+    mergedMemberStatus?.membershipStatus === "deleted" ||
+    displayUser?.membershipStatus === "deleted";
 
   const router = useRouter();
   const pathname = usePathname();
@@ -328,7 +331,7 @@ export default function ProfilePanel() {
         <div className="flex flex-col p-4 space-y-3">
           <div className="flex items-center justify-between">
             <Typography
-              text={(profileHeadline || displayUser?.name) ?? ""}
+              text={isDeletedMember ? t("status.deletedUser") : (profileHeadline || displayUser?.name) ?? ""}
               variant="h5"
               className="font-semibold"
             />
@@ -341,6 +344,15 @@ export default function ProfilePanel() {
               />
             )}
           </div>
+
+          {isDeletedMember && (
+            <div
+              className="inline-flex w-fit items-center rounded-md border border-red-500/60 bg-red-500/10 px-2 py-1 text-[12px] font-semibold text-red-300"
+              data-testid="profile-deleted-badge"
+            >
+              {t("status.deletedAccount")}
+            </div>
+          )}
 
           {isDeactivatedMember && (
             <div className="inline-flex w-fit items-center rounded-md border border-[#797c814d] bg-[#2a2d31] px-2 py-1 text-[12px] font-semibold text-[#d1d2d3]">
@@ -513,17 +525,19 @@ export default function ProfilePanel() {
               <button
                 type="button"
                 className="flex-1 px-3 py-1 border border-[#797c81] rounded-md disabled:opacity-50 disabled:pointer-events-none"
-                disabled={isOpeningDm || isDeactivatedMember}
+                disabled={isOpeningDm || isDeactivatedMember || isDeletedMember}
                 onClick={() => {
                   void handleMessagePeer();
                 }}
               >
                 <Typography
                   text={
-                    isDeactivatedMember
-                      ? t("coworkerActions.deactivated")
-                      : isOpeningDm
-                        ? t("coworkerActions.opening")
+                    isDeletedMember
+                      ? t("status.deletedAccount")
+                      : isDeactivatedMember
+                        ? t("coworkerActions.deactivated")
+                        : isOpeningDm
+                          ? t("coworkerActions.opening")
                         : t("coworkerActions.message")
                   }
                   variant="p"
@@ -532,7 +546,7 @@ export default function ProfilePanel() {
               </button>
               <button
                 className="flex-1 px-3 py-1 border border-[#797c81] rounded-md disabled:opacity-50 disabled:pointer-events-none"
-                disabled={isDeactivatedMember}
+                disabled={isDeactivatedMember || isDeletedMember}
                 onClick={() => {
                   console.log("huddle");
                   if (isViewAsCoworker) {
@@ -572,10 +586,6 @@ export default function ProfilePanel() {
                         }}
                       >
                         <Typography variant="p" text={t("actions.copyDisplayName")} />
-                      </div>
-                      <Separator />
-                      <div className="hover:text-white hover:bg-selection-hover px-5 py-1 cursor-pointer">
-                        <Typography variant="p" text={t("coworkerActions.viewFiles")} />
                       </div>
                       <Separator />
                       <div

@@ -133,8 +133,8 @@ async function uploadBinaryToStorage(
 export function useFileUpload() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
 
-  const uploadFileBinary = async (file: File) => {
-    const tempId = Math.random().toString(36).substring(7)
+  const uploadFileBinary = async (file: File, externalId?: string) => {
+    const tempId = externalId ?? Math.random().toString(36).substring(7)
 
     setUploadingFiles((prev) => [
       ...prev,

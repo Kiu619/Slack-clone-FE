@@ -12,8 +12,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { RiHeadphoneLine } from 'react-icons/ri'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 export function ActiveHuddleIndicator() {
+  const t = useTranslations("huddlePreview")
   const { currentHuddle, clearCurrentHuddle } = useCurrentHuddleStore()
   const [isLeaving, setIsLeaving] = useState(false)
   const { socket } = useSocket()
@@ -49,11 +51,14 @@ export function ActiveHuddleIndicator() {
   }
 
   const handleOpen = () => {
-    openHuddlePreviewWindow({
-      ...target,
-      label,
-      mode: 'join',
-    })
+    openHuddlePreviewWindow(
+      {
+        ...target,
+        label,
+        mode: 'join',
+      },
+      { popupBlockedMessage: t('popupBlocked') },
+    )
   }
 
   const title = topic

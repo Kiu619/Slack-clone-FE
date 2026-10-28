@@ -79,3 +79,19 @@ export function formatLocalTimeInTimeZone(value: string | null | undefined): str
   })
   return `${timeStr} ${tzLabel} (local time)`
 }
+
+/**
+ * Kiểm tra xem giá trị timezone có phải là Slack-style format "(UTC±HH:MM)" không.
+ */
+export function isValidSlackTimeZoneValue(value: string): boolean {
+  return (TIMEZONE_VALUES as readonly string[]).includes(value)
+}
+
+/**
+ * Lấy timezone hợp lệ cho API: dùng store value nếu đúng format, không thì dùng browser.
+ */
+export function getValidTimeZoneForApi(storeTimeZone: string | null | undefined): string {
+  return storeTimeZone && isValidSlackTimeZoneValue(storeTimeZone)
+    ? storeTimeZone
+    : getBrowserTimeZoneValue()
+}

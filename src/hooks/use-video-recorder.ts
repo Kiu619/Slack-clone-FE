@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback } from 'react'
+import { useAppTranslation } from '@/hooks/use-translation'
 import { toast } from 'sonner'
 
 export type VideoRecorderMode = 'idle' | 'preview' | 'recording' | 'review'
 
 export function useVideoRecorder() {
+  const t = useAppTranslation('recorder')
   const [mode, setMode] = useState<VideoRecorderMode>('idle')
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
@@ -107,9 +109,9 @@ export function useVideoRecorder() {
       setProxySource(stream)
     } catch (error) {
       console.error(error)
-      toast.error('Cannot access camera. Please grant permission.')
+      toast.error(t('cameraPermissionRequired'))
     }
-  }, [setProxySource])
+  }, [setProxySource, t])
 
   /**
    * Start screen share
@@ -156,7 +158,7 @@ export function useVideoRecorder() {
     const canvasStream = canvas.captureStream?.(30) || canvas.mozCaptureStream?.(30)
     
     if (!canvasStream) {
-      toast.error('Trình duyệt không hỗ trợ quay video (Canvas error).')
+      toast.error(t('browserDoesNotSupportVideoRecording'))
       return
     }
 
@@ -201,7 +203,7 @@ export function useVideoRecorder() {
     timerRef.current = setInterval(() => {
       setRecordingDuration(prev => prev + 1)
     }, 1000)
-  }, [cameraStream, screenStream, ensureCompositor])
+  }, [cameraStream, screenStream, ensureCompositor, t])
 
   /**
    * Pause recording

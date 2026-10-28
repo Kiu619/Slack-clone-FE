@@ -23,7 +23,7 @@ function getOrCreateSession(url: string): OfficeSessionEntry {
   return entry
 }
 
-export function useOfficePreviewSession(url: string | undefined) {
+export function useOfficePreviewSession(url: string | null | undefined) {
   const [version, setVersion] = useState(0)
 
   const viewerSrc = useMemo(() => {

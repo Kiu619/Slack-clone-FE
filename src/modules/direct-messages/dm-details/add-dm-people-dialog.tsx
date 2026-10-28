@@ -165,10 +165,14 @@ export default function AddDmPeopleDialog({
     [pendingUserIds],
   );
 
+  // Lọc theo membershipStatus — chỉ 'active' mới có thể được thêm vào DM.
+  // Bỏ qua 'deactivated' (không thể truy cập workspace) và 'deleted' (đã bị xoá khỏi workspace_members).
+  // (Thường API `getWorkspaceMembers` đã loại 'deleted', nhưng defense-in-depth tại client)
   const filteredPool = useMemo(
     () =>
       notInDmPool
         .filter((m) => !pendingIdSet.has(m.id))
+        .filter((m) => m.membershipStatus === "active")
         .filter((m) => matchesMemberSearch(m, searchKey, memberOverlayMap[m.id])),
     [notInDmPool, searchKey, pendingIdSet, memberOverlayMap],
   );

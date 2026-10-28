@@ -39,6 +39,8 @@ import UploadingFileItem from "@/components/uploading-file-item";
 import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
 import ScheduleSendDialog from "@/components/dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
+import { CreateFolderDialog } from "@/components/dialogs/create-folder-dialog";
+import { useFolderDialogStore } from "@/stores/useFolderDialogStore";
 import { canUserPostInChannel } from "@/lib/channel-posting-permissions";
 import { useAppTranslation } from "@/hooks/use-translation";
 
@@ -483,6 +485,8 @@ export default function ThreadsPage() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useThreads(workspaceId, user?.id ?? "", isConnected);
 
+  const folderDialog = useFolderDialogStore();
+
   const { mutate: markAsRead } = useMarkThreadAsRead(workspaceId);
 
   const allThreads = useMemo(
@@ -559,6 +563,15 @@ export default function ThreadsPage() {
           }}
         />
       </div>
+      <CreateFolderDialog
+        open={folderDialog.isOpen}
+        onOpenChange={(open) => {
+          if (!open) folderDialog.close();
+        }}
+        targetId={folderDialog.targetId ?? ""}
+        isDM={folderDialog.isDM}
+        attachmentId={folderDialog.attachmentId ?? undefined}
+      />
     </div>
   );
 }

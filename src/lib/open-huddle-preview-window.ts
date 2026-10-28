@@ -56,7 +56,10 @@ export function buildHuddlePreviewChannelName(target: HuddlePreviewRoomTarget) {
   return `${HUDDLE_PREVIEW_MESSAGE_TYPE}:${buildHuddlePreviewTargetKey(target)}`
 }
 
-export function openHuddlePreviewWindow(target: HuddlePreviewTarget) {
+export function openHuddlePreviewWindow(
+  target: HuddlePreviewTarget,
+  options?: { popupBlockedMessage?: string },
+) {
   if (typeof window === 'undefined') return false
 
   const url = buildHuddlePreviewUrl(target)
@@ -78,7 +81,10 @@ export function openHuddlePreviewWindow(target: HuddlePreviewTarget) {
   const popup = window.open('', windowName, features)
 
   if (!popup) {
-    toast.error('Trinh duyet da chan cua so preview huddle. Hay cho phep pop-up roi thu lai.')
+    toast.error(
+      options?.popupBlockedMessage ??
+        'Trinh duyet da chan cua so preview huddle. Hay cho phep pop-up roi thu lai.',
+    )
     return false
   }
 

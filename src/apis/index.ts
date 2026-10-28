@@ -63,17 +63,94 @@ export const magicLinkVerifyApi = async (token: string) => {
   return res.data
 }
 
-export const initGoogleOAuthApi = async (redirect?: string) => {
+export const initGoogleOAuthApi = async (params?: {
+  redirect?: string
+  inviteToken?: string
+}) => {
   const res = await apiClient.post<{ ok: boolean }>('/auth/google/init', {
-    redirect,
+    redirect: params?.redirect,
+    inviteToken: params?.inviteToken,
   })
   return res.data
 }
 
-export const initGithubOAuthApi = async (redirect?: string) => {
+export const initGithubOAuthApi = async (params?: {
+  redirect?: string
+  inviteToken?: string
+}) => {
   const res = await apiClient.post<{ ok: boolean }>('/auth/github/init', {
-    redirect,
+    redirect: params?.redirect,
+    inviteToken: params?.inviteToken,
   })
+  return res.data
+}
+
+// ─── Email invite (kiểu 1) ──────────────────────────────────────────────────
+
+export interface EmailInvitePublicInfo {
+  inviteId: string
+  workspaceId: string
+  workspaceName: string
+  workspaceSlug: string
+  email: string
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  expiresAt: string
+  invitedByName: string | null
+  alreadyAccepted: boolean
+}
+
+export type EmailInviteLookupResult =
+  | ({ found: true } & EmailInvitePublicInfo)
+  | { found: false }
+
+export const getEmailInviteApi = async (token: string) => {
+  const res = await apiClient.get<EmailInviteLookupResult>(
+    `/invites/${encodeURIComponent(token)}`,
+  )
+  return res.data
+}
+
+export const sendOtpApi = async (token: string) => {
+  const res = await apiClient.post<{ sent: true; expiresInSeconds: number }>(
+    `/invites/${encodeURIComponent(token)}/send-otp`,
+    {},
+  )
+  return res.data
+}
+
+export const verifyOtpApi = async (token: string, code: string) => {
+  const res = await apiClient.post<{ verified: true; expiresInSeconds: number }>(
+    `/invites/${encodeURIComponent(token)}/verify-otp`,
+    { code },
+  )
+  return res.data
+}
+
+export interface AcceptInviteResult {
+  workspace: {
+    id: string
+    name: string
+    slug: string
+    inviteCode: string
+    imageUrl: string
+    role: string
+  }
+  alreadyMember: boolean
+  userId: string
+}
+
+export const acceptInviteApi = async (
+  token: string,
+  payload: {
+    name?: string
+    timeZone?: string
+    method: 'otp' | 'oauth'
+  },
+) => {
+  const res = await apiClient.post<AcceptInviteResult>(
+    `/invites/${encodeURIComponent(token)}/accept`,
+    payload,
+  )
   return res.data
 }
 
@@ -252,16 +329,47 @@ export const updateProfileApi = async (
 
 // ─── Member Preferences ──────────────────────────────────────────────────────────
 
+export type WeekDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+
+export type AvailabilityDaySchedule = {
+  day: WeekDay
+  startTime: string // HH:mm
+  endTime: string   // HH:mm
+}
+
+export type AvailabilitySchedule = {
+  scheduleType: 'every_day' | 'weekdays' | 'custom'
+  startTime: string // HH:mm
+  endTime: string   // HH:mm
+  days?: AvailabilityDaySchedule[]
+}
+
 export type MemberPreferencesResponse = {
   locale: 'en' | 'vi' | null
-  dateFormat: 'en_US' | 'vi_VN' | null
   timeFormat: '12h' | '24h' | null
+  desktopNotificationsEnabled: boolean
+  soundEnabled?: boolean
+  messageSoundType?: string | null
+  huddleSoundType?: string | null
+  // Also notify you about
+  notifyOnThreadReply?: boolean
+  notifyOnHuddle?: boolean
+  // Working hours / availability
+  availabilitySchedule?: AvailabilitySchedule | null
 }
 
 export type UpdateMemberPreferencesPayload = {
   locale?: 'en' | 'vi'
-  dateFormat?: 'en_US' | 'vi_VN'
   timeFormat?: '12h' | '24h'
+  desktopNotificationsEnabled?: boolean
+  soundEnabled?: boolean
+  messageSoundType?: string
+  huddleSoundType?: string
+  // Also notify you about
+  notifyOnThreadReply?: boolean
+  notifyOnHuddle?: boolean
+  // Working hours / availability (null = clear)
+  availabilitySchedule?: AvailabilitySchedule | null
 }
 
 export const getMemberPreferencesApi = async (workspaceId: string) => {
@@ -308,7 +416,6 @@ export type UpdateMemberStatusPayload = {
   statusText?: string | null
   statusEmoji?: string | null
   statusExpiration?: string | null
-  notificationsPausedUntil?: string | null
 }
 
 export const updateMemberStatusApi = async (
@@ -318,6 +425,18 @@ export const updateMemberStatusApi = async (
   const res = await apiClient.patch(
     `/workspaces/${workspaceId}/member/status`,
     payload,
+  )
+  return res.data
+}
+
+export const pauseNotificationsApi = async (
+  workspaceId: string,
+  pausedUntil: string | null,
+  auto: boolean = false,
+) => {
+  const res = await apiClient.patch(
+    `/workspaces/${workspaceId}/notifications/pause`,
+    { pausedUntil, auto },
   )
   return res.data
 }
@@ -374,11 +493,21 @@ export const fetchWorkspaceMembersApi = async (workspaceId: string) => {
   return res.data
 }
 
+/** GET /workspaces/:id/member-emails — lightweight email list cho Invite People dialog check email đã ở workspace */
+export const fetchWorkspaceMemberEmailsApi = async (
+  workspaceId: string,
+) => {
+  const res = await apiClient.get<string[]>(
+    `/workspaces/${workspaceId}/member-emails`,
+  )
+  return res.data
+}
+
 /** POST /workspaces/:id/invite-emails — gửi email mời workspace (Resend) */
 export const sendWorkspaceInviteEmailsApi = async (
   workspaceId: string,
   emails: string[],
-  channelId?: string,
+  channelIds?: string[],
 ) => {
   const res = await apiClient.post<{
     sent: number
@@ -386,7 +515,7 @@ export const sendWorkspaceInviteEmailsApi = async (
     failed: { email: string; message: string }[]
   }>(`/workspaces/${workspaceId}/invite-emails`, {
     emails,
-    ...(channelId ? { channelId } : {}),
+    ...(channelIds && channelIds.length > 0 ? { channelIds } : {}),
   })
   return res.data
 }
@@ -494,6 +623,16 @@ export const removeChannelMemberApi = async (
   return res.data
 }
 
+export const leaveChannelApi = async (
+  workspaceId: string,
+  channelId: string,
+) => {
+  const res = await apiClient.post<{ ok: boolean }>(
+    `/workspaces/${workspaceId}/channels/${channelId}/leave`,
+  )
+  return res.data
+}
+
 // ─── Direct Messages ──────────────────────────────────────────────────────────
 
 export const fetchDirectMessagesApi = async (workspaceId: string, q?: string) => {
@@ -580,6 +719,17 @@ export const addConversationMembersApi = async (
   const res = await apiClient.post<DirectMessageConversation>(
     `/workspaces/${workspaceId}/direct-messages/${conversationId}/members`,
     { userIds },
+  )
+  return res.data
+}
+
+export const removeConversationMemberApi = async (
+  workspaceId: string,
+  conversationId: string,
+  memberUserId: string,
+) => {
+  const res = await apiClient.delete<{ ok: true }>(
+    `/workspaces/${workspaceId}/direct-messages/${conversationId}/members/${memberUserId}`,
   )
   return res.data
 }
@@ -907,6 +1057,19 @@ export const markThreadAsReadApi = async (parentId: string) => {
   return res.data
 }
 
+export const toggleThreadMuteApi = async (
+  parentId: string,
+  workspaceId: string,
+  isMuted: boolean,
+) => {
+  const res = await apiClient.patch<{ isMuted: boolean }>(
+    `/messages/${parentId}/threads/mute`,
+    { isMuted },
+    { params: { workspaceId } },
+  )
+  return res.data
+}
+
 // ─── Later (Saved Items) ──────────────────────────────────────────────────────
 
 export const getSavedItemsApi = async (
@@ -941,6 +1104,7 @@ export const checkLaterMessagesApi = async (
   const res = await apiClient.post<{
     savedMessageIds: string[]
     remindAtByMessageId?: Record<string, string>
+    savedAttachmentIds?: string[]
   }>(`/workspaces/${workspaceId}/later/check-messages`, { messageIds })
   return res.data
 }
@@ -973,6 +1137,16 @@ export const removeSavedItemApi = async (
 ) => {
   const res = await apiClient.delete<{ success: boolean }>(
     `/workspaces/${workspaceId}/later/${itemId}`,
+  )
+  return res.data
+}
+
+export const removeLaterByAttachmentIdApi = async (
+  workspaceId: string,
+  attachmentId: string,
+) => {
+  const res = await apiClient.delete<{ success: true; removed: number }>(
+    `/workspaces/${workspaceId}/later/attachments/${attachmentId}`,
   )
   return res.data
 }
@@ -1052,16 +1226,6 @@ export const activateWorkspaceMemberApi = async (
 ) => {
   const res = await apiClient.patch<WorkspaceMember>(
     `/workspaces/${workspaceId}/members/${userId}/activate`,
-  )
-  return res.data
-}
-
-export const removeDeactivatedWorkspaceMemberApi = async (
-  workspaceId: string,
-  userId: string,
-) => {
-  const res = await apiClient.delete<{ id: string; removed: true }>(
-    `/workspaces/${workspaceId}/members/${userId}`,
   )
   return res.data
 }
@@ -1218,7 +1382,12 @@ export const getNotificationSettingApi = async (
 
 export const updateNotificationSettingApi = async (
   target: NotificationSettingTarget,
-  payload: { notifyFor?: NotificationPreference; muteChannel: boolean },
+  payload: {
+    notifyFor?: NotificationPreference;
+    muteChannel: boolean;
+    notifyOnThreadReply?: boolean;
+    notifyOnHuddle?: boolean;
+  },
 ) => {
   const body =
     'channelId' in target
@@ -1226,11 +1395,15 @@ export const updateNotificationSettingApi = async (
           channelId: target.channelId,
           notifyFor: payload.notifyFor,
           muteChannel: payload.muteChannel,
+          notifyOnThreadReply: payload.notifyOnThreadReply,
+          notifyOnHuddle: payload.notifyOnHuddle,
         }
       : {
           conversationId: target.conversationId,
           notifyFor: payload.notifyFor,
           muteChannel: payload.muteChannel,
+          notifyOnThreadReply: payload.notifyOnThreadReply,
+          notifyOnHuddle: payload.notifyOnHuddle,
         }
 
   const res = await apiClient.patch<NotificationOverrideSetting>(

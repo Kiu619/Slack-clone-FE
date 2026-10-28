@@ -6,6 +6,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { openSafeUrl } from "@/lib/open-safe-url";
 import FileToolbar from "./file-toolbar";
+import { UploadStatusOverlay } from "./upload-status-overlay";
+import { UploadingPlaceholder } from "./uploading-placeholder";
 import {
   LuPlay,
   LuPause,
@@ -51,6 +53,10 @@ interface VideoPreviewProps {
   onDetachedClose?: (resume: { time: number; play: boolean }) => void;
   isMember?: boolean;
   fromPublicChannel?: boolean;
+  /** Callback retry — truyền từ attachment-list (lấy từ UploadingAttachmentsContext) */
+  onRetry?: () => void;
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>;
 }
 
 export default function VideoPreview({
@@ -65,6 +71,8 @@ export default function VideoPreview({
   onDetachedClose,
   isMember,
   fromPublicChannel,
+  onRetry,
+  savedAttachmentIds,
 }: VideoPreviewProps) {
   const { trackView } = useTrackAttachmentView();
   const t = useAppTranslation("attachments");
@@ -100,6 +108,28 @@ export default function VideoPreview({
     storePayload != null &&
     storePayload.message.id === message.id &&
     storePayload.attachment.id === attachment.id;
+
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi video src = undefined.
+  const isPendingUpload =
+    !attachment.url &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId)
+
+  if (isPendingUpload) {
+    return (
+      <UploadingPlaceholder
+        variant="video"
+        className={cn(
+          "h-[260px] max-w-[500px]",
+          compact &&
+            "h-full max-w-full min-h-0 min-w-0 border-[#dddddd] dark:border-[#35373B]",
+        )}
+      />
+    )
+  }
 
   useEffect(() => {
     if (storePayload != null || !useExternalFullscreen) return;
@@ -244,6 +274,7 @@ export default function VideoPreview({
   }, [autoEnterFullscreen, onDetachedClose]);
 
   const handleDownload = () => {
+    if (!attachment.url) return
     if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
@@ -252,6 +283,7 @@ export default function VideoPreview({
   };
 
   const handleOpenInNewTab = () => {
+    if (!attachment.url) return
     openSafeUrl(attachment.url);
   };
 
@@ -424,13 +456,14 @@ export default function VideoPreview({
           onOpen={handleOpenInNewTab}
           isMember={isMember}
           fromPublicChannel={fromPublicChannel}
+          savedAttachmentIds={savedAttachmentIds}
         />
       ) : null}
 
       {/* Video element */}
       <video
         ref={videoRef}
-        src={attachment.url}
+        src={attachment.url ?? undefined}
         className={cn(
           "cursor-pointer",
           compact && !isFullscreen
@@ -445,6 +478,8 @@ export default function VideoPreview({
       >
         <track kind="captions" />
       </video>
+
+      <UploadStatusOverlay status={attachment.uploadStatus} onRetry={onRetry} />
 
       {/* Big Play Button Overlay */}
       {!isPlaying && (

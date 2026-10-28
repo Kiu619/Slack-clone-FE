@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChannels } from "@/hooks/use-channel";
 import { useConversations } from "@/hooks/use-conversations";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { useTranslations } from "next-intl";
 import type {
     HuddleParticipantSnapshot,
     HuddleSessionSnapshot,
@@ -117,6 +118,7 @@ interface HuddleItemProps {
   overlayMap: Record<string, WorkspaceMemberDisplay>;
   onOpen: () => void;
   t: ReturnType<typeof useAppTranslation>;
+  tPreview: (key: string) => string;
 }
 
 function HuddleItem({
@@ -125,6 +127,7 @@ function HuddleItem({
   overlayMap,
   onOpen,
   t,
+  tPreview,
 }: HuddleItemProps) {
   const { user: currentUser } = useAuth();
   const { activeSession, label, target } = huddle;
@@ -172,13 +175,16 @@ function HuddleItem({
   };
 
   const handleOpen = () => {
-    openHuddlePreviewWindow({
-      workspaceId,
-      entityType: target.entityType,
-      entityId: target.entityId,
-      label,
-      mode: "join",
-    });
+    openHuddlePreviewWindow(
+      {
+        workspaceId,
+        entityType: target.entityType,
+        entityId: target.entityId,
+        label,
+        mode: "join",
+      },
+      { popupBlockedMessage: tPreview("popupBlocked") },
+    );
     onOpen();
   };
 
@@ -209,9 +215,10 @@ function HuddleItem({
 interface HuddleListProps {
   workspaceId: string;
   t: ReturnType<typeof useAppTranslation>;
+  tPreview: (key: string) => string;
 }
 
-function HuddleList({ workspaceId, t }: HuddleListProps) {
+function HuddleList({ workspaceId, t, tPreview }: HuddleListProps) {
   const { user: currentUser } = useAuth();
   const { data: channels = [] } = useChannels(workspaceId);
   const { data: conversations = [] } = useConversations(workspaceId);
@@ -309,6 +316,7 @@ function HuddleList({ workspaceId, t }: HuddleListProps) {
           overlayMap={overlayMap}
           onOpen={() => {}}
           t={t}
+          tPreview={tPreview}
         />
       ))}
     </div>
@@ -323,6 +331,7 @@ interface HuddleProps {
 const Huddle = ({ theme, workspaceId }: HuddleProps) => {
   const pathname = usePathname();
   const t = useAppTranslation("workspaceSidePanel")
+  const tPreview = useTranslations("huddlePreview")
   const isActive = pathname === `/workspace/${workspaceId}/huddles`;
   return (
     <Link
@@ -338,7 +347,7 @@ const Huddle = ({ theme, workspaceId }: HuddleProps) => {
           className={`min-w-0 flex-1 text-[15px]! ${isActive ? "text-workspace-text-active" : "text-workspace-side-panel-text"}`}
         />
       </div>
-      <HuddleList workspaceId={workspaceId} t={t} />
+      <HuddleList workspaceId={workspaceId} t={t} tPreview={tPreview} />
     </Link>
   );
 };

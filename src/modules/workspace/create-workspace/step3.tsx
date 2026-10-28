@@ -11,11 +11,13 @@ import {
   CustomDialogFooter
 } from "@/components/custom-dialog"
 import { useCreateWorkspaceValues } from '@/stores/useCreateWorkspaceStore'
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { v4 as uuidv4 } from 'uuid'
 import { useEffect, useMemo, useState } from "react"
 
 const Step3 = () => {
+  const t = useTranslations("workspaceCreate")
   const [skipDialogOpen, setSkipDialogOpen] = useState(false)
   const { name, emails, currentEmail, addEmail, removeEmail, setCurrentEmail, setCurrStep, updateInviteCode } = useCreateWorkspaceValues()
 
@@ -48,7 +50,7 @@ const Step3 = () => {
 
   const handleCopyInviteCode = () => {
     navigator.clipboard.writeText(invite_code)
-    toast.success('Invite code copied to clipboard')
+    toast.success(t('inviteCodeCopied'))
   }
 
   return (

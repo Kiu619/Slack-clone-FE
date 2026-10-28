@@ -19,19 +19,6 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "../ui/form"
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
-const TIMES = Array.from({ length: 48 }).map((_, i) => {
-  const hour = Math.floor(i / 2);
-  const min = i % 2 === 0 ? "00" : "30";
-  const ampm = hour < 12 ? "AM" : "PM";
-  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return {
-    label: `${h12}:${min} ${ampm}`,
-    value: `${hour.toString().padStart(2, "0")}:${min}`,
-    hour,
-    min: parseInt(min),
-  };
-});
-
 const getNextAvailableTime = () => {
   const now = new Date();
   const currentHour = now.getHours();
@@ -46,41 +33,9 @@ const getNextAvailableTime = () => {
   return `${suggestHour.toString().padStart(2, "0")}:${suggestMin.toString().padStart(2, "0")}`;
 };
 
-const formatToAMPM = (hhmm: string): string => {
-  const [hours, minutes] = hhmm.split(":").map(Number);
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${h12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
-};
-
-const parseSmartTime = (input: string): string | null => {
-  // Loại bỏ tất cả ký tự không phải số
-  const clean = input.replace(/\D/g, "");
-  if (!clean) return null;
-
-  let hours = 0;
-  let minutes = 0;
-
-  if (clean.length === 1 || clean.length === 2) {
-    hours = parseInt(clean);
-    minutes = 0;
-  } else if (clean.length === 3) {
-    hours = parseInt(clean[0]);
-    minutes = parseInt(clean.slice(1));
-  } else if (clean.length === 4) {
-    hours = parseInt(clean.slice(0, 2));
-    minutes = parseInt(clean.slice(2));
-  } else {
-    return null;
-  }
-
-  if (hours > 23 || minutes > 59) return null;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
-};
-
 import { useDialogs } from "@/hooks/use-translation";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
+import { buildTimeOptions } from "@/helpers/time-options";
 
 export default function ReminderDialog({
   open,
@@ -100,6 +55,8 @@ export default function ReminderDialog({
   };
 }) {
   const t = useDialogs();
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const timeOptions = buildTimeOptions(timeFormat);
 
   const formSchema = z.object({
     date: z.date(),
@@ -107,24 +64,25 @@ export default function ReminderDialog({
     description: hideDescription ? z.string() : z.string(),
   }).superRefine((data, ctx) => {
     const val = data.time;
-    let hhmm = val;
-    if (!(val.includes("AM") || val.includes("PM"))) {
-      const parsed = parseSmartTime(val);
-      if (!parsed) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Invalid time",
-          path: ["time"],
-        });
-        return;
-      }
-      hhmm = parsed;
-    } else {
+    let hhmm: string | null = null;
+    if (val.includes("AM") || val.includes("PM")) {
       const [timePart, ampm] = val.split(" ");
-      let [h, m] = timePart.split(":").map(Number);
+      const [hRaw, mRaw] = timePart.split(":").map(Number);
+      let h = hRaw;
+      const m = mRaw;
       if (ampm === "PM" && h < 12) h += 12;
       if (ampm === "AM" && h === 12) h = 0;
       hhmm = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    } else if (/^\d{2}:\d{2}$/.test(val)) {
+      hhmm = val;
+    }
+    if (!hhmm) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid time",
+        path: ["time"],
+      });
+      return;
     }
     const selectedDate = data.date;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
@@ -162,14 +120,14 @@ export default function ReminderDialog({
   }, [open, defaultValues, form]);
 
   const selectedDate = useWatch({ control: form.control, name: "date" });
-  const filteredTimes = TIMES.filter((time) => {
+  const filteredTimes = timeOptions.filter((time) => {
     if (!selectedDate) return true;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
     if (!isToday) return true;
 
     const now = new Date();
     if (time.hour < now.getHours()) return false;
-    if (time.hour === now.getHours() && time.min <= now.getMinutes()) return false;
+    if (time.hour === now.getHours() && time.minute <= now.getMinutes()) return false;
     return true;
   });
 
@@ -181,8 +139,6 @@ export default function ReminderDialog({
     onOpenChange(false);
     form.reset();
   };
-
-  const language = useLanguageRegionStore((s) => s.language);
 
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange} maxWidth="600px">
@@ -219,26 +175,11 @@ export default function ReminderDialog({
                     <FormItem>
                       <FormControl>
                         <CustomSelect
-                          editable={true}
                           options={filteredTimes}
-                          value={field.value.includes(":") ? formatToAMPM(field.value) : field.value}
+                          value={timeOptions.find((o) => o.value === field.value)?.label ?? field.value}
                           isInvalid={fieldState.invalid}
                           onChange={(val) => {
                             field.onChange(val);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              const parsed = parseSmartTime(field.value);
-                              if (parsed) {
-                                field.onChange(parsed);
-                              }
-                            }
-                          }}
-                          onBlur={() => {
-                            const parsed = parseSmartTime(field.value);
-                            if (parsed) {
-                              field.onChange(parsed);
-                            }
                           }}
                         />
                       </FormControl>

@@ -456,9 +456,30 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
           if (data) {
             get().upsertEntities([data])
             if (targetId) {
-              const isThreadReply = !!data.parentId;
-              const shouldShowInChannel = !isThreadReply || data.alsoSendToChannel;
+              const isThreadReply = !!data.parentId
+              const shouldShowInChannel = !isThreadReply || data.alsoSendToChannel
               if (shouldShowInChannel) {
+                // FIX: Khi backend broadcast message thật (entity:sync CREATE),
+                // nếu có temp optimistic message của cùng user trong list → xóa trước
+                // để tránh duplicate. Cả 2 cùng hiển thị vì ID khác nhau (temp-xxx vs real-uuid).
+                const currentChannel = get().channels[targetId] || DEFAULT_CHANNEL_STATE
+                const tempMessageId = currentChannel.messageIds.find((msgId) => {
+                  const entity = get().entities[msgId]
+                  return (
+                    msgId.startsWith('temp-') &&
+                    entity?.user?.id === data.user?.id &&
+                    entity?.createdAt === data.createdAt
+                  )
+                })
+                if (tempMessageId) {
+                  get().removeMessage(targetId, tempMessageId)
+                  // Xóa temp entity khỏi store
+                  set((state) => {
+                    const { [tempMessageId]: _, ...restEntities } = state.entities
+                    return { entities: restEntities }
+                  })
+                }
+
                 get().addMessage(targetId, data)
               }
             }

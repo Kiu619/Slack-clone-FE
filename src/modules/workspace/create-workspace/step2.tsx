@@ -4,12 +4,14 @@
 import { LocalImageUpload } from '@/components/cloudinary-upload'
 import { Button } from "@/components/ui/button"
 import Typography from "@/components/ui/typography"
+import { useTranslations } from "next-intl"
 import { toast } from 'sonner'
 
 import { useCreateWorkspaceValues } from '@/stores/useCreateWorkspaceStore'
 import { useState } from "react"
 
 const Step2 = () => {
+  const t = useTranslations("workspaceCreate")
   const { setCurrStep, imageUrl, updateImageUrl, imageFile, updateImageFile, name } =
     useCreateWorkspaceValues()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -37,7 +39,7 @@ const Step2 = () => {
         handleNext()
       } catch (error) {
         console.error('Upload failed:', error)
-        toast.error('Cannot upload image. Please try again.')
+        toast.error(t('imageUploadFailed'))
       } finally {
         setIsSubmitting(false)
       }

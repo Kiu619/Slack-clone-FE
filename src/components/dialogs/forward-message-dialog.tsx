@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { useForwardRecipientSearch } from "@/hooks/use-forward-recipient-search";
 import { getMainGatewaySocket } from "@/hooks/use-socket";
 import { forwardMessageApi } from "@/apis";
+import { useDialogs } from "@/hooks/use-translation";
 import type { Channel, Message, WorkspaceMember } from "@/lib/types";
 import { applyIncomingDmMessageToConversationsCaches } from "@/lib/conversations-cache";
 import { buildForwardDestinations } from "@/lib/message-destinations";
@@ -72,6 +73,7 @@ function ForwardMessageDialogContent({
   workspaceId: string;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useDialogs();
   const searchRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [commentaryHtml, setCommentaryHtml] = useState("");
@@ -108,7 +110,7 @@ function ForwardMessageDialogContent({
         selectedTargets,
       );
       if (destinations.length === 0) {
-        throw new Error("No destinations");
+        throw new Error(t("forwardMessage.noDestinations"));
       }
       const commentary = commentaryPayload(commentaryHtml);
       const s = getMainGatewaySocket();
@@ -139,8 +141,8 @@ function ForwardMessageDialogContent({
       }
       toast.success(
         messages.length === 1
-          ? "Message forwarded"
-          : `Message forwarded to ${messages.length} places`,
+          ? t("forwardMessage.messageForwarded")
+          : t("forwardMessage.messageForwardedToCount", { count: messages.length }),
       );
       reset();
       setCommentaryHtml("");
@@ -150,14 +152,14 @@ function ForwardMessageDialogContent({
       const msg = isAxiosError(err)
         ? (err.response?.data as { message?: string } | undefined)?.message
         : undefined;
-      toast.error(msg || "Could not forward message");
+      toast.error(msg || t("forwardMessage.couldNotForward"));
     },
   });
 
   const title =
     message.conversationId != null
-      ? "Forward this private message"
-      : "Forward message";
+      ? t("forwardMessage.forwardPrivateMessage")
+      : t("forwardMessage.forwardMessage");
 
   const showDropdown = isSearchFocused && searchQuery.trim().length > 0;
 
@@ -208,7 +210,7 @@ function ForwardMessageDialogContent({
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onSearchFocus={() => setIsSearchFocused(true)}
-          placeholder="Add by name or channel"
+          placeholder={t("forwardMessage.addByNameOrChannel")}
           isDropdownOpen={showDropdown}
           filteredResults={filteredResults}
           onSelectChannel={(ch: Channel) => handleSelect("channel", ch)}
@@ -225,7 +227,7 @@ function ForwardMessageDialogContent({
           initialContent=""
           onContentChange={setCommentaryHtml}
           onCancel={() => onOpenChange(false)}
-          editorPlaceholder="Add a message, if you'd like."
+          editorPlaceholder={t("forwardMessage.addMessage")}
         />
 
         {showNestedForwardTimelinePreview ? (
@@ -242,7 +244,7 @@ function ForwardMessageDialogContent({
       </CustomDialogBody>
       <CustomDialogFooter className="justify-between">
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button
           type="button"
@@ -252,7 +254,7 @@ function ForwardMessageDialogContent({
           }
           onClick={handleForwardClick}
         >
-          Forward
+          {t("forwardMessage.forward")}
         </Button>
       </CustomDialogFooter>
     </>

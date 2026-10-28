@@ -12,6 +12,8 @@ import {
 } from '@/lib/cloudinary-url'
 import { openSafeUrl } from '@/lib/open-safe-url'
 import FileToolbar from './file-toolbar'
+import { UploadStatusOverlay } from './upload-status-overlay'
+import { UploadingPlaceholder } from './uploading-placeholder'
 import { cn } from '@/lib/utils'
 
 import { useTrackAttachmentView } from '@/hooks/use-attachments'
@@ -28,6 +30,10 @@ interface ImagePreviewProps {
   compact?: boolean
   isMember?: boolean
   fromPublicChannel?: boolean
+  /** Callback retry — truyền từ attachment-list (lấy từ UploadingAttachmentsContext) */
+  onRetry?: () => void
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>
 }
 
 export default function ImagePreview({
@@ -39,6 +45,8 @@ export default function ImagePreview({
   compact = false,
   isMember,
   fromPublicChannel,
+  onRetry,
+  savedAttachmentIds,
 }: ImagePreviewProps) {
   const { trackView } = useTrackAttachmentView()
   const t = useAppTranslation("attachments")
@@ -105,6 +113,7 @@ export default function ImagePreview({
       a.click()
       URL.revokeObjectURL(blobUrl)
     } catch {
+      if (!currentImage.url) return
       if (onDownload) {
         onDownload(currentImage.url, currentImage.name)
       } else {
@@ -116,6 +125,7 @@ export default function ImagePreview({
   }
 
   const handleOpenInNewTab = () => {
+    if (!currentImage.url) return
     openSafeUrl(currentImage.url)
   };
 
@@ -126,7 +136,9 @@ export default function ImagePreview({
     setIsOpen(true)
   }
 
-  // Phím ← / → để chuyển ảnh, Escape để đóng lightbox
+  // Phím ← / → để chuyển ảnh, Escape để đóng lightbox.
+  // PHẢI đặt trước mọi conditional return để giữ đúng Rules of Hooks
+  // (khi isPendingUpload=true, isOpen=false nên effect early-return ngay).
   useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (e: KeyboardEvent) => {
@@ -141,6 +153,26 @@ export default function ImagePreview({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isOpen, images.length])
+
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi image src = undefined.
+  const isPendingUpload =
+    !attachment.url &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId)
+
+  if (isPendingUpload) {
+    return (
+      <UploadingPlaceholder
+        variant="image"
+        width={thumbnailStyle?.width}
+        height={thumbnailStyle?.height}
+        className={compact ? "h-full w-full min-h-0 min-w-0" : undefined}
+      />
+    )
+  }
 
   return (
     <>
@@ -178,6 +210,7 @@ export default function ImagePreview({
           )}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        <UploadStatusOverlay status={attachment.uploadStatus} onRetry={onRetry} />
         {!formDetailPanel ? (
           <FileToolbar
             isHovered={isHovered}
@@ -187,6 +220,7 @@ export default function ImagePreview({
             onOpen={handleOpenInNewTab}
             isMember={isMember}
             fromPublicChannel={fromPublicChannel}
+            savedAttachmentIds={savedAttachmentIds}
           />
         ) : null}
       </button>

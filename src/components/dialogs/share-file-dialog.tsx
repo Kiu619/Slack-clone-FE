@@ -24,6 +24,7 @@ import type { Channel, Message, MessageAttachment, WorkspaceMember } from "@/lib
 import { useMessageStore } from "@/stores/useMessageStore";
 import PillowFile from "../attachment-previews/pillow-file";
 import { useDialogs } from "@/hooks/use-translation";
+import { useTranslations } from "next-intl";
 
 function commentaryPayload(html: string): string | undefined {
   const plain = html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
@@ -41,6 +42,8 @@ function ShareFileDialogContent({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useDialogs();
+  const tShareFile = useTranslations("dialogs.shareFile");
+  const tCommon = useTranslations("common");
   const searchRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [commentaryHtml, setCommentaryHtml] = useState("");
@@ -135,13 +138,16 @@ function ShareFileDialogContent({
       }
       if (failed > 0) {
         toast.success(
-          `Shared to ${messages.length} of ${total} ${total === 1 ? "place" : "places"}`,
+          tShareFile("sharedToCount", {
+            count: messages.length,
+            total,
+          }),
         );
       } else {
         toast.success(
           messages.length === 1
-            ? "File shared"
-            : `File shared to ${messages.length} places`,
+            ? tShareFile("fileShared")
+            : tShareFile("fileSharedToCount", { count: messages.length }),
         );
       }
       reset();
@@ -152,7 +158,7 @@ function ShareFileDialogContent({
       const msg = isAxiosError(err)
         ? (err.response?.data as { message?: string } | undefined)?.message
         : undefined;
-      toast.error(msg || "Could not share file");
+      toast.error(msg || tShareFile("couldNotShare"));
     },
   });
 
@@ -177,7 +183,7 @@ function ShareFileDialogContent({
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onSearchFocus={() => setIsSearchFocused(true)}
-            placeholder="Add by name or channel"
+            placeholder={tShareFile("addByNameOrChannel")}
             isDropdownOpen={showDropdown}
             filteredResults={filteredResults}
             onSelectChannel={(ch: Channel) => handleSelect("channel", ch)}
@@ -195,7 +201,7 @@ function ShareFileDialogContent({
               initialContent=""
               onContentChange={setCommentaryHtml}
               onCancel={() => onOpenChange(false)}
-              editorPlaceholder="Add a message, if you'd like."
+              editorPlaceholder={tShareFile("addMessage")}
             />
           </div>
 
@@ -211,7 +217,7 @@ function ShareFileDialogContent({
           variant="outline"
           onClick={() => onOpenChange(false)}
         >
-          Cancel
+          {tCommon("cancel")}
         </Button>
         <Button
           type="button"
@@ -219,7 +225,7 @@ function ShareFileDialogContent({
           disabled={selectedTargets.length === 0 || shareMutation.isPending}
           onClick={handleForwardClick}
         >
-          Forward
+          {tShareFile("forward")}
         </Button>
       </CustomDialogFooter>
     </>

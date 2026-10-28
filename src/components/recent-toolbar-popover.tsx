@@ -33,6 +33,7 @@ import { UserPresenceIndicator } from "./user-presence-indicator";
 import { MdOutlineLock } from "react-icons/md";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 interface RecentToolbarPopoverProps {
   workspaceId: string;
@@ -107,6 +108,8 @@ export const RecentToolbarPopover = ({
 
   const close = () => setOpen(false);
 
+  const t = useAppTranslation("")
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
@@ -115,7 +118,7 @@ export const RecentToolbarPopover = ({
             <button
               type="button"
               className="rounded-md p-1 text-white/90 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
-              aria-label="Recent channels and conversations"
+              aria-label={t("common.recentChannelsAndConversations")}
             >
               <TbHistoryToggle size={18} />
             </button>
@@ -123,7 +126,7 @@ export const RecentToolbarPopover = ({
         </TooltipTrigger>
         <TooltipContent>
           <Typography
-            text="Recent channels and conversations"
+            text={t("common.recentChannelsAndConversations")}
             variant="p"
             className="text-[13px] font-medium text-neutral-300"
           />
@@ -138,7 +141,7 @@ export const RecentToolbarPopover = ({
       >
         <div className="border-b border-[#797c814d] px-3 py-2">
           <Typography
-            text="Recent"
+            text={t("common.recent")}
             variant="p"
             className="text-[13px] font-medium text-neutral-300"
           />
@@ -158,7 +161,7 @@ export const RecentToolbarPopover = ({
         ) : items.length === 0 ? (
           <div className="px-3 py-4">
             <Typography
-              text="No recent channels or DMs yet."
+              text={t("common.noRecentChannelsOrDmsYet")}
               variant="p"
               className="text-xs text-neutral-500"
             />

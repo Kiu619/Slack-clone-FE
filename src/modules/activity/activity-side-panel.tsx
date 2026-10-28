@@ -2,34 +2,33 @@
 
 import { useState } from "react";
 
-import { Theme } from "@/stores/useThemeStore";
-import Setting from "../workspace/workspace-side-panel/setting";
+import { clearNotificationApi, getNotificationsApi, markAllAsReadApi, markAsReadApi } from "@/apis";
+import NotificationItem from "@/components/notification-item";
+import { Button } from "@/components/ui/button";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import Typography from "@/components/ui/typography";
+import { useNotificationNavigation } from "@/hooks/use-notification-navigation";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { Notification, Workspace } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import Typography from "@/components/ui/typography";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { IoChevronDownOutline, IoFilter } from "react-icons/io5";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { RiNotificationBadgeLine } from "react-icons/ri";
-import { ChevronDown } from "lucide-react";
+import { Theme } from "@/stores/useThemeStore";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { clearNotificationApi, getNotificationsApi, markAsReadApi, markAllAsReadApi } from "@/apis";
-import NotificationItem from "@/components/notification-item";
-import { useNotificationNavigation } from "@/hooks/use-notification-navigation";
+import { ChevronDown } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { IoChevronDownOutline, IoFilter } from "react-icons/io5";
+import { MdClearAll, MdDoneAll } from "react-icons/md";
+import { RiNotificationBadgeLine } from "react-icons/ri";
 import { Virtuoso } from "react-virtuoso";
-import { useMemo, useCallback } from "react";
-import { MdDoneAll, MdClearAll } from "react-icons/md";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAppTranslation } from "@/hooks/use-translation";
 
 export type ActivityViewTab = "all" | "mentions" | "threads";
 
@@ -247,7 +246,6 @@ export default function ActivitySidePanel({
         <span className="text-lg font-extrabold text-workspace-side-panel-text">
           {t("title")}
         </span>
-        <Setting />
       </div>
 
       <div className="flex items-center gap-x-1 mx-2 border-b border-transparent">

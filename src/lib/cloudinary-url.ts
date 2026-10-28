@@ -25,9 +25,10 @@ export type CloudinaryTransform = {
  * Chỉ xử lý URL từ res.cloudinary.com
  */
 export function getCloudinaryUrl(
-  url: string,
+  url: string | null | undefined,
   transform: CloudinaryTransform = {},
 ): string {
+  if (!url) return ''
   if (!url.includes('res.cloudinary.com') || !url.includes(CLOUDINARY_UPLOAD_PREFIX)) {
     return url
   }
@@ -51,7 +52,11 @@ export function getCloudinaryUrl(
 /**
  * URL cho thumbnail trong list — 800px max, responsive
  */
-export function getCloudinaryThumbnailUrl(url: string, maxW = 800): string {
+export function getCloudinaryThumbnailUrl(
+  url: string | null | undefined,
+  maxW = 800,
+): string {
+  if (!url) return ''
   return getCloudinaryUrl(url, {
     w: maxW,
     c: 'limit',
@@ -63,7 +68,11 @@ export function getCloudinaryThumbnailUrl(url: string, maxW = 800): string {
 /**
  * URL cho lightbox — chất lượng cao, max 1920px (Full HD)
  */
-export function getCloudinaryLightboxUrl(url: string, maxW = 1920): string {
+export function getCloudinaryLightboxUrl(
+  url: string | null | undefined,
+  maxW = 1920,
+): string {
+  if (!url) return ''
   return getCloudinaryUrl(url, {
     w: maxW,
     c: 'limit',
@@ -73,7 +82,8 @@ export function getCloudinaryLightboxUrl(url: string, maxW = 1920): string {
   })
 }
 
-function isCloudinaryUrl(url: string): boolean {
+function isCloudinaryUrl(url: string | null | undefined): boolean {
+  if (!url) return false
   return url.includes('res.cloudinary.com') && url.includes(CLOUDINARY_UPLOAD_PREFIX)
 }
 
@@ -81,13 +91,14 @@ function isCloudinaryUrl(url: string): boolean {
  * Tạo srcset cho responsive — nhiều kích thước. Trả về '' nếu không phải Cloudinary.
  */
 export function getCloudinarySrcSet(
-  url: string,
+  url: string | null | undefined,
   widths: number[] = [400, 800, 1200, 1600],
 ): string {
   if (!isCloudinaryUrl(url)) return ''
+  const safe = url as string
   return widths
     .map((w) => {
-      const u = getCloudinaryUrl(url, { w, c: 'limit', fAuto: true, qAuto: true })
+      const u = getCloudinaryUrl(safe, { w, c: 'limit', fAuto: true, qAuto: true })
       return `${u} ${w}w`
     })
     .join(', ')

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,6 +19,8 @@ import { authKeys } from "@/lib/query-keys"
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore"
 
 export function EditAboutMeDialog({ open, setOpen, userData, workspaceId }: { open: boolean, setOpen: (open: boolean) => void, userData: User, workspaceId: string }) {
+  const t = useTranslations("dialogs.editAboutMe")
+  const tCommon = useTranslations("common")
   const queryClient = useQueryClient()
   const { open: openPanel } = useProfilePanelStore()
   const [content, setContent] = useState<string>(userData?.description || "")
@@ -43,9 +46,9 @@ export function EditAboutMeDialog({ open, setOpen, userData, workspaceId }: { op
       openPanel({ userData: { ...userData, ...updated }, workspaceId })
 
       setOpen(false)
-      toast.success("About me updated successfully")
+      toast.success(t("updateSuccess"))
     } catch {
-      toast.error("Failed to update about me. Please try again.")
+      toast.error(t("updateFailed"))
     } finally {
       setIsSaving(false)
     }
@@ -54,7 +57,7 @@ export function EditAboutMeDialog({ open, setOpen, userData, workspaceId }: { op
   return (
     <CustomDialog open={open} onOpenChange={setOpen}>
       <CustomDialogHeader onOpenChange={setOpen}>
-        <CustomDialogTitle>Edit about me</CustomDialogTitle>
+        <CustomDialogTitle>{t('title')}</CustomDialogTitle>
       </CustomDialogHeader>
 
       <CustomDialogBody className="bg-white dark:bg-[#1A1D21] px-5 py-4">
@@ -67,14 +70,14 @@ export function EditAboutMeDialog({ open, setOpen, userData, workspaceId }: { op
           onClick={() => setOpen(false)}
           disabled={isSaving}
         >
-          Cancel
+          {tCommon('cancel')}
         </Button>
         <Button
           variant="success"
           onClick={handleSave}
           disabled={isSaving || !hasChanges}
         >
-          {isSaving ? "Saving..." : "Save Changes"}
+          {isSaving ? t('saving') : t('saveChanges')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

@@ -37,18 +37,33 @@ export function useUpdateConversation(
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (payload: UpdateConversationPayload) =>
-      updateConversationApi(workspaceId, conversationId, payload),
+    mutationFn: async (payload: UpdateConversationPayload) => {
+      return updateConversationApi(workspaceId, conversationId, payload)
+    },
     onSuccess: (updated) => {
       queryClient.setQueryData<DirectMessageConversation>(
         messageKeys.conversationDetail(conversationId),
-        updated,
+        (old) => {
+          // Tránh set cache thành partial shape khi cache chưa có:
+          // sẽ gây runtime error ở components đọc cache này (vd: useConversation).
+          // Cache sẽ được fill đầy đủ bởi refetch nền.
+          if (!old) return old
+          return { ...old, ...updated }
+        },
       )
       queryClient.setQueriesData<DirectMessageConversation[]>(
-        { queryKey: messageKeys.conversations(workspaceId), exact: false },
+        {
+          queryKey: ['dm-conversations', workspaceId],
+          exact: false,
+        },
         (old) => {
-          if (!old) return old
-          return old.map((c) => (c.id === conversationId ? updated : c))
+          // conversations(workspaceId) trả List<Conversation>,
+          // conversationsUnreadSummary(workspaceId) trả { total, byConversationId, ... }.
+          // Cả 2 cùng match prefix key trên, nhưng chỉ list mới là array.
+          if (!old || !Array.isArray(old)) return old
+          return old.map((c) =>
+            c.id === conversationId ? { ...c, ...updated } : c,
+          )
         },
       )
     },

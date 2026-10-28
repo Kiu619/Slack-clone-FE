@@ -37,12 +37,15 @@ import { useTheme } from "next-themes";
 import { useTrackAttachmentView } from "@/hooks/use-attachments";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { UploadingPlaceholder } from "./uploading-placeholder";
 
 interface CodePreviewProps {
   message: Message;
   attachment: MessageAttachment;
   onDownload?: (url: string, name: string) => void;
   formDetailPanel?: boolean;
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>;
 }
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -93,6 +96,7 @@ export default function CodePreview({
   attachment,
   onDownload,
   formDetailPanel = false,
+  savedAttachmentIds,
 }: CodePreviewProps) {
   const { trackView } = useTrackAttachmentView();
   const t = useAppTranslation("attachments")
@@ -101,6 +105,15 @@ export default function CodePreview({
   const [isHovered, setIsHovered] = useState(false);
   const lang = getLanguage(attachment.name);
 
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi apiClient.get cần URL.
+  const isPendingUpload =
+    !attachment.url &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId);
+
   const {
     data: content,
     isLoading: loading,
@@ -108,11 +121,13 @@ export default function CodePreview({
   } = useQuery({
     queryKey: attachmentContentKeys.detail(attachment.id),
     queryFn: async () => {
+      if (!attachment.url) throw new Error('No URL available')
       const res = await apiClient.get<string>(attachment.url);
       return res.data;
     },
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
+    enabled: !!attachment.url,
   });
 
   const error = fetchError
@@ -131,6 +146,8 @@ export default function CodePreview({
       a.download = attachment.name;
       a.click();
       URL.revokeObjectURL(blobUrl);
+    } else if (!attachment.url) {
+      return
     } else if (onDownload) {
       onDownload(attachment.url, attachment.name);
     } else {
@@ -139,8 +156,13 @@ export default function CodePreview({
   }, [content, attachment.url, attachment.name, onDownload]);
 
   const handleOpenInNewTab = useCallback(() => {
+    if (!attachment.url) return
     openSafeUrl(attachment.url);
   }, [attachment.url]);
+
+  if (isPendingUpload) {
+    return <UploadingPlaceholder variant="code" fileName={attachment.name} />;
+  }
 
   if (loading) {
     return (
@@ -192,11 +214,12 @@ export default function CodePreview({
     );
   }
 
-  const lineCount = content.split("\n").length;
+  const safeContent = content ?? ""
+  const lineCount = safeContent.split("\n").length;
   const shouldShowExpandCollapse = lineCount > DEFAULT_VISIBLE_LINES;
   const isCollapsed = shouldShowExpandCollapse && !isExpanded;
   const visibleLineCount = isCollapsed ? DEFAULT_VISIBLE_LINES : lineCount;
-  const displayContent = content
+  const displayContent = safeContent
     .split("\n")
     .slice(0, visibleLineCount)
     .join("\n");
@@ -214,6 +237,7 @@ export default function CodePreview({
           attachment={attachment}
           onDownload={handleDownload}
           onOpen={handleOpenInNewTab}
+          savedAttachmentIds={savedAttachmentIds}
         />
       ) : null}
       {/* Header */}

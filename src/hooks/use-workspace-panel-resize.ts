@@ -4,6 +4,7 @@ import Cookies from 'js-cookie'
 import { flushSync } from 'react-dom'
 import type { RefObject } from 'react'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { PANEL_FULLWIDTH_BREAKPOINT } from '@/hooks/use-mobile'
 import type {
   WorkspacePanelInitialWidths,
   WorkspaceSidePanelId,
@@ -105,6 +106,23 @@ export const useWorkspacePanelResize = ({
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!isResizing.current) return
+      // DEBUG_TEMP_START
+      if (typeof window !== 'undefined') {
+        // eslint-disable-next-line no-console
+        console.log('[panel-resize:move]', {
+          innerWidth: window.innerWidth,
+          dpr: window.devicePixelRatio,
+          clientX: e.clientX,
+          type: isResizing.current,
+          widthMirror: {
+            side: widthsMirrorRef.current.side,
+            file: widthsMirrorRef.current.file,
+            profile: widthsMirrorRef.current.profile,
+          },
+        })
+      }
+      // DEBUG_TEMP_END
+      if (window.innerWidth < PANEL_FULLWIDTH_BREAKPOINT) return
 
       const refs = panelRefsPropRef.current
 

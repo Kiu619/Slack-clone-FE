@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from "../ui/form"
 
+import { useTranslations } from "next-intl"
 import { updateContactApi } from "@/apis"
 import { useProfilePanelStore } from "@/stores/useProfilePanelStore"
 import { useQueryClient } from "@tanstack/react-query"
@@ -36,6 +37,8 @@ const formSchema = z.object({
 })
 
 export function EditContactInforDialog({ open, setOpen, userData, workspaceId }: { open: boolean, setOpen: (open: boolean) => void, userData: User, workspaceId: string }) {
+  const t = useTranslations("dialogs.editContactInfo")
+  const tCommon = useTranslations("common")
   const queryClient = useQueryClient()
   const { open: openPanel } = useProfilePanelStore()
 
@@ -56,9 +59,9 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
       openPanel({ userData: { ...userData, ...updated }, workspaceId })
 
       setOpen(false)
-      toast.success("Contact information updated successfully")
+      toast.success(t("updateSuccess"))
     } catch {
-      toast.error("Failed to update contact information. Please try again.")
+      toast.error(t("updateFailed"))
     }
   }
 
@@ -67,7 +70,7 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
           <CustomDialogHeader onOpenChange={setOpen}>
-            <CustomDialogTitle>Edit contact information</CustomDialogTitle>
+            <CustomDialogTitle>{t('title')}</CustomDialogTitle>
           </CustomDialogHeader>
 
           <CustomDialogBody className="bg-white dark:bg-[#1A1D21] p-6">
@@ -79,7 +82,7 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
 
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-bold flex items-center gap-1.5"><FaLock size={12} /> Email</FormLabel>
+                      <FormLabel className="font-bold flex items-center gap-1.5"><FaLock size={12} /> {t('email')}</FormLabel>
                       <Input
                         {...field}
                         defaultValue={userData.email}
@@ -94,7 +97,7 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-bold">Phone</FormLabel>
+                      <FormLabel className="font-bold">{t('phone')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -116,14 +119,14 @@ export function EditContactInforDialog({ open, setOpen, userData, workspaceId }:
               type="button"
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button
               disabled={form.formState.isSubmitting || !form.formState.isValid || !form.formState.isDirty}
               type="submit"
               variant="success"
             >
-              {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
+              {form.formState.isSubmitting ? t('saving') : t('saveChanges')}
             </Button>
           </CustomDialogFooter>
         </form>

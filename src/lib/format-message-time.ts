@@ -1,6 +1,7 @@
 import { format, isToday, isYesterday } from "date-fns"
 import type { useTranslations } from "next-intl"
-import type { DateFormat, Language, TimeFormat } from "@/stores/useLanguageRegionStore"
+import type { Language, TimeFormat } from "@/stores/useLanguageRegionStore"
+import { formatTime } from "@/lib/format-time"
 
 type Translator = ReturnType<typeof useTranslations>
 
@@ -9,16 +10,14 @@ export type FormatMessageTimeOptions = {
   commonT: Translator
   language: Language
   timeFormat: TimeFormat
-  dateFormat: DateFormat
 }
 
 export function formatMessageTime(
   isoString: string,
-  { t, commonT, language, timeFormat, dateFormat }: FormatMessageTimeOptions
+  { t, commonT, language, timeFormat }: FormatMessageTimeOptions
 ): string {
   const date = new Date(isoString)
-  const timeStr =
-    timeFormat === "24h" ? format(date, "HH:mm") : format(date, "h:mm a")
+  const timeStr = formatTime(date, timeFormat)
 
   if (isToday(date)) {
     return `${t("todayAt")} ${timeStr}`
@@ -28,12 +27,12 @@ export function formatMessageTime(
   }
 
   const isCurrentYear = date.getFullYear() === new Date().getFullYear()
-  const day = format(date, "d")
+  const day = String(date.getDate())
   const monthIndex = date.getMonth()
   const months = commonT.raw("monthShort") as Record<string, string>
   const month = months[String(monthIndex)] ?? ""
   const year = String(date.getFullYear())
-  const isDayFirst = dateFormat === "vi_VN"
+  const isDayFirst = language === "vi"
   const monthDay = isDayFirst ? `${day} ${month}` : `${month} ${day}`
 
   if (language === "vi") {

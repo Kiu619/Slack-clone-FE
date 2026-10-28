@@ -38,6 +38,7 @@ import ScheduleSendDialog from "../dialogs/schedule-send-dialog";
 import { ScheduledSendAckBanner } from "@/components/scheduled-send-ack-banner";
 import { canUserPostInChannel, getRestrictedPostingLabel } from "@/lib/channel-posting-permissions";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { UploadingAttachmentsProvider } from "@/providers/UploadingAttachmentsProvider";
 
 interface MainProps {
   currentChannelData?: Channel;
@@ -253,27 +254,32 @@ const MessageTab = ({
         </div>
       ) : null}
       <VideoFullscreenPortal />
-      <MessageList
-        channelId={currentChannelData?.id}
-        conversationId={currentConversationData?.id}
-        members={currentConversationData?.members}
-        isGroup={currentConversationData?.isGroup}
-        createdAt={currentConversationData?.createdAt || currentChannelData?.createdAt}
-        currentUserId={currentUser?.id ?? ""}
-        workspaceId={workspaceId}
-        isConnected={isConnected}
-        onEditMessage={handleEditMessage}
-        onDeleteMessage={handleDeleteMessage}
-        fromPublicChannel={currentChannelData?.isPrivate === false}
-        isMember={isMember}
-        channelPostingSettings={currentChannelData?.postingSettings ?? null}
-        unreadBoundaryAt={currentConversationData?.lastReadAt ?? null}
-        unreadCount={
-          currentChannelData?.id
-            ? (channelUnreadById[currentChannelData.id] ?? 0)
-            : conversationUnreadCount
-        }
-      />
+      <UploadingAttachmentsProvider>
+        <MessageList
+          channelId={currentChannelData?.id}
+          conversationId={currentConversationData?.id}
+          members={currentConversationData?.members}
+          isGroup={currentConversationData?.isGroup}
+          createdAt={currentConversationData?.createdAt || currentChannelData?.createdAt}
+          channelName={currentChannelData?.name}
+          isPrivate={currentChannelData?.isPrivate}
+          createdBy={currentChannelData?.createdBy ?? null}
+          currentUserId={currentUser?.id ?? ""}
+          workspaceId={workspaceId}
+          isConnected={isConnected}
+          onEditMessage={handleEditMessage}
+          onDeleteMessage={handleDeleteMessage}
+          fromPublicChannel={currentChannelData?.isPrivate === false}
+          isMember={isMember}
+          channelPostingSettings={currentChannelData?.postingSettings ?? null}
+          unreadBoundaryAt={currentConversationData?.lastReadAt ?? null}
+          unreadCount={
+            currentChannelData?.id
+              ? (channelUnreadById[currentChannelData.id] ?? 0)
+              : conversationUnreadCount
+          }
+        />
+      </UploadingAttachmentsProvider>
 
       <div className="px-4 pb-4 shrink-0">
         {isArchivedDm && currentConversationData ? (
@@ -362,19 +368,9 @@ const MessageTab = ({
                   channelPostingSettings={currentChannelData?.postingSettings ?? null}
                 />
 
-                {uploadingFiles.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {uploadingFiles.map((file) => (
-                      <UploadingFileItem
-                        key={file.id}
-                        file={file}
-                        onCancel={(id) => {
-                          console.log("Cancel upload:", id);
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* Optimistic attachment bubble đã hiển thị trong message list (có spinner).
+                    Ẩn UploadingFileItem ở dưới composer để tránh trùng lặp UI. */}
+
               </>
             )}
           </>

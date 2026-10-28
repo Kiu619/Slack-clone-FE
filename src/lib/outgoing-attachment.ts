@@ -20,7 +20,7 @@ function normalizeAttachmentType(t: string): OutgoingMessageAttachment['type'] {
 /** Map an existing attachment row to the body shape for POST .../messages (new rows on server). */
 export function attachmentToOutgoingSendPayload(a: MessageAttachment): OutgoingMessageAttachment {
   const out: OutgoingMessageAttachment = {
-    url: a.url,
+    url: a.url ?? '',
     type: normalizeAttachmentType(a.type),
     name: a.name,
     size: a.size,

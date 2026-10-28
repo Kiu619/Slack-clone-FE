@@ -6,13 +6,17 @@ import { usePdfSource } from "@/hooks/use-pdf-source"
 import { openSafeUrl } from "@/lib/open-safe-url"
 import type { Message, MessageAttachment } from "@/lib/types"
 import { useCallback, useState } from "react"
+import { createPortal } from "react-dom"
 import { LuDownload } from "react-icons/lu"
 import { Document, Page, pdfjs } from "react-pdf"
 import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import FileToolbar from "./file-toolbar"
 import PreviewModal from "./preview-modal"
+import { UploadStatusOverlay } from "./upload-status-overlay"
+import { UploadingPlaceholder } from "./uploading-placeholder"
 import { useAppTranslation } from "@/hooks/use-translation"
+import { useUploadingAttachmentsContext } from "@/providers/UploadingAttachmentsProvider"
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -21,6 +25,10 @@ interface PdfPreviewProps {
   attachment: MessageAttachment
   onDownload?: (url: string, name: string) => void
   formDetailPanel?: boolean
+  /** Callback retry — truyền từ attachment-list (lấy từ UploadingAttachmentsContext) */
+  onRetry?: () => void
+  /** Set of attachment IDs saved for Later — passed to FileToolbar */
+  savedAttachmentIds?: Set<string>
 }
 
 export default function PdfPreview({
@@ -28,6 +36,8 @@ export default function PdfPreview({
   attachment,
   onDownload,
   formDetailPanel = false,
+  onRetry,
+  savedAttachmentIds,
 }: PdfPreviewProps) {
   const { trackView } = useTrackAttachmentView()
   const t = useAppTranslation("attachments")
@@ -36,12 +46,15 @@ export default function PdfPreview({
   const [numPages, setNumPages] = useState<number | null>(null)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
+  // Guard SSR cho createPortal — document chỉ có sau khi component mount trên client.
+  // Khởi tạo trực tiếp từ typeof window để tránh setState trong effect (gây cascading render).
+  const [mounted] = useState(() => typeof window !== "undefined")
 
   const {
     pdfSourceUrl,
     isPending,
     isError: isSourceError,
-  } = usePdfSource(attachment.url)
+  } = usePdfSource(attachment.url ?? null)
 
   const onPreviewLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages)
@@ -62,6 +75,7 @@ export default function PdfPreview({
   }, [])
 
   const handleDownload = () => {
+    if (!attachment.url) return
     if (onDownload) {
       onDownload(attachment.url, attachment.name)
     } else {
@@ -70,7 +84,23 @@ export default function PdfPreview({
   }
 
   const handleOpenInNewTab = () => {
+    if (!attachment.url) return
     openSafeUrl(attachment.url)
+  }
+
+  // Attachment đang pending upload (chưa có URL thật) → render placeholder
+  // tránh crash khi pdfjs cần URL.
+  const isPendingUpload =
+    !attachment.url &&
+    (attachment.uploadStatus === "uploading" ||
+      attachment.uploadStatus === "pending" ||
+      !!attachment.uploadId ||
+      !!attachment.pendingUploadId)
+
+  if (isPendingUpload) {
+    return (
+      <UploadingPlaceholder variant="pdf" fileName={attachment.name} />
+    )
   }
 
   if (isSourceError) {
@@ -160,62 +190,70 @@ export default function PdfPreview({
             attachment={attachment}
             onDownload={handleDownload}
             onOpen={handleOpenInNewTab}
+            savedAttachmentIds={savedAttachmentIds}
           />
         ) : null}
+
+        <UploadStatusOverlay status={attachment.uploadStatus} onRetry={onRetry} />
       </div>
 
-      <PreviewModal
-        open={isExpanded}
-        onClose={() => setIsExpanded(false)}
-        title={attachment.name}
-        onDownload={handleDownload}
-      >
-        <div className="h-full overflow-auto p-4 flex flex-col items-center">
-          {isPending ? (
-            <div className="flex w-full flex-col items-center gap-3 py-20">
-              <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
-              <Skeleton className="h-4 w-40 bg-white/10" />
-            </div>
-          ) : modalError ? (
-            <div className="flex w-full max-w-[780px] flex-col items-center gap-3 py-20 text-center text-white">
-              <p className="text-base font-medium">{t("pdf.cantOpen")}</p>
-              <p className="text-sm text-white/70">{t("pdf.tryDownload")}</p>
-            </div>
-          ) : isExpanded && pdfSourceUrl ? (
-            <Document
-              file={pdfSourceUrl}
-              onLoadSuccess={onModalLoadSuccess}
-              onLoadError={onModalLoadError}
-              loading={
-                <div className="flex w-full flex-col items-center gap-3 py-10">
-                  <Skeleton className="h-64 w-full max-w-[780px] rounded-xl bg-white/10" />
-                  <Skeleton className="h-4 w-40 bg-white/10" />
-                </div>
-              }
+      {isExpanded && mounted
+        ? createPortal(
+            <PreviewModal
+              open={isExpanded}
+              onClose={() => setIsExpanded(false)}
+              title={attachment.name}
+              onDownload={handleDownload}
             >
-              {numPages != null &&
-                Array.from({ length: numPages }, (_, i) => (
-                  <Page
-                    key={i + 1}
-                    pageNumber={i + 1}
-                    width={Math.min(
-                      800,
-                      typeof window !== "undefined" ? window.innerWidth - 48 : 800,
-                    )}
-                    renderTextLayer
-                    renderAnnotationLayer
-                    className="mb-4 shadow-lg"
-                  />
-                ))}
-            </Document>
-          ) : (
-            <div className="flex w-full flex-col items-center gap-3 py-20">
-              <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
-              <Skeleton className="h-4 w-40 bg-white/10" />
-            </div>
-          )}
-        </div>
-      </PreviewModal>
+              <div className="h-full overflow-auto p-4 flex flex-col items-center">
+                {isPending ? (
+                  <div className="flex w-full flex-col items-center gap-3 py-20">
+                    <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
+                    <Skeleton className="h-4 w-40 bg-white/10" />
+                  </div>
+                ) : modalError ? (
+                  <div className="flex w-full max-w-[780px] flex-col items-center gap-3 py-20 text-center text-white">
+                    <p className="text-base font-medium">{t("pdf.cantOpen")}</p>
+                    <p className="text-sm text-white/70">{t("pdf.tryDownload")}</p>
+                  </div>
+                ) : isExpanded && pdfSourceUrl ? (
+                  <Document
+                    file={pdfSourceUrl}
+                    onLoadSuccess={onModalLoadSuccess}
+                    onLoadError={onModalLoadError}
+                    loading={
+                      <div className="flex w-full flex-col items-center gap-3 py-10">
+                        <Skeleton className="h-64 w-full max-w-[780px] rounded-xl bg-white/10" />
+                        <Skeleton className="h-4 w-40 bg-white/10" />
+                      </div>
+                    }
+                  >
+                    {numPages != null &&
+                      Array.from({ length: numPages }, (_, i) => (
+                        <Page
+                          key={i + 1}
+                          pageNumber={i + 1}
+                          width={Math.min(
+                            800,
+                            typeof window !== "undefined" ? window.innerWidth - 48 : 800,
+                          )}
+                          renderTextLayer
+                          renderAnnotationLayer
+                          className="mb-4 shadow-lg"
+                        />
+                      ))}
+                  </Document>
+                ) : (
+                  <div className="flex w-full flex-col items-center gap-3 py-20">
+                    <Skeleton className="h-72 w-full max-w-[780px] rounded-xl bg-white/10" />
+                    <Skeleton className="h-4 w-40 bg-white/10" />
+                  </div>
+                )}
+              </div>
+            </PreviewModal>,
+            document.body,
+          )
+        : null}
     </>
   )
 }

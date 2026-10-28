@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import FilePreview from "@/components/attachment-previews/file-preview";
@@ -17,22 +18,25 @@ import {
 import Typography from "@/components/ui/typography";
 import { UserStatusEmojiInline } from "@/components/user-status-emoji-inline";
 import { useChannel } from "@/hooks/use-channel";
+import { useNowMs } from "@/hooks/use-now-ms";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { canUserPostInChannel } from "@/lib/channel-posting-permissions";
+import { isSavedItemOverdue } from "@/lib/saved-item-overdue";
+import { formatRelativeTime } from "@/lib/format-relative-time";
 import { SavedItem, SavedItemStatus, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 import { useMessageStore } from "@/stores/useMessageStore";
 import { Theme } from "@/stores/useThemeStore";
 import {
   mergeUserForDisplay,
   useWorkspaceMemberOverlay,
 } from "@/stores/useWorkspaceMemberStore";
-import { formatDistanceToNowStrict } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { FiHash } from "react-icons/fi";
 import { GiCheckMark } from "react-icons/gi";
 import { LuClock3, LuTrash2 } from "react-icons/lu";
 import { MdMoreVert } from "react-icons/md";
-import { useAppTranslation } from "@/hooks/use-translation";
 
 const TOOLBAR_ITEM_STYLE =
   "cursor-pointer p-1.5 rounded dark:hover:bg-[#222529] text-[#797c81]";
@@ -58,12 +62,6 @@ interface SavedItemProps {
   selectedTextColor?: string;
 }
 
-function isSavedItemOverdue(item: SavedItem): boolean {
-  if (item.status !== "in_progress" || !item.remindAt) return false;
-  const remindAt = new Date(item.remindAt).getTime();
-  return !Number.isNaN(remindAt) && remindAt < Date.now();
-}
-
 export const SavedItemComponent = ({
   item,
   theme,
@@ -82,11 +80,15 @@ export const SavedItemComponent = ({
   selectedTextColor,
 }: SavedItemProps) => {
   const t = useAppTranslation("later");
+  const language = useLanguageRegionStore((s) => s.language);
+  const nowMs = useNowMs();
   const [openPopover, setOpenPopover] = useState(false);
   const [openReminderPopover, setOpenReminderPopover] = useState(false);
 
   // Lấy dữ liệu tin nhắn realtime từ Zustand Store (Single Source of Truth)
-  const messageFromStore = useMessageStore(s => s.entities[item.message?.id || ""]);
+  const messageFromStore = useMessageStore(
+    (s) => s.entities[item.message?.id || ""],
+  );
   const displayMessage = messageFromStore || item.message;
 
   const reminderOverlay = useWorkspaceMemberOverlay(
@@ -141,7 +143,12 @@ export const SavedItemComponent = ({
       currentUser?.id ?? null,
       currentUser?.role ?? null,
     ).canReply;
-  }, [displayMessage?.channelId, savedChannel, currentUser?.id, currentUser?.role]);
+  }, [
+    displayMessage?.channelId,
+    savedChannel,
+    currentUser?.id,
+    currentUser?.role,
+  ]);
 
   return (
     <div
@@ -158,9 +165,9 @@ export const SavedItemComponent = ({
       style={
         isActive
           ? {
-            backgroundColor: theme.selectedItems,
-            color: selectedTextColor,
-          }
+              backgroundColor: theme.selectedItems,
+              color: selectedTextColor,
+            }
           : {}
       }
     >
@@ -171,11 +178,22 @@ export const SavedItemComponent = ({
             (isOverdue ? (
               <div className="bg-[#861f62] text-white px-2 py-0.5 rounded-full text-[11px] flex items-center gap-1 shrink-0">
                 {t("savedItem.incomplete")} •{" "}
-                {formatDistanceToNowStrict(new Date(item.remindAt))} {t("savedItem.ago")}
+                {formatRelativeTime(
+                  new Date(item.remindAt),
+                  nowMs,
+                  { addSuffix: true },
+                  language,
+                )}
               </div>
             ) : (
               <span className="text-[#861f62] dark:text-[#cc78b0] shrink-0">
-                {t("savedItem.dueIn")} {formatDistanceToNowStrict(new Date(item.remindAt))}
+                {t("savedItem.dueIn")}{" "}
+                {formatRelativeTime(
+                  new Date(item.remindAt),
+                  nowMs,
+                  {},
+                  language,
+                )}
               </span>
             ))}
 
@@ -186,14 +204,18 @@ export const SavedItemComponent = ({
           )}
 
           <span className="hover:underline cursor-pointer font-bold truncate">
-            {item.type === 'reminder' ? (
+            {item.type === "reminder" ? (
               t("savedItem.reminder")
-            ) : (displayMessage?.channelName || item.attachment?.channelName) ? (
+            ) : displayMessage?.channelName || item.attachment?.channelName ? (
               <span className="flex items-center gap-1">
                 <FiHash size={14} className="shrink-0" />
-                <span className="truncate">{displayMessage?.channelName || item.attachment?.channelName}</span>
+                <span className="truncate">
+                  {displayMessage?.channelName || item.attachment?.channelName}
+                </span>
               </span>
-            ) : (t("savedItem.directMessages"))}
+            ) : (
+              t("savedItem.directMessages")
+            )}
           </span>
         </div>
       </div>
@@ -264,12 +286,14 @@ export const SavedItemComponent = ({
       </div>
 
       {/* Actions on Hover */}
-      <div className={cn(
-        "absolute rounded-lg right-4 top-5 flex gap-x-1 bg-white dark:bg-[#1A1D21] border dark:border-[#797c814d] shadow-sm p-0.5 z-20 transition-opacity",
-        openPopover || openReminderPopover
-          ? "opacity-100"
-          : "opacity-0 group-hover:opacity-100"
-      )}>
+      <div
+        className={cn(
+          "absolute rounded-lg right-4 top-5 flex gap-x-1 bg-white dark:bg-[#1A1D21] border dark:border-[#797c814d] shadow-sm p-0.5 z-20 transition-opacity",
+          openPopover || openReminderPopover
+            ? "opacity-100"
+            : "opacity-0 group-hover:opacity-100",
+        )}
+      >
         {!isDeleted && filterStatus === "in_progress" && (
           <>
             {/* Mark complete / in-progress */}
@@ -286,14 +310,16 @@ export const SavedItemComponent = ({
                     size={20}
                     className={cn(
                       ICON_TRANSITION,
-                      item.status === "completed" && "text-green-500"
+                      item.status === "completed" && "text-green-500",
                     )}
                   />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <p className="text-xs">
-                  {item.status === "completed" ? t("actions.markInProgress") : t("actions.markCompleted")}
+                  {item.status === "completed"
+                    ? t("actions.markInProgress")
+                    : t("actions.markCompleted")}
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -309,7 +335,7 @@ export const SavedItemComponent = ({
                     <button
                       className={cn(
                         TOOLBAR_ITEM_STYLE,
-                        item.remindAt && "text-[#1264a3] dark:text-[#1d9bd1]!"
+                        item.remindAt && "text-[#1264a3] dark:text-[#1d9bd1]!",
                       )}
                       onClick={(e) => e.stopPropagation()}
                     >
@@ -319,7 +345,9 @@ export const SavedItemComponent = ({
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <Typography className="text-xs">
-                    {item.remindAt ? t("actions.editReminder") : t("actions.setReminder")}
+                    {item.remindAt
+                      ? t("actions.editReminder")
+                      : t("actions.setReminder")}
                   </Typography>
                 </TooltipContent>
               </Tooltip>
@@ -335,7 +363,7 @@ export const SavedItemComponent = ({
                 <div className="py-2">
                   {reminderPresets.map((preset) => (
                     <Button
-                      variant='submenu'
+                      variant="submenu"
                       key={preset.label}
                       className={cn(MENU_ITEM_STYLE, "w-full text-left")}
                       onClick={() => {
@@ -347,7 +375,7 @@ export const SavedItemComponent = ({
                     </Button>
                   ))}
                   <Button
-                    variant='submenu'
+                    variant="submenu"
                     className={cn(MENU_ITEM_STYLE, "w-full text-left")}
                     onClick={() => {
                       onEditReminder(item);
@@ -360,7 +388,10 @@ export const SavedItemComponent = ({
                     <>
                       <hr className="border-[#797c814d] my-1" />
                       <button
-                        className={cn(MENU_ITEM_STYLE, "w-full text-left text-red-400! hover:bg-red-700! hover:text-white!")}
+                        className={cn(
+                          MENU_ITEM_STYLE,
+                          "w-full text-left text-red-400! hover:bg-red-700! hover:text-white!",
+                        )}
                         onClick={() => {
                           onClearReminder(item);
                           setOpenReminderPopover(false);
@@ -377,22 +408,16 @@ export const SavedItemComponent = ({
         )}
 
         {/* More actions popover */}
-        <Popover
-          open={openPopover}
-          onOpenChange={setOpenPopover}
-        >
+        <Popover open={openPopover} onOpenChange={setOpenPopover}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
-                <div
+                <button
                   className={TOOLBAR_ITEM_STYLE}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <MdMoreVert
-                    size={20}
-                    className={ICON_TRANSITION}
-                  />
-                </div>
+                  <MdMoreVert size={20} className={ICON_TRANSITION} />
+                </button>
               </PopoverTrigger>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -412,14 +437,17 @@ export const SavedItemComponent = ({
               {filterStatus === "completed" ? (
                 <div className="flex flex-col space-y-1">
                   <Button
-                    variant='submenu'
+                    variant="submenu"
                     className={MENU_ITEM_STYLE}
                     onClick={() => {
                       onToggleComplete(item);
                       setOpenPopover(false);
                     }}
                   >
-                    <Typography variant="p" text={t("actions.moveToProgress")} />
+                    <Typography
+                      variant="p"
+                      text={t("actions.moveToProgress")}
+                    />
                   </Button>
                   <div
                     className={cn(
@@ -442,32 +470,41 @@ export const SavedItemComponent = ({
                 <div className="flex flex-col">
                   <Button
                     variant="submenu"
-                    className={cn(MENU_ITEM_STYLE, "justify-start px-4 py-2 hover:bg-[#f8f8f8] dark:hover:bg-[#222529]")}
+                    className={cn(
+                      MENU_ITEM_STYLE,
+                      "justify-start px-4 py-2 hover:bg-[#f8f8f8] dark:hover:bg-[#222529]",
+                    )}
                     onClick={(e) => {
                       e.stopPropagation();
                       onEditReminder(item);
                       setOpenPopover(false);
                     }}
-                    >
-                      {t("actions.editReminderAction")}
-                    </Button>
-                  <Button
-                    variant="submenu"
-                    className={cn(MENU_ITEM_STYLE, "justify-start px-4 py-2 text-red-500 hover:bg-[#f8f8f8] dark:hover:bg-[#222529]")}
+                  >
+                    {t("actions.editReminderAction")}
+                  </Button>
+                  <div
+                    className={cn(
+                      MENU_ITEM_STYLE,
+                      "text-red-500! hover:text-white! hover:bg-red-700 cursor-pointer",
+                    )}
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemove(item.id);
                       setOpenPopover(false);
                     }}
-                    >
-                      {t("actions.deleteReminder")}
-                    </Button>
+                  >
+                    <Typography
+                      variant="p"
+                      text={t("actions.deleteReminder")}
+                      className="mt-0.5"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col space-y-1">
                   {!isDeleted && (
                     <Button
-                      variant='submenu'
+                      variant="submenu"
                       className={MENU_ITEM_STYLE}
                       onClick={() => {
                         onArchive(item);
@@ -476,7 +513,11 @@ export const SavedItemComponent = ({
                     >
                       <Typography
                         variant="p"
-                        text={item.status === "archived" ? t("actions.unarchive") : t("actions.archive")}
+                        text={
+                          item.status === "archived"
+                            ? t("actions.unarchive")
+                            : t("actions.archive")
+                        }
                       />
                     </Button>
                   )}

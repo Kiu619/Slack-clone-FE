@@ -1,6 +1,6 @@
 "use client";
 
-import { createChannelFolderApi } from "@/apis";
+import { addAttachmentToFolderApi, createChannelFolderApi } from "@/apis";
 import { folderKeys } from "@/lib/query-keys";
 import type { ChannelFolder } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,19 +36,24 @@ const formSchema = z.object({
     .max(80),
 });
 
+interface CreateFolderDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  targetId: string;
+  isDM?: boolean;
+  /** Nếu truyền attachmentId, file sẽ được tự động thêm vào folder mới */
+  attachmentId?: string;
+  onCreated?: (folder: ChannelFolder) => void;
+}
+
 export function CreateFolderDialog({
   open = true,
   onOpenChange,
   targetId,
   isDM = false,
+  attachmentId,
   onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  targetId: string;
-  isDM?: boolean;
-  onCreated?: (folder: ChannelFolder) => void;
-}) {
+}: CreateFolderDialogProps) {
   const t = useDialogs();
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -57,10 +62,27 @@ export function CreateFolderDialog({
   });
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (name: string) =>
-      createChannelFolderApi(targetId, name.trim(), isDM),
+    mutationFn: async (name: string) => {
+      // Tạo folder mới
+      const result = await createChannelFolderApi(targetId, name.trim(), isDM);
+
+      // Nếu có attachmentId, tự động thêm file vào folder mới
+      if (attachmentId) {
+        try {
+          await addAttachmentToFolderApi(targetId, result.folder.id, attachmentId, isDM);
+        } catch {
+          // Không block flow nếu add thất bại, folder vẫn được tạo
+          console.warn("[CreateFolderDialog] Failed to add attachment to folder");
+        }
+      }
+
+      return result;
+    },
     onSuccess: (data) => {
       toast.success(t('createFolder.createdSuccess'));
+      if (attachmentId) {
+        toast.success(t('createFolder.addedToFolder'));
+      }
       void queryClient.invalidateQueries({
         queryKey: folderKeys.list(targetId),
       });

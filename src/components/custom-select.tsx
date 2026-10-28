@@ -21,6 +21,7 @@ interface CustomSelectProps {
   onChange?: (value: string) => void;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   onBlur?: () => void;
+  onSelect?: (value: string) => void; // Called when user selects an option (after onChange)
   className?: string;
   placeholder?: string;
   editable?: boolean;
@@ -34,6 +35,7 @@ export const CustomSelect = ({
   onChange,
   onKeyDown,
   onBlur,
+  onSelect,
   className,
   placeholder = "Select...",
   editable = false,
@@ -126,6 +128,7 @@ export const CustomSelect = ({
     setInputValue(option.label);
     setIsOpen(false);
     onChange?.(option.value);
+    onSelect?.(option.value);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

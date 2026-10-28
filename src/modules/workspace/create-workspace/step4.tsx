@@ -3,20 +3,23 @@
 import { IoSparklesSharp } from 'react-icons/io5'
 import { Button } from '@/components/ui/button'
 import Typography from '@/components/ui/typography'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { useCreateWorkspaceValues } from '@/stores/useCreateWorkspaceStore'
 import { useCreateWorkspace } from '@/hooks/use-workspace'
 import { useLanguageRegionStore } from '@/stores/useLanguageRegionStore'
+import { getValidTimeZoneForApi } from '@/lib/timezone'
 import slugify from 'slugify'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 
 const Step4 = () => {
+  const t = useTranslations("workspaceCreate")
   const router = useRouter()
   const { name, imageUrl, invite_code, emails, setCurrStep, resetWorkspace } =
     useCreateWorkspaceValues()
   const { mutateAsync: createWorkspace, isPending } = useCreateWorkspace()
-  const timeZone = useLanguageRegionStore((s) => s.timeZone)
+  const timeZone = getValidTimeZoneForApi(useLanguageRegionStore.getState().timeZone)
 
   const slug = slugify(name, { lower: true, strict: true })
 
@@ -31,15 +34,15 @@ const Step4 = () => {
         timeZone,
       })
 
-      toast.success(`Workspace "${workspace.name}" created successfully!`)
+      toast.success(t('created', { name: workspace.name }))
       resetWorkspace()
       router.push(`/`)
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.message || 'Failed to create workspace'
+        const msg = err.response?.data?.message || t('somethingWentWrong')
         toast.error(msg)
       } else {
-        toast.error('Something went wrong. Please try again.')
+        toast.error(t('somethingWentWrong'))
       }
     }
   }

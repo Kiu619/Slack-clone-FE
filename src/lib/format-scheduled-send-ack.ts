@@ -8,17 +8,35 @@ export const isValidIanaTimeZone = (tz: string): boolean => {
   }
 }
 
+export type ScheduledSendAckI18n =
+  | {
+      key: "draftsScheduled.ackSentence.today"
+      params: { time: string }
+    }
+  | {
+      key: "draftsScheduled.ackSentence.future"
+      params: { date: string; time: string }
+    }
+  | {
+      key: "draftsScheduled.ackSentence.invalid"
+      params: Record<string, never>
+    }
+
 /**
- * English sentence for the post-schedule composer banner (Slack-style).
- * Uses workspace IANA zone when valid; otherwise omits timeZone (browser default).
+ * Compute the i18n key + params for the post-schedule composer banner.
+ * Caller passes the time-zone they want to display (workspace IANA when valid,
+ * else browser default). Returns `null` if the date is invalid.
+ *
+ * The component renders the sentence using `useTranslations("draftsScheduled")(key, params)`,
+ * so both EN and VI localizations work without hard-coded English strings.
  */
-export const formatScheduledSendAckSentence = (
+export const computeScheduledSendAckI18n = (
   scheduledAtIso: string,
   workspaceTimeZone?: string | null,
-): string => {
+): ScheduledSendAckI18n | null => {
   const scheduled = new Date(scheduledAtIso)
   if (Number.isNaN(scheduled.getTime())) {
-    return 'Your message will be sent at the scheduled time.'
+    return { key: "draftsScheduled.ackSentence.invalid", params: {} }
   }
 
   const tz =
@@ -26,41 +44,38 @@ export const formatScheduledSendAckSentence = (
       ? workspaceTimeZone
       : undefined
 
-  const dayKeyFmt = new Intl.DateTimeFormat('en-US', {
+  const dayKeyFmt = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   })
   const sameCalendarDay =
     dayKeyFmt.format(scheduled) === dayKeyFmt.format(new Date())
 
-  const yearFmt = new Intl.DateTimeFormat('en-US', {
+  const timeFmt = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
-    year: 'numeric',
-  })
-  const sameCalendarYear =
-    yearFmt.format(scheduled) === yearFmt.format(new Date())
-
-  const timeFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    hour: 'numeric',
-    minute: '2-digit',
+    hour: "numeric",
+    minute: "2-digit",
     hour12: true,
   })
   const timeStr = timeFmt.format(scheduled)
 
   if (sameCalendarDay) {
-    return `Your message will be sent today at ${timeStr}.`
+    return {
+      key: "draftsScheduled.ackSentence.today",
+      params: { time: timeStr },
+    }
   }
 
-  const dateFmt = new Intl.DateTimeFormat('en-US', {
+  const dateFmt = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    ...(sameCalendarYear ? {} : { year: 'numeric' as const }),
+    month: "short",
+    day: "numeric",
   })
   const dateStr = dateFmt.format(scheduled)
-  return `Your message will be sent on ${dateStr} at ${timeStr}.`
+  return {
+    key: "draftsScheduled.ackSentence.future",
+    params: { date: dateStr, time: timeStr },
+  }
 }

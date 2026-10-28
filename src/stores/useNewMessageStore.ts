@@ -2,12 +2,10 @@ import { create } from 'zustand'
 
 interface NewMessageState {
   isCreating: boolean
-  openNewMessage: () => void
-  closeNewMessage: () => void
+  setIsCreating: (v: boolean) => void
 }
 
 export const useNewMessageStore = create<NewMessageState>((set) => ({
   isCreating: false,
-  openNewMessage: () => set({ isCreating: true }),
-  closeNewMessage: () => set({ isCreating: false }),
+  setIsCreating: (v) => set({ isCreating: v }),
 }))

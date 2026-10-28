@@ -6,7 +6,7 @@ import { useCallback } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import Typography from "./ui/typography";
 import { extractCustomEmojiName } from "@/lib/custom-emojis";
-import { useTranslations } from "next-intl";
+import { useAppTranslation } from "@/hooks/use-translation";
 
 type MessageReactionsProps = {
   reactions: Reaction[];
@@ -30,7 +30,7 @@ export function MessageReactions({
     [currentUserId],
   );
 
-  const t = useTranslations();
+  const t = useAppTranslation();
 
   const getReactionTooltipText = (
     (reaction: Reaction) => {

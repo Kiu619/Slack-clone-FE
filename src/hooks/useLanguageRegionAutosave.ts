@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useLanguageRegionStore,
-  type DateFormat,
   type Language,
   type TimeFormat,
 } from "@/stores/useLanguageRegionStore";
@@ -31,11 +30,9 @@ interface UseLanguageRegionAutosaveOptions {
 
 interface UseLanguageRegionAutosaveReturn {
   language: Language;
-  dateFormat: DateFormat;
   timeFormat: TimeFormat;
   timeZone: string;
   setLanguage: (lang: Language) => void;
-  setDateFormat: (fmt: DateFormat) => void;
   setTimeFormat: (fmt: TimeFormat) => void;
   setTimeZone: (tz: string) => void;
   isReady: boolean;
@@ -66,11 +63,9 @@ export function useLanguageRegionAutosave({
   const updateProfileMutation = useUpdateProfile(workspaceId);
 
   const storeLanguage = useLanguageRegionStore((s) => s.language);
-  const storeDateFormat = useLanguageRegionStore((s) => s.dateFormat);
   const storeTimeFormat = useLanguageRegionStore((s) => s.timeFormat);
   const storeTimeZone = useLanguageRegionStore((s) => s.timeZone);
   const storeSetLanguage = useLanguageRegionStore((s) => s.setLanguage);
-  const storeSetDateFormat = useLanguageRegionStore((s) => s.setDateFormat);
   const storeSetTimeFormat = useLanguageRegionStore((s) => s.setTimeFormat);
   const storeSetTimeZone = useLanguageRegionStore((s) => s.setTimeZone);
 
@@ -82,7 +77,7 @@ export function useLanguageRegionAutosave({
 
     queryClient.setQueryData<MemberPreferencesResponse | null>(
       memberPreferencesKeys.detail(wsId),
-      (old) => (old ? { ...old, locale: lang } : { locale: lang, dateFormat: null, timeFormat: null })
+      (old) => (old ? { ...old, locale: lang } : null)
     );
 
     setCookie("NEXT_LOCALE", lang, { path: "/", maxAge: 60 * 60 * 24 * 365 });
@@ -103,32 +98,6 @@ export function useLanguageRegionAutosave({
     );
   };
 
-  // ── Date format setter ────────────────────────────────────────────────────
-  const setDateFormat = (fmt: DateFormat) => {
-    const prev = storeDateFormat;
-
-    storeSetDateFormat(fmt);
-
-    queryClient.setQueryData<MemberPreferencesResponse | null>(
-      memberPreferencesKeys.detail(wsId),
-      (old) => (old ? { ...old, dateFormat: fmt } : { locale: null, dateFormat: fmt, timeFormat: null })
-    );
-
-    updatePrefsMutation.mutate(
-      { dateFormat: fmt },
-      {
-        onError: () => {
-          storeSetDateFormat(prev);
-          queryClient.setQueryData<MemberPreferencesResponse | null>(
-            memberPreferencesKeys.detail(wsId),
-            (old) => (old ? { ...old, dateFormat: prev } : null)
-          );
-          toast.error(t("saveError"));
-        },
-      }
-    );
-  };
-
   // ── Time format setter ────────────────────────────────────────────────────
   const setTimeFormat = (fmt: TimeFormat) => {
     const prev = storeTimeFormat;
@@ -137,7 +106,7 @@ export function useLanguageRegionAutosave({
 
     queryClient.setQueryData<MemberPreferencesResponse | null>(
       memberPreferencesKeys.detail(wsId),
-      (old) => (old ? { ...old, timeFormat: fmt } : { locale: null, dateFormat: null, timeFormat: fmt })
+      (old) => (old ? { ...old, timeFormat: fmt } : null)
     );
 
     updatePrefsMutation.mutate(
@@ -188,11 +157,9 @@ export function useLanguageRegionAutosave({
 
   return {
     language: storeLanguage,
-    dateFormat: storeDateFormat,
     timeFormat: storeTimeFormat,
     timeZone: storeTimeZone,
     setLanguage,
-    setDateFormat,
     setTimeFormat,
     setTimeZone,
     isReady,

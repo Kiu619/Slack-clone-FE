@@ -31,6 +31,7 @@ import {
 } from "@/stores/useWorkspaceMemberStore"
 import { useShallow } from "zustand/react/shallow"
 import { useAppTranslation } from "@/hooks/use-translation"
+import { useTranslations } from "next-intl"
 
 type HuddleHeaderBadgeProps = {
   workspaceId: string
@@ -57,13 +58,20 @@ function toDisplayUser(
 }
 
 function ParticipantAvatar({ displayUser }: { displayUser: User }) {
-  const alt = displayUser.displayName?.trim() || displayUser.name?.trim() || "User"
+  // Deleted user: hiển thị fallback "D" vì backend đã set avatar = null
+  const isDeleted = displayUser.membershipStatus === "deleted";
+  const alt = isDeleted
+    ? "Deleted user"
+    : displayUser.displayName?.trim() || displayUser.name?.trim() || "User";
 
   return (
     <Avatar
-      src={displayUser.avatar ?? null}
+      src={isDeleted ? null : (displayUser.avatar ?? null)}
       alt={alt}
-      className="h-6 w-6 rounded-full border border-white/10 bg-[#0f2f1d]"
+      className={cn(
+        "h-6 w-6 rounded-full border border-white/10",
+        isDeleted ? "bg-[#3a3d41]" : "bg-[#0f2f1d]",
+      )}
     />
   )
 }
@@ -131,6 +139,7 @@ export function HuddleHeaderBadge({
   const [isLeaving, setIsLeaving] = useState(false)
   const { socket } = useSocket()
   const t = useAppTranslation('huddle.header')
+  const tPreview = useTranslations("huddlePreview")
   const overlayMap = useWorkspaceMemberStore(
     useShallow((state) => state.byWorkspace[workspaceId] ?? {}),
   )
@@ -155,6 +164,8 @@ export function HuddleHeaderBadge({
 
     const uniqueParticipants = new Map<string, HuddleParticipantSnapshot>()
     for (const participant of activeSession.participants) {
+      // Chỉ hiển thị participant còn active trong workspace.
+      // Bỏ qua cả 'deactivated' (soft) và 'deleted' (hard-removed khỏi workspace_members)
       if (participant.leftAt !== null) continue
       if (participant.membershipStatus !== "active") continue
       if (!uniqueParticipants.has(participant.userId)) {
@@ -233,13 +244,16 @@ export function HuddleHeaderBadge({
       return
     }
 
-    openHuddlePreviewWindow({
-      workspaceId,
-      entityType,
-      entityId,
-      label,
-      mode: showJoinAction ? "join" : "start",
-    })
+    openHuddlePreviewWindow(
+      {
+        workspaceId,
+        entityType,
+        entityId,
+        label,
+        mode: showJoinAction ? "join" : "start",
+      },
+      { popupBlockedMessage: tPreview("popupBlocked") },
+    )
   }
 
   return (
@@ -265,7 +279,6 @@ export function HuddleHeaderBadge({
               {activeParticipantCount}
             </span>
           ) : null}
-          <IoChevronDownOutline size={16} className="shrink-0" />
         </button>
       </TooltipTrigger>
       <TooltipContent side="bottom" align="center">

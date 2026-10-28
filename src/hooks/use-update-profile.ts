@@ -1,11 +1,13 @@
 "use client";
 
+import { useAppTranslation } from "@/hooks/use-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { updateProfileApi, type UpdateProfilePayload } from "@/apis";
 import { authKeys } from "@/lib/query-keys";
 
 export function useUpdateProfile(workspaceId: string | undefined) {
+  const t = useAppTranslation("userProfile");
   const queryClient = useQueryClient();
   const workspaceIdOrEmpty = workspaceId ?? "";
 
@@ -41,7 +43,7 @@ export function useUpdateProfile(workspaceId: string | undefined) {
           ctx.previous
         );
       }
-      toast.error("Failed to update profile");
+      toast.error(t("updateFailed"));
     },
 
     onSuccess: (data) => {

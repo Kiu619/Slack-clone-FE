@@ -26,8 +26,8 @@ import { useLaterSavedMessageIds, useRemindMe } from "@/hooks/use-saved-items";
 import { useAppTranslation } from "@/hooks/use-translation";
 import {
   getDmDisplayName,
-  isDeactivatedUser,
-  isOneToOneWithDeactivatedPeer,
+  isInactiveUser,
+  isOneToOneWithInactivePeer,
 } from "@/lib/dm-members";
 import { openDmInWorkspace } from "@/lib/open-dm-in-workspace";
 import { User, Workspace } from "@/lib/types";
@@ -39,7 +39,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import DOMPurify from "dompurify";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FiBellOff, FiSearch } from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
 import { LuLink } from "react-icons/lu";
 import {
   MdBookmark,
@@ -75,7 +75,6 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const t = useAppTranslation("directMessages");
   const language = useLanguageRegionStore((s) => s.language);
   const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadsOnly, setShowUnreadsOnly] = useState(false);
@@ -128,7 +127,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
         .filter(hasAtLeastOneMessage)
         .filter(
           (conv) =>
-            !isOneToOneWithDeactivatedPeer(
+            !isOneToOneWithInactivePeer(
               conv,
               currentUser?.id,
               (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
@@ -151,7 +150,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
       .filter(hasAtLeastOneMessage)
       .filter(
         (conv) =>
-          !isOneToOneWithDeactivatedPeer(
+          !isOneToOneWithInactivePeer(
             conv,
             currentUser?.id,
             (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
@@ -190,6 +189,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
       members,
       currentUser?.id,
       (member) => mergeUserForDisplay(member, memberOverlayMap[member.id]),
+      t("deletedUser"),
     );
   };
 
@@ -210,7 +210,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
   const formatLastMessageTime = (dateStr: string | null) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    const isDayFirst = dateFormat === "vi_VN";
+    const isDayFirst = language === "vi";
     const timeStr =
       timeFormat === "24h" ? format(date, "HH:mm") : format(date, "h:mm a");
     if (isToday(date)) return timeStr;
@@ -343,7 +343,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             others[0] as User,
                             memberOverlayMap[others[0].id],
                           );
-                          if (isDeactivatedUser(peer)) return null;
+                          if (isInactiveUser(peer)) return null;
                           return (
                             <UserStatusEmojiInline
                               statusEmoji={peer.statusEmoji}
@@ -426,7 +426,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                 >
                   <div className="relative shrink-0">
                     {getConversationAvatar(otherMember!)}
-                    {displayedOtherMember && !isDeactivatedUser(displayedOtherMember) ? (
+                    {displayedOtherMember && !isInactiveUser(displayedOtherMember) ? (
                       <div className="absolute -bottom-2 -right-0.5">
                         <UserPresenceIndicator
                           workspaceId={currentWorkspaceData.id}
@@ -455,7 +455,7 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                             others[0] as User,
                             memberOverlayMap[others[0].id],
                           );
-                          if (isDeactivatedUser(peer)) return null;
+                          if (isInactiveUser(peer)) return null;
                           return (
                             <UserStatusEmojiInline
                               statusEmoji={peer.statusEmoji}
@@ -677,14 +677,6 @@ const DMSidePanel = ({ theme, currentWorkspaceData }: Props) => {
                               </div>
                             )}
                           </div>
-
-                          <Button variant="submenu">
-                            <FiBellOff size={16} />
-                            <Typography
-                              variant="p"
-                              text={t("turnOffNotificationsForReplies")}
-                            />
-                          </Button>
 
                           <Separator />
 

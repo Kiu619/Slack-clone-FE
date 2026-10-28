@@ -6,7 +6,6 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { fetchDirectMessagesApi } from '@/apis'
 import { useChannels } from '@/hooks/use-channel'
 import { useUserStore } from '@/stores/useUserStore'
-import { useNewMessageStore } from '@/stores/useNewMessageStore'
 import { usePendingDraftNavigationStore } from '@/stores/usePendingDraftNavigationStore'
 import { draftKeys, messageKeys, scheduledMessageKeys } from '@/lib/query-keys'
 import { apiClient } from '@/lib/axios'
@@ -22,8 +21,6 @@ import {
   buildOpenThreadSearch,
   serverDraftToSummary,
   type MessageDraftSummary,
-  NEW_MSG_RESTORE_CHANNEL_KEY,
-  NEW_MSG_RESTORE_DM_KEY,
 } from '@/lib/message-drafts'
 import {
   cancelScheduledMessageApi,
@@ -73,7 +70,6 @@ export const DraftsScheduledPageClient = () => {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const user = useUserStore((s) => s.user)
-  const openNewMessage = useNewMessageStore((s) => s.openNewMessage)
   const [tab, setTab] = useState<DraftsScheduledTabId>('drafts')
 
   const tabQuery = searchParams.get('tab')
@@ -104,6 +100,10 @@ export const DraftsScheduledPageClient = () => {
     null,
   )
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false)
+
+  const goToNewMessage = useCallback(() => {
+    router.push(`/workspace/${workspaceId}/new-message`)
+  }, [router, workspaceId])
 
   useEffect(() => {
     if (!scheduleOpen) setScheduleTarget(null)
@@ -186,21 +186,19 @@ export const DraftsScheduledPageClient = () => {
       })
 
       if (row.isComposeNew && row.channelId) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(NEW_MSG_RESTORE_CHANNEL_KEY, row.channelId)
-        }
-        openNewMessage()
+        router.push(
+          `/workspace/${workspaceId}/new-message?channel=${row.channelId}`,
+        )
         return
       }
       if (row.isComposeNew && row.conversationId) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem(NEW_MSG_RESTORE_DM_KEY, row.conversationId)
-        }
-        openNewMessage()
+        router.push(
+          `/workspace/${workspaceId}/new-message?dm=${row.conversationId}`,
+        )
         return
       }
       if (row.isComposeNew) {
-        openNewMessage()
+        router.push(`/workspace/${workspaceId}/new-message`)
         return
       }
 
@@ -222,7 +220,7 @@ export const DraftsScheduledPageClient = () => {
         router.push(url)
       }
     },
-    [draftRows, queryClient, workspaceId, openNewMessage, router],
+    [draftRows, queryClient, workspaceId, router],
   )
 
   const openScheduledForEdit = useCallback(
@@ -543,7 +541,7 @@ export const DraftsScheduledPageClient = () => {
             onDeleteDraft={handleDeleteDraft}
             onScheduleDraft={handleScheduleDraft}
             onSendDraft={handleSendDraft}
-            onNewMessage={openNewMessage}
+            onNewMessage={goToNewMessage}
             t={t}
           />
         )}
@@ -559,7 +557,7 @@ export const DraftsScheduledPageClient = () => {
             onSendNow={handleSendScheduledNow}
             onCancelToDraft={handleCancelScheduleToDraft}
             onDeleteScheduled={(row) => cancelScheduled(row.id)}
-            onNewMessage={openNewMessage}
+            onNewMessage={goToNewMessage}
             t={t}
           />
         )}

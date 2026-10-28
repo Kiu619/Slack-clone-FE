@@ -15,7 +15,10 @@ import type { HuddleMessageSnapshot } from "@/lib/huddle";
 export type { WorkspacePermissionRow } from "./workspace-permissions";
 
 export type WorkspaceMemberRole = WorkspaceRoleKey;
-export type WorkspaceMemberStatusState = "active" | "deactivated";
+export type WorkspaceMemberStatusState =
+  | "active"
+  | "deactivated"
+  | "deleted";
 
 // ─── Direct Messages ────────────────────────────────────────────────────────
 
@@ -193,6 +196,14 @@ export type UpdateSavedItemPayload = {
 
 export type ChannelType = "text" | "audio" | "video";
 
+export type ChannelCreator = {
+  id: string;
+  name: string | null;
+  displayName: string | null;
+  avatar: string | null;
+  isActive: boolean;
+};
+
 export type ChannelsRow = {
   id: string;
   workspaceId: string;
@@ -243,6 +254,12 @@ export type MessagesRow = {
   replyParticipantIds: string[];
   lastReplyAt: IsoDateString | null;
   isPinned: boolean;
+  /**
+   * Per-viewer mute state của thread (parent message). Vì `isMuted` lưu trên
+   * `threadSubscriptions` per-user, server resolve và populate field này theo
+   * người đang request. Reply cũng nhận field này (resolve theo parentId).
+   */
+  viewerIsMuted?: boolean;
   /** false = tin server (topic/…), không cho PATCH — thiếu field coi như true */
   allowEdit?: boolean;
   createdAt: IsoDateString;
@@ -272,7 +289,9 @@ export type AttachmentsRow = {
   channelId: string | null;
   conversationId: string | null;
   fileCategory: string;
-  url: string;
+  /** Nullable vì attachment đang pending upload (chưa có URL thật) sẽ có url=null
+   *  cho đến khi client gọi API finalize. */
+  url: string | null;
   /** 'image' | 'video' | 'audio' | 'file' */
   type: string;
   name: string;
@@ -281,6 +300,8 @@ export type AttachmentsRow = {
   width: number | null;
   height: number | null;
   duration: number | null;
+  /** Client-generated uploadId — match attachment khi finalize. Null khi đã finalize. */
+  pendingUploadId: string | null;
   previewImageUrl: string | null;
   previewStatus: "pending" | "ready" | "failed" | null;
   previewUpdatedAt?: IsoDateString | null;
@@ -322,6 +343,8 @@ export type User = {
   statusEmoji?: string | null;
   statusExpiration?: IsoDateString | null;
   notificationsPausedUntil?: IsoDateString | null;
+  /** True neu pause do working hours engine (auto), false neu manual. */
+  autoPaused?: boolean | null;
 };
 
 /**
@@ -352,6 +375,8 @@ export type WorkspaceMember = {
   statusEmoji: string | null;
   statusExpiration: string | null;
   notificationsPausedUntil: string | null;
+  /** True neu pause do working hours engine (auto), false neu manual. */
+  autoPaused?: boolean | null;
   /** Legacy realtime/socket field. UI phai derive online cuoi cung tu socket + isAway. */
   isOnline?: boolean;
 };
@@ -376,6 +401,8 @@ export type CreateWorkspacePayload = {
 export type Channel = ChannelsRow & {
   /** Star cá nhân (membership); từ API list/detail */
   starredAt?: IsoDateString | null;
+  /** Creator info: JOIN users + LEFT JOIN workspace_members từ backend */
+  createdBy?: ChannelCreator | null;
 };
 
 export type ChannelMember = {
@@ -390,6 +417,7 @@ export type ChannelMember = {
   isOnline?: boolean;
   statusEmoji?: string | null;
   statusText?: string | null;
+  membershipStatus?: 'active' | 'deactivated' | null;
 };
 
 /** GET .../direct-messages/:id/invite-candidates */
@@ -447,11 +475,36 @@ export type MessageAttachment = AttachmentsRow & {
   // for later module
   parentId: string | null; // đây là parentId của message chứa attachment này (tức là nếu attachment ở trong thread)
   parentMessage: Message | null;
+
+  /**
+   * Trạng thái upload client-side cho optimistic attachment.
+   * - 'uploading': đang upload (hiển thị spinner góc trên-phải bubble).
+   * - 'failed': upload lỗi (hiển thị Retry overlay).
+   * - 'pending': đã chọn file nhưng chưa start upload.
+   * Server attachment thật: KHÔNG có field này → render bình thường.
+   */
+  uploadStatus?: "uploading" | "failed" | "pending" | null;
+  /** Khớp với UploadingFile.id (useFileUpload). Dùng để map progress + retry. */
+  uploadId?: string;
+  /**
+   * Client-generated uploadId, gửi lên server qua `pendingUpload: true` để match
+   * attachment row khi finalize (POST /messages/:id/attachments/:pendingUploadId/finalize).
+   * Server trả về attachment thật kèm `pendingUploadId` cho đến khi finalize xong.
+   */
+  pendingUploadId?: string | null;
 };
 
 export type MessageForwardSnapshot = {
   sourceMessageId: string;
-  sourceUser: User;
+  /**
+   * Source user (author của message gốc).
+   * - Có thể `null` khi source message đã bị hard-delete (hiện tombstone).
+   * - BE resolve `sourceUser` tại thời điểm đọc qua CASE expressions
+   *   (`removedAuthor*`) nên luôn phản ánh trạng thái hiện tại của user:
+   *   active | deactivated | deleted.
+   * - FE fallback "Deleted user" khi `null` (xem forwarded-message-timeline.tsx).
+   */
+  sourceUser: User | null;
   sourceContent: string;
   sourceEditedAt: IsoDateString | null;
 };
@@ -587,6 +640,7 @@ export type WorkspaceMemberStatus = {
   statusEmoji: string | null;
   statusExpiration: string | null;
   notificationsPausedUntil: string | null;
+  autoPaused?: boolean | null;
 };
 
 export type PendingFile = {
@@ -618,16 +672,22 @@ export type NotificationOverrideSetting = {
   notifyFor: NotificationPreference;
   muteChannel: boolean;
   mutedUntil: IsoDateString | null;
+  notifyOnThreadReply: boolean | null;
+  notifyOnHuddle: boolean | null;
   override: {
     id: string;
     notifyFor: NotificationPreference | null;
     muteChannel: boolean;
     mutedUntil: IsoDateString | null;
+    notifyOnThreadReply: boolean | null;
+    notifyOnHuddle: boolean | null;
   } | null;
   defaults: {
     notifyFor: NotificationPreference;
     notifyOnHereMention: boolean;
     notifyOnChannelMention: boolean;
+    notifyOnThreadReply: boolean;
+    notifyOnHuddle: boolean;
   };
 };
 
@@ -647,7 +707,9 @@ export type Notification = {
   actor?: {
     id: string;
     name: string | null;
+    displayName?: string | null;
     avatar: string | null;
+    membershipStatus?: 'active' | 'deactivated' | 'deleted';
   };
   channel?: {
     id: string;

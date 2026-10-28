@@ -4,6 +4,21 @@ import { messageKeys } from '@/lib/query-keys'
 import type { DirectMessageConversation, Message } from '@/lib/types'
 
 /**
+ * Lay noi dung hien thi cho last message:
+ * - Uu tien content text
+ * - Neu khong co content, lay ten file dau tien tu attachments
+ */
+function getLastMessageDisplayContent(message: Message): string | null {
+  if (message.content && message.content.trim() !== '') {
+    return message.content
+  }
+  if (Array.isArray(message.attachments) && message.attachments.length > 0) {
+    return message.attachments[0].name
+  }
+  return null
+}
+
+/**
  * Cập nhật mọi query danh sách DM của workspace (kể cả bản có `q` search)
  * khi có tin nhắn mới trong một conversation.
  */
@@ -57,7 +72,7 @@ export function applyIncomingDmMessageToConversationsCaches(
         const updated: DirectMessageConversation = {
           ...old[index],
           lastMessageAt: message.createdAt,
-          lastMessageContent: message.content,
+          lastMessageContent: getLastMessageDisplayContent(message),
           lastMessageUserId: message.user.id,
           lastMessageId: message.id,
           updatedAt: message.createdAt,
@@ -128,7 +143,7 @@ export function patchDmSidebarIfLastMessageEdited(
       const next = [...old]
       next[idx] = {
         ...conv,
-        lastMessageContent: message.content,
+        lastMessageContent: getLastMessageDisplayContent(message),
         updatedAt: message.updatedAt ?? message.editedAt ?? conv.updatedAt,
       }
       return next

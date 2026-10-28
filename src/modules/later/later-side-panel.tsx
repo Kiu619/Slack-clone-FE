@@ -16,7 +16,9 @@ import Typography from "@/components/ui/typography";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
 import { useLaterNavigation } from "@/hooks/use-later-navigation";
 import { useSavedItems } from "@/hooks/use-saved-items";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { getContrastTextColor } from "@/lib/color-contrast";
+import { getReminderPresets, localizeReminderPresets } from "@/lib/reminder-presets";
 import { SavedItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { type Theme } from "@/stores/useThemeStore";
@@ -31,10 +33,7 @@ import { IoFilter } from "react-icons/io5";
 import { LuCheck } from "react-icons/lu";
 import { MdBookmark, MdOutlineDeleteSweep } from "react-icons/md";
 import { Virtuoso } from "react-virtuoso";
-import { toast } from "sonner";
 import { SavedItemComponent, SavedItemSkeleton } from "./saved-item";
-import { useAppTranslation } from "@/hooks/use-translation";
-import { getReminderPresets, localizeReminderPresets } from "@/lib/reminder-presets";
 
 interface Props {
   theme: Theme;
@@ -80,7 +79,6 @@ const LaterSidePanel = ({ theme }: Props) => {
   const handleArchive = (item: SavedItem) => {
     const newStatus = item.status === "archived" ? "in_progress" : "archived";
     updateMutation.mutate({ itemId: item.id, payload: { status: newStatus } });
-    toast.success(newStatus === "archived" ? t("toast.archived") : t("toast.movedBackToInProgress"));
   };
 
   const handleRemove = (itemId: string) => {
@@ -237,7 +235,7 @@ const LaterSidePanel = ({ theme }: Props) => {
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex flex-col">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 10 }).map((_, i) => (
               <SavedItemSkeleton key={i} />
             ))}
           </div>

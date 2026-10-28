@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { LuCheck, LuX } from 'react-icons/lu'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Button } from './ui/button'
+import { useAppTranslation } from '@/hooks/use-translation'
 
 interface EditorAudioRecorderProps {
   isRecording: boolean
@@ -19,6 +20,7 @@ export default function  EditorAudioRecorder({
   onCancel,
   onConfirm,
 }: EditorAudioRecorderProps) {
+  const t = useAppTranslation()
   // Format the duration into mm:ss
   const formattedDuration = format(recordingDuration * 1000, 'mm:ss')
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -118,7 +120,7 @@ export default function  EditorAudioRecorder({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs">Cancel</p>
+              <p className="text-xs">{t("common.cancel")}</p>
             </TooltipContent>
           </Tooltip>
 
@@ -134,7 +136,7 @@ export default function  EditorAudioRecorder({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              <p className="text-xs">Done</p>
+              <p className="text-xs">{t("common.done")}</p>
             </TooltipContent>
           </Tooltip>
         </div>

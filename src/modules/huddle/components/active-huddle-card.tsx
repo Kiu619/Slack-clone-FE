@@ -31,6 +31,7 @@ import { useChannels } from "@/hooks/use-channel";
 import { useConversations } from "@/hooks/use-conversations";
 import { useUserStore } from "@/stores/useUserStore";
 import { useAppTranslation } from "@/hooks/use-translation";
+import { useTranslations } from "next-intl";
 
 type ActiveHuddleCardProps = {
   huddle: HuddlePageItem;
@@ -63,6 +64,7 @@ export function ActiveHuddleCard({
   const { socket } = useSocket();
   const currentUser = useUserStore((s) => s.user);
   const t = useAppTranslation('huddle.card')
+  const tPreview = useTranslations("huddlePreview")
   const isJoined =
     currentHuddle?.target.entityId === huddle.entityId &&
     currentHuddle?.target.workspaceId === huddle.workspaceId;
@@ -139,11 +141,14 @@ export function ActiveHuddleCard({
     if (isJoined) {
       return;
     }
-    openHuddlePreviewWindow({
-      ...target,
-      label: displayTitle,
-      mode: "join",
-    });
+    openHuddlePreviewWindow(
+      {
+        ...target,
+        label: displayTitle,
+        mode: "join",
+      },
+      { popupBlockedMessage: tPreview("popupBlocked") },
+    );
   };
 
   const handleLeave = (e: React.MouseEvent) => {

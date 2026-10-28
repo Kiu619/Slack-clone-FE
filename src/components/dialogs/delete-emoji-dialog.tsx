@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { WorkspaceCustomEmoji } from "@/lib/types";
 
 import {
@@ -36,6 +37,8 @@ export function DeleteEmojiDialog({
   defaultSelectedId: string | null;
   onDelete: (emojiId: string) => Promise<void>;
 }) {
+  const t = useTranslations("dialogs.deleteEmoji");
+  const tCommon = useTranslations("common");
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultSelectedId ? [defaultSelectedId] : []);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -72,7 +75,7 @@ export function DeleteEmojiDialog({
 
   const handleDelete = async () => {
     if (selectedItems.length === 0) {
-      setError("Please choose at least one item to delete");
+      setError(t("chooseAtLeastOne"));
       return;
     }
 
@@ -90,7 +93,7 @@ export function DeleteEmojiDialog({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Failed to delete emoji",
+          : t("failed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -181,7 +184,7 @@ export function DeleteEmojiDialog({
           onClick={() => onOpenChange(false)}
           disabled={isSubmitting}
         >
-          Cancel
+          {tCommon("cancel")}
         </Button>
         <Button
           type="button"
@@ -189,7 +192,7 @@ export function DeleteEmojiDialog({
           onClick={() => void handleDelete()}
           disabled={selectedItems.length === 0 || isSubmitting}
         >
-          {isSubmitting ? "Deleting..." : "Delete"}
+          {isSubmitting ? t("deleting") : t("delete")}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

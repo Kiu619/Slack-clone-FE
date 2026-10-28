@@ -2,45 +2,42 @@
 'use client'
 
 import {
-  checkLaterMessagesApi,
-  fetchPinnedChannelMessagesApi,
-  fetchPinnedConversationMessagesApi,
-  fetchThreadsApi,
-  markThreadAsReadApi,
-  removeLaterByMessageIdApi,
-  saveItemApi,
-  togglePinMessageApi,
-} from '@/apis'
-import { toast } from 'sonner'
+    checkLaterMessagesApi,
+    fetchPinnedChannelMessagesApi,
+    fetchPinnedConversationMessagesApi,
+    fetchThreadsApi,
+    markThreadAsReadApi,
+    removeLaterByMessageIdApi,
+    saveItemApi,
+    togglePinMessageApi,
+} from '@/apis';
+import { useMessageSync } from '@/hooks/use-message-sync';
 import {
-  getChannelChatSocket,
-  useChannelChatSocket,
-  useConversationChatSocket,
-  useThreadSocket,
-  useUserSocket,
-} from '@/hooks/use-socket'
-import { useMessageSync } from '@/hooks/use-message-sync'
-import { apiClient } from '@/lib/axios'
-import { applyIncomingDmMessageToConversationsCaches, patchDmSidebarIfLastMessageEdited } from '@/lib/conversations-cache'
-import { messageKeys } from '@/lib/query-keys'
-import type { Message, MessagesPage, Reaction, SaveItemPayload, ThreadsPage } from '@/lib/types'
-import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
-import { useMessageStore } from '@/stores/useMessageStore'
+    getChannelChatSocket,
+    useThreadSocket,
+    useUserSocket
+} from '@/hooks/use-socket';
+import { useTranslations } from 'next-intl';
+import { apiClient } from '@/lib/axios';
+import { applyIncomingDmMessageToConversationsCaches, patchDmSidebarIfLastMessageEdited } from '@/lib/conversations-cache';
+import { messageKeys } from '@/lib/query-keys';
+import type { Message, MessagesPage, Reaction, SaveItemPayload, ThreadsPage } from '@/lib/types';
+import { useMessageStore } from '@/stores/useMessageStore';
+import { useThreadPanelStore } from '@/stores/useThreadPanelStore';
 import {
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo } from 'react'
+    useInfiniteQuery,
+    useMutation,
+    useQuery,
+    useQueryClient,
+} from '@tanstack/react-query';
+import { useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 
 export interface SendMessagePayload {
   content: string
   parentId?: string
   alsoSendToChannel?: boolean
-  /** userIds: dÃ¹ng cho trÆ°á»ng há»£p gá»­i tin nháº¯n Ä‘áº§u tiÃªn Ä‘á»ƒ táº¡o DM conversation */
   userIds?: string[]
-  /** workspaceId: dÃ¹ng kÃ¨m vá»›i userIds */
   workspaceId?: string
   attachments?: {
     url: string
@@ -54,10 +51,6 @@ export interface SendMessagePayload {
     fileCategory?: string
   }[]
 }
-
-// â”€â”€â”€ Fetcher (Migrated to use-channel-messages.ts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-// â”€â”€â”€ Pinned Messages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function usePinnedMessages(target: {
   channelId?: string
@@ -1020,11 +1013,18 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
     }) => {
       const editedAt = new Date().toISOString()
 
+      // Helper: merge newAttachments với existing (loại bỏ deletedAttachmentIds)
+      // newAttachments từ uploadFileBinary đã có url thật từ Cloudinary/S3
+      // → merge vào optimistic update để tránh layout shift khi editor ẩn ngay
+      const buildMergedAttachments = (existing: any[] | undefined) => {
+        const remaining = existing?.filter((a: any) => !deletedAttachmentIds?.includes(a.id)) || []
+        return [...remaining, ...(attachments ?? [])]
+      }
+
       // 1. Zustand Store (Optimistic)
       const msg = store.entities[messageId]
       if (msg) {
-        const remainingAttachments = msg.attachments?.filter((a: any) => !deletedAttachmentIds?.includes(a.id)) || []
-        store.updateEntity(messageId, { content, editedAt, attachments: remainingAttachments })
+        store.updateEntity(messageId, { content, editedAt, attachments: buildMergedAttachments(msg.attachments) })
         const merged = useMessageStore.getState().entities[messageId]
         const ws = workspaceId ?? merged?.workspaceId
         if (ws && merged?.conversationId && !merged.channelId) {
@@ -1048,8 +1048,7 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
             ...page,
             messages: page.messages.map((m: any) => {
               if (m.id !== messageId) return m
-              const remainingAttachments = m.attachments?.filter((a: any) => !deletedAttachmentIds?.includes(a.id)) || []
-              return { ...m, content, editedAt, attachments: remainingAttachments }
+              return { ...m, content, editedAt, attachments: buildMergedAttachments(m.attachments) }
             }),
           })),
         }
@@ -1066,12 +1065,17 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
             pages: old.pages.map((page: any) => ({
               ...page,
               threads: page.threads.map((t: any) => {
-                if (t.id === messageId) return { ...t, content, editedAt }
+                if (t.id === messageId) {
+                  return { ...t, content, editedAt, attachments: buildMergedAttachments(t.attachments) }
+                }
                 return {
                   ...t,
-                  replies: t.replies.map((r: any) =>
-                    r.id === messageId ? { ...r, content, editedAt } : r
-                  )
+                  replies: t.replies.map((r: any) => {
+                    if (r.id === messageId) {
+                      return { ...r, content, editedAt, attachments: buildMergedAttachments(r.attachments) }
+                    }
+                    return r
+                  })
                 }
               })
             }))
@@ -1084,8 +1088,7 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
       if (openParentId === messageId) {
         const openParent = store.entities[openParentId]
         if (openParent) {
-          const remainingAttachments = openParent.attachments?.filter((a: any) => !deletedAttachmentIds?.includes(a.id)) || []
-          syncThreadPanel({ id: messageId, content, editedAt, attachments: remainingAttachments })
+          syncThreadPanel({ id: messageId, content, editedAt, attachments: buildMergedAttachments(openParent.attachments) })
         }
       }
 
@@ -1093,8 +1096,14 @@ export function useUpdateMessage(targetId: string, workspaceId?: string) {
     },
 
     onSuccess: (res) => {
-      // Cáº­p nháº­t dá»¯ liá»‡u chuáº©n tá»« server
+      // Cập nhật dữ liệu chuẩn từ server
       const updatedMessage = res.data as Message
+
+      // FIX: Cập nhật Zustand entities để UI re-render với attachments mới
+      // MessageItem đọc từ useMessageStore (Zustand), không phải từ React Query
+      // Nếu không cập nhật store, user A sẽ không thấy attachments mới trên UI
+      store.upsertEntities([updatedMessage])
+
       const ws = workspaceId ?? updatedMessage.workspaceId
       if (ws && updatedMessage.conversationId && !updatedMessage.channelId) {
         patchDmSidebarIfLastMessageEdited(queryClient, ws, updatedMessage)
@@ -1273,6 +1282,7 @@ export function useDeleteAttachment(targetId: string) {
  * useSaveForLater - lÆ°u tin nháº¯n hoáº·c file vÃ o danh sÃ¡ch Later
  */
 export function useSaveForLater(workspaceId: string) {
+  const t = useTranslations("messages")
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -1281,10 +1291,10 @@ export function useSaveForLater(workspaceId: string) {
       void queryClient.invalidateQueries({ queryKey: ['saved-items', workspaceId] })
       void queryClient.invalidateQueries({ queryKey: ['saved-items-summary', workspaceId] })
       void queryClient.invalidateQueries({ queryKey: ['later-saved-messages'] })
-      toast.success('Saved for later')
+      toast.success(t('saved'))
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Failed to save'
+      const message = error.response?.data?.message || t('failedToSave')
       toast.error(message)
     },
   })
@@ -1294,6 +1304,7 @@ export function useSaveForLater(workspaceId: string) {
  * Toggle message in Later: save if not saved, remove all matching Later rows if saved.
  */
 export function useToggleLaterMessage(workspaceId: string) {
+  const t = useTranslations("messages")
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -1314,11 +1325,11 @@ export function useToggleLaterMessage(workspaceId: string) {
       void queryClient.invalidateQueries({ queryKey: ['saved-items-summary', workspaceId] })
       void queryClient.invalidateQueries({ queryKey: ['later-saved-messages'] })
       toast.success(
-        action === 'removed' ? 'Removed from Later' : 'Saved for later',
+        action === 'removed' ? t('removed') : t('saved'),
       )
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Something went wrong'
+      const message = error.response?.data?.message || t('failedToSave')
       toast.error(message)
     },
   })

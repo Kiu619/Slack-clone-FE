@@ -1,3 +1,4 @@
+'use client';
 import { CustomDialog, CustomDialogBody, CustomDialogHeader, CustomDialogTitle } from '@/components/custom-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useWorkspaceMemberStore } from '@/stores/useWorkspaceMemberStore';
@@ -62,7 +63,7 @@ export default function SeeParticipantsDialog({
               <div
                 key={p.id}
                 onClick={() => handleParticipantClick(p)}
-                className="flex items-center gap-3 p-2 rounded hover:bg-[#2a2d31] cursor-pointer"
+                className="flex items-center gap-3 p-2 rounded hover:bg-accent dark:hover:bg-[#2a2d31] cursor-pointer"
               >
                 <Avatar className="size-8">
                   <AvatarImage src={avatar || ''} />

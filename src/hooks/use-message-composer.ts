@@ -9,17 +9,21 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useAppTranslation } from '@/hooks/use-translation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getWorkspaceProfileApi } from '@/apis'
 import { useSendMessage } from '@/hooks/use-messages'
 import { useFileUpload } from '@/hooks/use-file-upload'
-import { useNewMessageStore } from '@/stores/useNewMessageStore'
+import { useFinalizeAttachment } from '@/hooks/use-finalize-attachment'
 import { usePendingDraftNavigationStore } from '@/stores/usePendingDraftNavigationStore'
 import { authKeys, draftKeys, messageKeys, scheduledMessageKeys } from '@/lib/query-keys'
 import { apiClient } from '@/lib/axios'
+import { inferAttachmentTypeFromMime } from '@/lib/attachment-type'
+import { updateAttachmentInMessageCache } from '@/lib/update-attachment-in-cache'
+import { addPendingUploadEntry } from '@/lib/pending-upload-storage'
 import { usePathname, useRouter } from 'next/navigation'
-import type { Message, DirectMessageConversation, User } from '@/lib/types'
+import type { Message, DirectMessageConversation, User, MessageAttachment } from '@/lib/types'
 import { openDmInWorkspace } from '@/lib/open-dm-in-workspace'
 import {
   buildMessageDraftContextKey,
@@ -106,6 +110,7 @@ export function useMessageComposer({
   currentConversationData,
   isNewMessageMode = false,
 }: UseMessageComposerProps) {
+  const t = useAppTranslation('messageComposer')
   const queryClient = useQueryClient()
   const { data: workspaceProfile } = useQuery({
     queryKey: authKeys.workspaceProfile(workspaceId),
@@ -116,7 +121,6 @@ export function useMessageComposer({
   const currentUser = workspaceProfile as User | undefined
   const router = useRouter()
   const pathname = usePathname()
-  const closeNewMessage = useNewMessageStore((s) => s.closeNewMessage)
   const draftUserId = currentUser?.id
 
   const draftContextKey = useMemo(
@@ -269,16 +273,14 @@ export function useMessageComposer({
             htmlBufferRef.current,
           )
           if (hadPendingFiles) {
-            toast.info(
-              'File đính kèm chưa gửi không được lưu vào draft — chỉ nội dung soạn thảo được lưu.',
-            )
+            toast.info(t('pendingFilesNotSavedToDraft'))
           }
         } catch {
           /* offline / 403 */
         }
       })()
     }
-  }, [draftContextKey, workspaceId, draftUserId, queryClient])
+  }, [draftContextKey, workspaceId, draftUserId, queryClient, t])
 
   const clearCurrentDraft = useCallback(async () => {
     if (!workspaceId || !draftContextKey) return
@@ -332,6 +334,7 @@ export function useMessageComposer({
 
   const { uploadFileBinary, uploadingFiles, clearUploadingFiles } =
     useFileUpload()
+  const { finalize: finalizeAttachment } = useFinalizeAttachment()
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
   const pendingFilesRef = useRef<PendingFile[]>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -342,12 +345,38 @@ export function useMessageComposer({
   }, [pendingFiles])
 
   const addPendingFiles = useCallback((files: File[]) => {
-    const newItems: PendingFile[] = files.map((file) => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-    }))
-    setPendingFiles((prev) => [...prev, ...newItems])
-  }, [])
+    const accepted: PendingFile[] = []
+    const rejected: { name: string; reason: 'size' | 'extension' }[] = []
+
+    const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        rejected.push({ name: file.name, reason: 'size' })
+        continue
+      }
+      if (!file.type && !file.name.match(/\.[a-z0-9]+$/i)) {
+        rejected.push({ name: file.name, reason: 'extension' })
+        continue
+      }
+      accepted.push({
+        id: Math.random().toString(36).substring(7),
+        file,
+      })
+    }
+
+    // Hiện toast cho từng file bị reject (validation sớm → user biết ngay).
+    for (const r of rejected) {
+      if (r.reason === 'size') {
+        toast.error(t('fileTooLarge', { name: r.name }))
+      } else {
+        toast.error(t('unsupportedFileType', { name: r.name }))
+      }
+    }
+
+    if (accepted.length > 0) {
+      setPendingFiles((prev) => [...prev, ...accepted])
+    }
+  }, [t])
 
   const removePendingFile = useCallback((id: string) => {
     setPendingFiles((prev) => prev.filter((p) => p.id !== id))
@@ -434,17 +463,17 @@ export function useMessageComposer({
     }) => {
       const targetKey = channelId ?? conversationId
       if (!targetKey) {
-        toast.error('Chọn kênh hoặc cuộc trò chuyện trước khi lên lịch.')
+        toast.error(t('selectChannelOrConversationFirst'))
         return
       }
       if (pendingFiles.length > 0) {
-        toast.error(`Application haven't supported schedule message with file attachments yet.`)
+        toast.error(t('scheduleWithAttachmentsNotSupported'))
         return
       }
       const html = htmlBufferRef.current
       const plain = previewPlainFromDraftHtml(html, 50_000).trim()
       if (!plain) {
-        toast.error('Nội dung tin nhắn không được để trống.')
+        toast.error(t('messageContentRequired'))
         return
       }
       setIsScheduling(true)
@@ -462,10 +491,10 @@ export function useMessageComposer({
         void queryClient.invalidateQueries({
           queryKey: scheduledMessageKeys.all(workspaceId),
         })
-        toast.success('Đã lên lịch gửi tin nhắn.')
+        toast.success(t('messageScheduled'))
       } catch (e: unknown) {
         const err = e as { response?: { data?: { message?: unknown } }; message?: string }
-        const raw = err?.response?.data?.message ?? err?.message ?? 'Lên lịch thất bại.'
+        const raw = err?.response?.data?.message ?? err?.message ?? t('scheduleFailed')
         const msg = Array.isArray(raw) ? raw.join(', ') : String(raw)
         toast.error(msg)
         throw e
@@ -482,18 +511,19 @@ export function useMessageComposer({
       queryClient,
       clearCurrentDraft,
       applyHtmlToComposer,
+      t,
     ],
   )
 
   const onSubmit = useCallback(
     async (htmlContent: string, options?: { alsoSendToChannel?: boolean }) => {
       const textContent = previewPlainFromDraftHtml(htmlContent, 50_000).trim()
-      const hasContent = textContent !== ''
+      const hasContent = textContent !== ""
       const hasFiles = pendingFiles.length > 0
 
       if (!hasContent && !hasFiles) return
 
-      const contentToSend = hasContent ? htmlContent : ''
+      const contentToSend = hasContent ? htmlContent : ""
       const filesToUpload = [...pendingFiles]
 
       clearPendingFiles()
@@ -511,33 +541,51 @@ export function useMessageComposer({
           .map((m) => m.id)
       }
 
+      // Tạo placeholder attachments NGAY để optimistic message có bubble hiển thị spinner.
+      // useSendMessage.onMutate chạy SYNCHRONOUSLY (trước khi API call),
+      // nên message sẽ hiện trong message list ngay lập tức khi gọi sendMessage().
+      //
+      // Optimistic upload pattern:
+      // - payload chỉ gửi field backend chấp nhận (CreateMessageSchema):
+      //   url, type, name, size, mimeType, pendingUpload=true, pendingUploadId.
+      // - Không gửi `id`, `uploadStatus` (server không biết → sẽ fail Zod validation).
+      // - Sau khi upload file thật xong → gọi endpoint finalize để PATCH URL.
       if (hasFiles) {
-        setIsUploading(true)
-        try {
-          const attachments = await Promise.all(
-            filesToUpload.map(({ file }) => uploadFileBinary(file)),
-          )
-          payload.attachments = attachments
-        } catch {
-          toast.error('Có lỗi xảy ra khi tải file. Vui lòng thử lại.')
-          return
-        } finally {
-          setIsUploading(false)
-        }
+        // Lưu files để retry có thể đọc lại (vì pendingFiles đã bị clearPendingFiles xoá)
+        const filesSnapshot = filesToUpload
+        // Gắn files snapshot vào scope để upload per-file dùng
+        ;(payload as any).__filesSnapshot = filesSnapshot
+
+        payload.attachments = filesToUpload.map(({ id: uploadId, file }) => ({
+          // Field backend chấp nhận (CreateMessageSchema):
+          // - url: optional khi pendingUpload=true
+          // - type, name, size: bắt buộc
+          // - pendingUpload=true: server lưu row với url rỗng, client sẽ finalize sau
+          // - pendingUploadId: client-generated uploadId (Math.random)
+          url: undefined,
+          type: inferAttachmentTypeFromMime(file.type),
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+          pendingUpload: true,
+          pendingUploadId: uploadId,
+        }))
       }
 
+      // Bước 1: Gọi sendMessage NGAY — không await upload.
+      // useSendMessage.onMutate chạy sync → optimistic message xuất hiện ngay.
+      // Attachments trong optimistic message là placeholders với uploadStatus='uploading'.
       sendMessage(payload, {
-        onSuccess: async (newMessage) => {
+        onSuccess: async (newMessage, _payload, _ctx) => {
           await clearCurrentDraft()
 
           if (isNewMessageMode) {
-            closeNewMessage()
             if (newMessage.channelId) {
               router.push(
                 `/workspace/${workspaceId}/channel/${newMessage.channelId}`,
               )
             } else if (newMessage.conversationId) {
-              if (pathname.includes('/dms')) {
+              if (pathname.includes("/dms")) {
                 openDmInWorkspace(
                   router,
                   pathname,
@@ -553,8 +601,173 @@ export function useMessageComposer({
           }
 
           if (hasFiles) {
-            toast.success(`Đã gửi tin nhắn kèm ${filesToUpload.length} file`)
-            clearUploadingFiles()
+            // Sau khi server trả về message thật (kèm attachment rows đã lưu với pendingUploadId),
+            // bắt đầu upload từng file SONG SONG rồi gọi API finalize.
+            // PHẢI await Promise.allSettled để toast chỉ hiển thị SAU khi mọi file settle
+            // (success hoặc fail). Nếu fire-and-forget, toast xuất hiện ngay khi server
+            // tạo message xong, trước cả khi file upload lên Cloudinary/S3.
+            const filesSnapshot: PendingFile[] = (payload as any).__filesSnapshot
+            const results = await Promise.allSettled(
+              filesSnapshot.map(async ({ id: uploadId, file }) => {
+                try {
+                  const uploaded = await uploadFileBinary(file, uploadId)
+                  // Upload thành công → gọi API finalize để PATCH URL thật lên server.
+                  // Backend trả về presigned URL (nếu là S3) hoặc URL gốc (nếu là Cloudinary).
+                  // Dùng URL từ response thay vì uploaded.url gốc để đảm bảo URL đầy đủ.
+                  const finalizeResult = await finalizeAttachment({
+                    messageId: newMessage.id,
+                    pendingUploadId: uploadId,
+                    url: uploaded.url,
+                    mimeType: uploaded.mimeType ?? file.type,
+                    width: uploaded.width,
+                    height: uploaded.height,
+                    duration: uploaded.duration,
+                    fileCategory: uploaded.fileCategory,
+                  })
+                  // Patch cache: gắn URL từ backend response + clear uploadStatus.
+                  // Match theo pendingUploadId (client-generated uploadId) thay vì uploadId
+                  // vì attachment trong optimistic chỉ có pendingUploadId, không có uploadId.
+                  updateAttachmentInMessageCache(
+                    queryClient,
+                    { pendingUploadId: uploadId },
+                    (a) => {
+                      if (a.pendingUploadId !== uploadId) return a
+                      const next: MessageAttachment = {
+                        ...a,
+                        url: finalizeResult.url,
+                        uploadStatus: null,
+                        uploadId: undefined,
+                        pendingUploadId: null,
+                        // Thêm preview fields để Office thumbnail hiển thị ngay
+                        previewImageUrl: finalizeResult.previewImageUrl ?? null,
+                      }
+                      return next
+                    },
+                    workspaceId,
+                  )
+                  return { uploadId, ok: true as const }
+                } catch {
+                  // Upload fail hoặc finalize fail → hiện Retry trên bubble.
+                  // Persist vào localStorage để retry được khi refresh/mở lại tab.
+                  addPendingUploadEntry({
+                    messageId: newMessage.id,
+                    pendingUploadId: uploadId,
+                    fileName: file.name,
+                    mimeType: file.type,
+                    size: file.size,
+                    savedAt: new Date().toISOString(),
+                  })
+                  // Match cũng phải theo pendingUploadId vì attachment trong optimistic
+                  // không có field uploadId (cùng bug đã fix ở nhánh success).
+                  updateAttachmentInMessageCache(
+                    queryClient,
+                    { pendingUploadId: uploadId },
+                    { uploadStatus: "failed" },
+                    workspaceId,
+                  )
+                  return { uploadId, ok: false as const }
+                }
+              }),
+            )
+
+            // Đếm số file upload thành công/thất bại → toast phù hợp.
+            const total = filesSnapshot.length
+            const successCount = results.filter(
+              (r) => r.status === "fulfilled" && r.value.ok,
+            ).length
+            const failedCount = total - successCount
+
+            if (failedCount === 0) {
+              // Tất cả file upload thành công → toast như cũ.
+              toast.success(
+                t("messageSentWithFiles", { count: total }),
+              )
+            } else if (successCount === 0) {
+              // Toàn bộ file fail → ẨN optimistic message + xóa trên backend + toast lỗi.
+              // User không muốn thấy message "nửa mùa" khi tất cả file fail.
+              const messageIdToRemove = newMessage.id
+              const parentIdForDelete = newMessage.parentId ?? undefined
+
+              // 1. Xóa optimistic message khỏi React Query cache
+              const removeFromCache = (old: any) => {
+                if (!old?.pages) return old
+                return {
+                  ...old,
+                  pages: old.pages.map((page: any) => ({
+                    ...page,
+                    messages: (page.messages ?? []).filter(
+                      (m: any) => m.id !== messageIdToRemove,
+                    ),
+                    threads: (page.threads ?? []).map((t: any) =>
+                      t.id === messageIdToRemove
+                        ? t
+                        : {
+                            ...t,
+                            replies: (t.replies ?? []).filter(
+                              (r: any) => r.id !== messageIdToRemove,
+                            ),
+                          },
+                    ),
+                  })),
+                }
+              }
+
+              const listKey =
+                messageKeys.list(targetId) ||
+                (channelId
+                  ? messageKeys.list(channelId)
+                  : conversationId
+                    ? messageKeys.list(conversationId)
+                    : null)
+
+              if (listKey) {
+                queryClient.setQueryData(listKey, removeFromCache)
+              }
+              if (parentId) {
+                queryClient.setQueryData(
+                  messageKeys.thread(parentId),
+                  removeFromCache,
+                )
+              }
+              if (workspaceId) {
+                queryClient.setQueryData(
+                  messageKeys.threads(workspaceId),
+                  removeFromCache,
+                )
+              }
+
+              // 2. Xóa message trên backend (message đã được tạo với pendingUpload=true)
+              //    → gọi DELETE /messages/:id để dọn rác
+              try {
+                await fetch(
+                  `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/messages/${messageIdToRemove}`,
+                  {
+                    method: "DELETE",
+                    credentials: "include",
+                  },
+                )
+              } catch (err) {
+                // best-effort: nếu backend fail vẫn rollback local
+                console.warn("[useMessageComposer] delete failed message:", err)
+              }
+
+              // 3. Restore pendingFiles để user có thể retry (đã bị clearPendingFiles trước đó)
+              setPendingFiles(filesSnapshot)
+
+              // 4. Toast lỗi
+              toast.error(
+                t("messageSentFilesAllFailed", { count: total }),
+              )
+            } else {
+              // Partial → toast success nhưng kèm số lượng fail (user biết cần retry).
+              toast.success(
+                t("messageSentWithFilesPartial", {
+                  success: successCount,
+                  total,
+                  failed: failedCount,
+                }),
+              )
+            }
           }
         },
       })
@@ -563,8 +776,9 @@ export function useMessageComposer({
       sendMessage,
       pendingFiles,
       clearPendingFiles,
-      clearUploadingFiles,
       uploadFileBinary,
+      finalizeAttachment,
+      queryClient,
       targetId,
       channelId,
       currentConversationData?.members,
@@ -574,8 +788,8 @@ export function useMessageComposer({
       isNewMessageMode,
       router,
       pathname,
-      closeNewMessage,
       clearCurrentDraft,
+      t,
     ],
   )
 

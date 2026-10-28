@@ -13,6 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import Typography from "@/components/ui/typography";
 import { useUpdateChannel } from "@/hooks/use-channel";
 import type { Channel } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import {
+  getChannelNameError,
+  getChannelNameInvalidChars,
+  isValidChannelName,
+  normalizeChannelNameInput,
+  slugifyChannelName,
+} from "@/lib/channel-slug";
 import { format } from "date-fns";
 import { isAxiosError } from "axios";
 import { Copy } from "lucide-react";
@@ -21,8 +29,6 @@ import { BiHash } from "react-icons/bi";
 import { toast } from "sonner";
 import { useAppTranslation } from "@/hooks/use-translation";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
-
-const NAME_PATTERN = /^[a-z0-9-_]+$/;
 
 type EditField = "name" | "topic" | "description" | null;
 
@@ -40,14 +46,16 @@ export default function AboutTab({
     channelId,
   );
   const t = useAppTranslation('channel.about')
-  const dateFormat = useLanguageRegionStore((s) => s.dateFormat)
+  const language = useLanguageRegionStore((s) => s.language)
 
   const [editField, setEditField] = useState<EditField>(null);
   const [draft, setDraft] = useState("");
+  const [invalidChars, setInvalidChars] = useState<string[]>([]);
 
   const openEdit = useCallback(
     (field: Exclude<EditField, null>) => {
       setEditField(field);
+      setInvalidChars([]);
       if (field === "name") setDraft(currentChannelData.name);
       else if (field === "topic") setDraft(currentChannelData.topic ?? "");
       else setDraft(currentChannelData.description ?? "");
@@ -58,6 +66,7 @@ export default function AboutTab({
   const closeEdit = useCallback(() => {
     setEditField(null);
     setDraft("");
+    setInvalidChars([]);
   }, []);
 
   const saveEdit = useCallback(async () => {
@@ -65,15 +74,16 @@ export default function AboutTab({
     try {
       if (editField === "name") {
         const trimmedDraft = draft.trim();
-        if (trimmedDraft.length < 2 || trimmedDraft.length > 80) {
-          toast.error(t('nameMustBe2to80'));
+        const errorMessage = getChannelNameError(trimmedDraft);
+        if (errorMessage !== null) {
+          toast.error(errorMessage);
           return;
         }
-        if (!NAME_PATTERN.test(trimmedDraft)) {
+        if (!isValidChannelName(trimmedDraft)) {
           toast.error(t('nameOnlyLowercase'));
           return;
         }
-        await updateChannel({ name: trimmedDraft });
+        await updateChannel({ name: slugifyChannelName(trimmedDraft) });
         toast.success(t('channelNameUpdated'));
       } else if (editField === "topic") {
         const v = draft.trim();
@@ -177,7 +187,7 @@ export default function AboutTab({
           <Typography
             text={format(
               currentChannelData.createdAt,
-              dateFormat === "vi_VN" ? "dd/MM/yyyy" : "MM/dd/yyyy"
+              language === "vi" ? "dd/MM/yyyy" : "MM/dd/yyyy"
             )}
             variant="p"
             className="text-[14px] text-[#8e9297]"
@@ -224,16 +234,35 @@ export default function AboutTab({
             <>
               <Input
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  const next = normalizeChannelNameInput(e.target.value);
+                  setDraft(next);
+                  setInvalidChars(getChannelNameInvalidChars(next));
+                }}
                 placeholder={t('namePlaceholder')}
-                className="font-mono text-[14px]"
+                className={cn(
+                  "font-mono text-[14px]",
+                  invalidChars.length > 0 &&
+                    "border-red-500 focus-visible:ring-red-500",
+                )}
                 autoFocus
               />
-              <Typography
-                variant="p"
-                text={t('nameHint')}
-                className="text-[12px] text-[#616061] dark:text-[#ababad]"
-              />
+              {invalidChars.length > 0 ? (
+                <Typography
+                  variant="p"
+                  text={t('channelNameInvalidChars').replace(
+                    '{chars}',
+                    Array.from(new Set(invalidChars)).join(' '),
+                  )}
+                  className="text-[12px] text-red-500 dark:text-red-400"
+                />
+              ) : (
+                <Typography
+                  variant="p"
+                  text={t('nameHint')}
+                  className="text-[12px] text-[#616061] dark:text-[#ababad]"
+                />
+              )}
             </>
           ) : (
             <Textarea

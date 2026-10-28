@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppTranslation } from "@/hooks/use-translation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -20,6 +21,7 @@ export function useMemberPreferences(workspaceId: string | undefined) {
 }
 
 export function useUpdateMemberPreferences(workspaceId: string | undefined) {
+  const t = useAppTranslation("memberPreferences");
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -53,7 +55,7 @@ export function useUpdateMemberPreferences(workspaceId: string | undefined) {
           ctx.previous,
         );
       }
-      toast.error("Failed to sync language settings");
+      toast.error(t("syncFailed"));
     },
 
     onSuccess: (data) => {

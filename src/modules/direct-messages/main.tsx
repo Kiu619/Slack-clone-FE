@@ -6,10 +6,10 @@ import FilesTab from "@/components/header-tabs/files-tab";
 import FolderTab from "@/components/header-tabs/folder-tab";
 import MessageTab from "@/components/header-tabs/message-tab";
 import PinsTab from "@/components/header-tabs/pins-tab";
-import { ChannelFolderActionsProvider } from "@/contexts/channel-folder-actions";
 import { DirectMessageConversation } from "@/lib/types";
 import DMHeader, { DMViewTab } from "@/modules/direct-messages/dm-header";
 import { useOpenThreadFromSearchParams } from "@/hooks/use-open-thread-from-search-params";
+import { useFolderDialogStore } from "@/stores/useFolderDialogStore";
 
 function DmThreadDeepLink({ enabled }: { enabled: boolean }) {
   useOpenThreadFromSearchParams(enabled);
@@ -24,38 +24,50 @@ export default function Main({
   showXIcon?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<DMViewTab>("messages");
+  const folderDialog = useFolderDialogStore();
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col h-full">
-      <DMHeader
-        conversation={conversation}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        showXIcon={showXIcon}
-      />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <Suspense fallback={null}>
-          <DmThreadDeepLink enabled={activeTab === "messages"} />
-        </Suspense>
-        {activeTab === "messages" && (
-          <MessageTab currentConversationData={conversation} />
-        )}
-        {activeTab === "files" && (
-          <FilesTab currentConversationData={conversation} />
-        )}
-        {activeTab === "folders" && (
-          <FolderTab
-            currentConversationData={conversation}
-            onGoToFilesTab={() => setActiveTab("files")}
-          />
-        )}
-        {activeTab === "pins" && (
-          <PinsTab
-            currentConversationData={conversation}
-            onGoToMessagesTab={() => setActiveTab("messages")}
-          />
-        )}
+    <>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col h-full">
+        <DMHeader
+          conversation={conversation}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          showXIcon={showXIcon}
+        />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <Suspense fallback={null}>
+            <DmThreadDeepLink enabled={activeTab === "messages"} />
+          </Suspense>
+          {activeTab === "messages" && (
+            <MessageTab currentConversationData={conversation} />
+          )}
+          {activeTab === "files" && (
+            <FilesTab currentConversationData={conversation} />
+          )}
+          {activeTab === "folders" && (
+            <FolderTab
+              currentConversationData={conversation}
+              onGoToFilesTab={() => setActiveTab("files")}
+            />
+          )}
+          {activeTab === "pins" && (
+            <PinsTab
+              currentConversationData={conversation}
+              onGoToMessagesTab={() => setActiveTab("messages")}
+            />
+          )}
+        </div>
       </div>
-    </div>
+      <CreateFolderDialog
+        open={folderDialog.isOpen && folderDialog.targetId === conversation.id && folderDialog.isDM}
+        onOpenChange={(open) => {
+          if (!open) folderDialog.close();
+        }}
+        targetId={conversation.id}
+        isDM={true}
+        attachmentId={folderDialog.attachmentId ?? undefined}
+      />
+    </>
   );
 }

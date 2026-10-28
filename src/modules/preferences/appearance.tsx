@@ -8,6 +8,7 @@ import { FUN_NEW_THEMES, SINGLE_COLOR_THEMES, VISION_ASSISTIVE_THEMES } from "@/
 import { cn } from "@/lib/utils";
 import { useThemeStore } from "@/stores/useThemeStore";
 import { Check } from "lucide-react";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { HiOutlineSparkles } from "react-icons/hi";
@@ -41,6 +42,7 @@ const COLOR_PREVIEW_STYLE =
   "w-9 h-9 rounded-full border border-white/10 shrink-0 overflow-hidden";
 
 export default function PreferencesAppearance() {
+  const t = useAppTranslation("preferences.appearancePanel");
   const { theme: colorMode, setTheme: setColorMode } = useTheme();
 
   const [shareThemeClick, setShareThemeClick] = useState(false)
@@ -79,7 +81,7 @@ export default function PreferencesAppearance() {
     navigator.clipboard.writeText(themeString);
 
     setShareThemeClick(true)
-    toast.success("Theme strings copied to clipboard!");
+    toast.success(t("themeCopiedToClipboard"));
 
     setTimeout(() => {
       setShareThemeClick(false)
@@ -102,13 +104,13 @@ export default function PreferencesAppearance() {
 
   const handleImportTheme = (colors: { systemNav: string; selectedItems: string }) => {
     setCustomColors({ ...customColors, ...colors, id: "custom-theme" });
-    toast.success("Theme imported successfully!");
+    toast.success(t("themeImportedSuccessfully"));
   }
 
   return (
     <div className="space-y-4">
       <section>
-        <Typography text="Font" variant="p" className="font-bold mb-4" />
+        <Typography text={t("font")} variant="p" className="font-bold mb-4" />
 
         <CustomSelect
           options={FONT_OPTIONS}
@@ -120,10 +122,10 @@ export default function PreferencesAppearance() {
       <Separator />
 
       <section>
-        <Typography text="Color mode " variant="p" className="font-bold" />
+        <Typography text={t("colorMode")} variant="p" className="font-bold" />
 
         <Typography
-          text="Choose if Slack’s appearance should be light or dark, or follow your computer’s settings."
+          text={t("colorModeDescription")}
           variant="p"
           className="mb-4 font-normal text-sm"
         />
@@ -140,7 +142,7 @@ export default function PreferencesAppearance() {
           >
             <MdOutlineLightMode size={18} />
             <Typography
-              text="Light"
+              text={t("light")}
               variant="p"
               className="font-normal text-sm"
             />
@@ -156,7 +158,7 @@ export default function PreferencesAppearance() {
           >
             <MdOutlineDarkMode size={18} />
             <Typography
-              text="Dark"
+              text={t("dark")}
               variant="p"
               className="font-normal text-sm"
             />
@@ -172,7 +174,7 @@ export default function PreferencesAppearance() {
           >
             <MdComputer size={18} />
             <Typography
-              text="System"
+              text={t("system")}
               variant="p"
               className="font-normal text-sm"
             />
@@ -190,7 +192,7 @@ export default function PreferencesAppearance() {
             className={`${activeTab === "slack-themes" ? "border-b-2 border-selection-hover pb-1" : "text-gray-500 pb-1"}`}
           >
             <Typography
-              text="Slack themes"
+              text={t("slackThemes")}
               variant="p"
               className={`${activeTab === "slack-themes" ? "font-bold text-selection-hover" : "font-bold text-gray-500"}`}
             />
@@ -202,7 +204,7 @@ export default function PreferencesAppearance() {
             className={`${activeTab === "custom-theme" ? "border-b-2 border-selection-hover pb-1" : "text-gray-500 pb-1"}`}
           >
             <Typography
-              text="Custom theme"
+              text={t("customTheme")}
               variant="p"
               className={`${activeTab === "custom-theme" ? "font-bold text-selection-hover" : "font-bold text-gray-500"}`}
             />
@@ -212,7 +214,7 @@ export default function PreferencesAppearance() {
         {activeTab === "slack-themes" && (
           <div className="">
             <Typography
-              text="Single color"
+              text={t("singleColor")}
               variant="p"
               className="text-sm font-normal mb-3"
             />
@@ -249,7 +251,7 @@ export default function PreferencesAppearance() {
             </div>
 
             <Typography
-              text="Vision assistive"
+              text={t("visionAssistive")}
               variant="p"
               className="text-sm font-normal mb-3 mt-4"
             />
@@ -287,7 +289,7 @@ export default function PreferencesAppearance() {
             </div>
 
             <Typography
-              text="Fun and new"
+              text={t("funAndNew")}
               variant="p"
               className="text-sm font-normal mb-3 mt-4"
             />
@@ -329,7 +331,7 @@ export default function PreferencesAppearance() {
         {activeTab === "custom-theme" && (
           <div className="">
             <Typography
-              text="Theme colors"
+              text={t("themeColors")}
               variant="p"
               className="text-sm font-normal mb-3"
             />
@@ -343,13 +345,13 @@ export default function PreferencesAppearance() {
                 {shareThemeClick ?
                   (<><Check size={18} />
                     <Typography
-                      text="Copied"
+                      text={t("copied")}
                       variant="p"
                       className="text-sm font-normal"
                     /></>) :
                   (<><RiShareForwardLine size={18} />
                     <Typography
-                      text="Share"
+                      text={t("share")}
                       variant="p"
                       className="text-sm font-normal"
                     /></>
@@ -364,7 +366,7 @@ export default function PreferencesAppearance() {
               >
                 <IoArrowUpSharp size={18} />
                 <Typography
-                  text="Import"
+                  text={t("import")}
                   variant="p"
                   className="text-sm font-normal"
                 />
@@ -377,7 +379,7 @@ export default function PreferencesAppearance() {
               >
                 <HiOutlineSparkles size={18} />
                 <Typography
-                  text="Surprise me"
+                  text={t("surpriseMe")}
                   variant="p"
                   className="text-sm font-normal"
                 />
@@ -386,12 +388,12 @@ export default function PreferencesAppearance() {
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 mt-4">
               <ColorPicker
-                label="System navigation"
+                label={t("systemNavigation")}
                 color={customColors.systemNav}
                 onChange={handleColorChange("systemNav")}
               />
               <ColorPicker
-                label="Selected items"
+                label={t("selectedItems")}
                 color={customColors.selectedItems}
                 onChange={handleColorChange("selectedItems")}
               />
@@ -411,10 +413,10 @@ export default function PreferencesAppearance() {
                 <div className="flex flex-col gap-y-1">
                   <label htmlFor="window-gradient" className="flex items-center gap-x-2 cursor-pointer select-none">
                     <MdGradient size={18} />
-                    <Typography text="Window gradient" className="text-sm font-semibold" />
+                    <Typography text={t("windowGradient")} className="text-sm font-semibold" />
                   </label>
                   <Typography
-                    text="Blend Window background and Selected items colors together in window backgrounds."
+                    text={t("windowGradientDescription")}
                     className="text-[13px] leading-normal pr-8 text-muted-foreground"
                   />
                 </div>

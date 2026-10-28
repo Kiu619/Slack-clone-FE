@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FiSearch, FiX } from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,11 +26,6 @@ import {
 } from "@/components/message-target-picker";
 import type { Channel, DirectMessageConversation, User, WorkspaceMember } from "@/lib/types";
 import { getDmMemberDisplayName, isActiveWorkspaceMember } from "@/lib/dm-members";
-import {
-  NEW_MSG_RESTORE_CHANNEL_KEY,
-  NEW_MSG_RESTORE_DM_KEY,
-} from "@/lib/message-drafts";
-import { useNewMessageStore } from "@/stores/useNewMessageStore";
 import { mergeUserForDisplay, useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 
 type TargetType = "channel" | "member";
@@ -50,7 +46,6 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
 
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
-  const closeNewMessage = useNewMessageStore(s => s.closeNewMessage);
 
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
@@ -326,16 +321,17 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /** Mở draft "Soạn mới" từ trang Drafts — chọn sẵn channel hoặc DM */
+  /** Mở composer với target định sẵn từ URL query (?channel=<id> hoặc ?dm=<id>) */
+  const searchParams = useSearchParams();
+  const restoreChannelId = searchParams.get("channel");
+  const restoreDmId = searchParams.get("dm");
+
   useEffect(() => {
     if (restorePrefillRef.current) return;
-    if (typeof window === "undefined") return;
 
-    const rid = sessionStorage.getItem(NEW_MSG_RESTORE_DM_KEY);
-    if (rid && (conversations?.length ?? 0) > 0) {
-      const conv = conversations!.find((c) => c.id === rid);
+    if (restoreDmId && (conversations?.length ?? 0) > 0) {
+      const conv = conversations!.find((c) => c.id === restoreDmId);
       if (conv) {
-        sessionStorage.removeItem(NEW_MSG_RESTORE_DM_KEY);
         restorePrefillRef.current = true;
         const otherMembers = conv.members.filter((m) => m.id !== currentUser?.id);
         const newTargets: SelectedTarget[] = otherMembers.map((m) => {
@@ -353,11 +349,9 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
       }
     }
 
-    const cid = sessionStorage.getItem(NEW_MSG_RESTORE_CHANNEL_KEY);
-    if (cid && (channels?.length ?? 0) > 0) {
-      const ch = channels!.find((c) => c.id === cid);
+    if (restoreChannelId && (channels?.length ?? 0) > 0) {
+      const ch = channels!.find((c) => c.id === restoreChannelId);
       if (ch) {
-        sessionStorage.removeItem(NEW_MSG_RESTORE_CHANNEL_KEY);
         restorePrefillRef.current = true;
         setSelectedTargets([
           {
@@ -369,7 +363,8 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
         ]);
       }
     }
-  }, [channels, conversations, currentUser?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- displayMember derived từ memberOverlayMap; chỉ chạy 1 lần nhờ restorePrefillRef
+  }, [restoreChannelId, restoreDmId, channels, conversations, currentUser?.id]);
 
   // Xác định dữ liệu truyền vào MessageTab
   const firstTarget = selectedTargets[0];
@@ -390,14 +385,8 @@ export default function NewMessageComposer({ workspaceId }: NewMessageComposerPr
     <div className="flex flex-col h-full bg-white dark:bg-[#1A1D21]">
       {/* Header / Search Area */}
       <div className="px-4 py-3 border-b border-[#797c814d] flex flex-col gap-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center">
           <span className="text-lg font-bold">{t("title")}</span>
-          <button 
-            onClick={closeNewMessage}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-          >
-            <FiX size={20} className="text-gray-500" />
-          </button>
         </div>
         
         <div className="flex items-center gap-x-2 relative" ref={searchRef}>

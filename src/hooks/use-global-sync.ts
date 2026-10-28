@@ -7,18 +7,21 @@ import { applyIncomingDmMessageToConversationsCaches, patchDmSidebarIfLastMessag
 import { applyDraftSyncToCache } from '@/lib/message-drafts-api'
 import { patchChannelNameInQueryCaches } from '@/lib/patch-channel-name-in-query-caches'
 import {
+  authKeys,
   channelKeys,
   folderKeys,
   isSpecificChannelMembersQueryKey,
   messageKeys,
+  memberPreferencesKeys,
   notificationKeys,
   scheduledMessageKeys,
   workspaceKeys,
 } from '@/lib/query-keys'
-import type { Channel, DirectMessageConversation, Message, NotificationOverrideSetting } from '@/lib/types'
+import type { Channel, DirectMessageConversation, Message, Notification, NotificationOverrideSetting, User } from '@/lib/types'
 import { useMessageStore } from '@/stores/useMessageStore'
 import { useUserStore } from '@/stores/useUserStore'
 import { useMainPanelStore } from '@/stores/useMainPanelStore'
+import { browserNotificationService } from '@/services/browser-notification-service'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -307,6 +310,11 @@ export function useGlobalSync(workspaceId: string) {
       }
 
       if (domain === 'CHAT') {
+        if (isDev) {
+          console.log(`[GlobalSync] CHAT:${action} - id: ${data.id}, has data: ${!!data.data}, ` +
+            `attachments in data: ${data.data && 'attachments' in (data.data as object) ? 'yes' : 'no'}, ` +
+            `attachments value: ${data.data && 'attachments' in (data.data as object) ? JSON.stringify((data.data as {attachments?: unknown}).attachments) : 'N/A'}`)
+        }
         useMessageStore.getState().syncEntity(domain, action, data)
 
         if (action === 'UPDATE') {
@@ -654,6 +662,44 @@ export function useGlobalSync(workspaceId: string) {
         queryKey: messageKeys.conversations(activeWs),
         exact: false,
       })
+
+      // Skip browser notification if current user paused notifications,
+      // but still allow activity panel notification items to be inserted.
+      const profile = qc.getQueryData<User | null | undefined>(
+        authKeys.workspaceProfile(activeWs),
+      )
+      const pausedUntil = profile?.notificationsPausedUntil ?? null
+      const isPaused =
+        pausedUntil != null && new Date(pausedUntil) > new Date()
+      if (isPaused) return
+
+      // Show browser notification if enabled
+      if (browserNotificationService.canShow()) {
+        const notif = raw as Notification
+        const actorName = notif.actor?.name || 'Someone'
+        const typeLabels: Record<string, string> = {
+          reply: 'replied to your thread',
+          reaction: 'reacted to your message',
+          mention: 'mentioned you',
+          channel_invite: 'invited you to a channel',
+          post: 'posted in a channel you follow',
+        }
+        const actionText = typeLabels[notif.type] || 'sent you a notification'
+        const tag = `notif-${notif.messageId || notif.channelId || notif.conversationId || notif.id || 'unknown'}`
+
+        // Read sound preferences from cache
+        const prefs = qc.getQueryData<{
+          soundEnabled?: boolean
+          messageSoundType?: string
+        }>(memberPreferencesKeys.detail(activeWs))
+        const soundEnabled = prefs?.soundEnabled ?? true
+        const soundType = soundEnabled ? (prefs?.messageSoundType ?? 'ding') : 'none'
+
+        browserNotificationService.show(`${actorName} ${actionText}`, {
+          tag,
+          data: { notification: notif },
+        }, soundType)
+      }
     }
 
     const handleNotificationChanged = (raw: unknown) => {
@@ -738,6 +784,66 @@ export function useGlobalSync(workspaceId: string) {
       invalidateLaterCachesForWorkspace(ws)
     }
 
+    /**
+     * Reminder fires: a saved item has reached its `remindAt` time.
+     *
+     * The backend already guarantees one fire per row (via reminderFiredAt
+     * claim in LaterReminderProcessor), so here we only need to:
+     *  1. Refresh the saved-items / summary caches so the badge & list
+     *     immediately reflect the overdue state.
+     *  2. Show a desktop notification if the user has permission AND
+     *     desktopNotificationsEnabled is true. The OS-level `tag`
+     *     deduplicates the popup across multiple open tabs.
+     *
+     * We intentionally do NOT play the user's message sound — reminders are
+     * less urgent than channel activity and shouldn't fight audio focus.
+     */
+    const handleReminderDue = (raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return
+      const event = raw as {
+        id?: string
+        workspaceId?: string
+        type?: string
+        note?: string | null
+      }
+      const eventWs = event.workspaceId
+      const activeWs = workspaceIdRef.current
+      // Only act on reminders for the workspace the user is currently viewing.
+      if (eventWs && activeWs && String(eventWs) !== String(activeWs)) return
+
+      // 1. Invalidate caches so badges / list flip to overdue without a refresh.
+      invalidateLaterCachesForWorkspace(eventWs ?? activeWs ?? undefined)
+
+      // 2. Browser/desktop notification (gated by user preference + permission).
+      if (!browserNotificationService.canShow()) return
+
+      // Read the per-workspace desktop-notification toggle from the same
+      // query cache the activity notifications use, so user prefs are honoured.
+      const qc = queryClientRef.current
+      const prefs = qc.getQueryData<{
+        desktopNotificationsEnabled?: boolean
+        notificationsPausedUntil?: string | Date | null
+      }>(memberPreferencesKeys.detail(activeWs ?? ''))
+      if (prefs?.desktopNotificationsEnabled === false) return
+      const pausedUntil = prefs?.notificationsPausedUntil
+      if (pausedUntil && new Date(pausedUntil) > new Date()) return
+
+      // Build a short human label. Pure-JS format keeps this hook free of
+      // i18n dependencies (matches the rest of handleNotificationNew).
+      const title = 'Reminder due'
+      const body =
+        event.note?.trim() ||
+        'You have a saved item that is due now. Open Later to view it.'
+      // Stable tag per saved-item id so OS dedupes across multiple tabs.
+      const tag = `later-due-${event.id ?? 'unknown'}`
+
+      browserNotificationService.show(title, {
+        body,
+        tag,
+        data: { kind: 'later-due', savedItemId: event.id, workspaceId: eventWs },
+      })
+    }
+
     if (isDev) {
       console.log(
         '[GlobalSync] Registering entity:sync + draft:sync + scheduled:sync + sidebar:star + sidebar:recent + later:* on Main Gateway',
@@ -753,6 +859,7 @@ export function useGlobalSync(workspaceId: string) {
     socket.on('later:updated', handleLaterUpdated)
     socket.on('later:removed', handleLaterRemoved)
     socket.on('later:cleared_completed', handleLaterClearedCompleted)
+    socket.on('later:due', handleReminderDue)
 
     return () => {
       if (isDev) {
@@ -768,6 +875,7 @@ export function useGlobalSync(workspaceId: string) {
       socket.off('later:updated', handleLaterUpdated)
       socket.off('later:removed', handleLaterRemoved)
       socket.off('later:cleared_completed', handleLaterClearedCompleted)
+      socket.off('later:due', handleReminderDue)
       socket.emit('leave-workspace', { workspaceId: wid })
     }
   }, [socket, isMainGatewayConnected, workspaceId, queryClient])

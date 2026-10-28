@@ -3,6 +3,7 @@
 import Typography from "@/components/ui/typography";
 import { Channel } from "@/lib/types";
 import { FiHash } from "react-icons/fi";
+import { MdOutlineLock } from "react-icons/md";
 import { RiPushpinLine } from "react-icons/ri";
 
 import ChannelNotificationPopover from "@/components/popovers/channel-notification-popover";
@@ -10,29 +11,30 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useStarChannel } from "@/hooks/use-channel";
+import { useChannels, useStarChannel } from "@/hooks/use-channel";
+import { useLeaveChannel } from "@/hooks/use-leave-channel";
+import { useAppTranslation } from "@/hooks/use-translation";
 import { cn } from "@/lib/utils";
 import ChannelDetailDialog from "@/modules/channels/channel-details/channel-detail-dialog";
+import { HuddleHeaderBadge } from "@/modules/huddle/huddle-header-badge";
 import { useGlobalSearchStore } from "@/stores/useGlobalSearchStore";
 import { useMainPanelStore } from "@/stores/useMainPanelStore";
 import { useThemeStore } from "@/stores/useThemeStore";
-import { HuddleHeaderBadge } from "@/modules/huddle/huddle-header-badge";
 import { X } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BiMessageRounded } from "react-icons/bi";
 import { FaRegFolderOpen } from "react-icons/fa";
 import { FaRegFolderClosed, FaStar } from "react-icons/fa6";
 import { ImFilesEmpty } from "react-icons/im";
 import { IoMdMore } from "react-icons/io";
-import { IoPersonOutline } from "react-icons/io5";
 import { SlStar } from "react-icons/sl";
 import { toast } from "sonner";
-import { useAppTranslation } from "@/hooks/use-translation";
+import LeaveChannelDialog from "@/components/dialogs/leave-channel-dialog";
 
 export type ChannelViewTab = "messages" | "files" | "folders" | "pins";
 
@@ -52,8 +54,12 @@ const Header = ({
   const params = useParams<{ workspaceId: string }>();
   const workspaceId = params.workspaceId ?? "";
   const starMutation = useStarChannel(workspaceId, currentChannelData.id);
+  const leaveMutation = useLeaveChannel(workspaceId, currentChannelData.id);
+  const { data: channels } = useChannels(workspaceId);
+  const router = useRouter();
   const isStarred = Boolean(currentChannelData.starredAt);
   const t = useAppTranslation('channel.header')
+  const tDialogs = useAppTranslation('dialogs')
 
   const { reset } = useMainPanelStore();
   const openGlobalSearch = useGlobalSearchStore((state) => state.openSearch);
@@ -63,6 +69,7 @@ const Header = ({
   const resetGlobalSearch = useGlobalSearchStore((state) => state.resetSearch);
   const [openChannelDetailDialog, setOpenChannelDetailDialog] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   const toggleChannelStar = () => {
     if (!isMember) {
@@ -70,6 +77,24 @@ const Header = ({
       return;
     }
     starMutation.mutate(!isStarred);
+  };
+
+  const handleLeave = async () => {
+    try {
+      await leaveMutation.mutateAsync();
+      setLeaveDialogOpen(false);
+      const defaultChannel = channels?.find((c) => c.isDefaultChannel);
+      if (defaultChannel) {
+        router.push(`/workspace/${workspaceId}/channel/${defaultChannel.id}`);
+      } else {
+        router.push(`/workspace/${workspaceId}`);
+      }
+      reset();
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : tDialogs('common.error', { defaultValue: 'Failed to leave channel' });
+      toast.error(msg);
+    }
   };
 
   const { theme: storeTheme } = useThemeStore();
@@ -107,7 +132,11 @@ const Header = ({
                 size="custom"
                 onClick={() => setOpenChannelDetailDialog(true)}
               >
-                <FiHash size={18} />
+                {currentChannelData.isPrivate ? (
+                  <MdOutlineLock size={18} className="text-workspace-side-panel-text" />
+                ) : (
+                  <FiHash size={18} className="text-workspace-side-panel-text" />
+                )}
                 <Typography
                   text={currentChannelData.name}
                   variant="h4"
@@ -127,26 +156,6 @@ const Header = ({
         </div>
 
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="flex items-center gap-1 cursor-pointer hover:bg-[rgba(255,255,255,0.5)] dark:hover:bg-[#222529] px-2 py-0.5 rounded-md border border-[#797c814d]">
-                <IoPersonOutline size={18} />
-                <Typography
-                  text={t('members')}
-                  variant="p"
-                  className="text-[13px]!"
-                />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" align="center">
-              <Typography
-                text={t('viewAllMembers')}
-                variant="p"
-                className="text-[14px]!"
-              />
-            </TooltipContent>
-          </Tooltip>
-
           <HuddleHeaderBadge
             workspaceId={workspaceId}
             entityType="channel"
@@ -269,6 +278,8 @@ const Header = ({
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
+                    setMoreActionsOpen(false);
+                    setLeaveDialogOpen(true);
                   }}
                 >
                   <Typography
@@ -398,6 +409,14 @@ const Header = ({
         onOpenChange={setOpenChannelDetailDialog}
         currentChannelData={currentChannelData}
         isMember={isMember}
+      />
+
+      <LeaveChannelDialog
+        open={leaveDialogOpen}
+        onOpenChange={setLeaveDialogOpen}
+        channelName={currentChannelData.name}
+        saving={leaveMutation.isPending}
+        onLeave={handleLeave}
       />
     </div>
   );

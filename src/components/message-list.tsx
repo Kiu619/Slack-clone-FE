@@ -1,96 +1,156 @@
-'use client'
+"use client";
 
-import MessageItem from '@/components/message-item'
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
-import { Skeleton } from '@/components/ui/skeleton'
-import { useAddReaction, useToggleLaterMessage, useTogglePin } from '@/hooks/use-messages'
-import { markChannelAsReadApi, markDmConversationAsReadApi } from '@/apis'
-import { useChannelMessages } from '@/hooks/use-channel-messages'
-import { useLaterSavedMessageIds } from '@/hooks/use-saved-items'
-import { usePrefetchPdfAttachments } from '@/hooks/use-prefetch-pdf-attachments'
-import { useMessageStore } from '@/stores/useMessageStore'
-import { useThreadPanelStore } from '@/stores/useThreadPanelStore'
-import { useMessageFocusStore } from '@/stores/useMessageFocusStore'
-import type { DirectMessageConversation, Message, User } from '@/lib/types'
-import { openHuddlePreviewWindow } from '@/lib/open-huddle-preview-window'
-import { format, isSameDay, isThisYear, isToday, isYesterday, startOfDay, subWeeks, subMonths } from 'date-fns'
-import { enUS, vi } from 'date-fns/locale'
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
-import { IoChevronDownOutline } from "react-icons/io5"
-import { useVirtualizer } from '@tanstack/react-virtual'
-import JumpToSpecificDateDialog from './dialogs/jump-to-specific-date-dialog'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { messageKeys } from '@/lib/query-keys'
-import { toast } from 'sonner'
-import DMIntro from '@/modules/direct-messages/dm-intro'
-import { useLanguage, useMessageList, useDateFormat } from '@/hooks/use-translation'
-import type { Language } from '@/stores/useLanguageRegionStore'
+import MessageItem from "@/components/message-item";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  useAddReaction,
+  useToggleLaterMessage,
+  useTogglePin,
+} from "@/hooks/use-messages";
+import { markChannelAsReadApi, markDmConversationAsReadApi } from "@/apis";
+import { useChannelMessages } from "@/hooks/use-channel-messages";
+import { useLaterSavedMessageIds } from "@/hooks/use-saved-items";
+import { usePrefetchPdfAttachments } from "@/hooks/use-prefetch-pdf-attachments";
+import { useMessageStore } from "@/stores/useMessageStore";
+import { useThreadPanelStore } from "@/stores/useThreadPanelStore";
+import { useMessageFocusStore } from "@/stores/useMessageFocusStore";
+import type {
+  ChannelCreator,
+  DirectMessageConversation,
+  Message,
+  User,
+} from "@/lib/types";
+import { openHuddlePreviewWindow } from "@/lib/open-huddle-preview-window";
+import {
+  format,
+  isSameDay,
+  isThisYear,
+  isToday,
+  isYesterday,
+  startOfDay,
+  subWeeks,
+  subMonths,
+} from "date-fns";
+import { enUS, vi } from "date-fns/locale";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+  type ReactNode,
+} from "react";
+import { IoChevronDownOutline } from "react-icons/io5";
+import { FiHash } from "react-icons/fi";
+import { MdOutlineLock } from "react-icons/md";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import JumpToSpecificDateDialog from "./dialogs/jump-to-specific-date-dialog";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { messageKeys } from "@/lib/query-keys";
+import { toast } from "sonner";
+import DMIntro from "@/modules/direct-messages/dm-intro";
+import {
+  useLanguage,
+  useMessageList,
+} from "@/hooks/use-translation";
 
-const TOP_LOAD_THRESHOLD_PX = 50
-const BOTTOM_LOAD_THRESHOLD_PX = 48
+const TOP_LOAD_THRESHOLD_PX = 50;
+const BOTTOM_LOAD_THRESHOLD_PX = 48;
 
 interface MessageListProps {
-  channelId?: string
-  conversationId?: string
-  currentUserId: string
-  workspaceId: string
-  isConnected: boolean
-  onEditMessage?: (message: Message) => void
-  onDeleteMessage?: (messageId: string) => void
-  onSaveForLater?: (messageId: string) => void
-  onJoinHuddle?: (message: Message) => void
-  fromPublicChannel?: boolean
-  isMember?: boolean
+  channelId?: string;
+  conversationId?: string;
+  currentUserId: string;
+  workspaceId: string;
+  isConnected: boolean;
+  onEditMessage?: (message: Message) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  onSaveForLater?: (messageId: string) => void;
+  onJoinHuddle?: (message: Message) => void;
+  fromPublicChannel?: boolean;
+  isMember?: boolean;
   channelPostingSettings?: {
-    allowThreads: boolean
-    allowMentions: boolean
-    mode: 'everyone' | 'admin_only' | 'admins_plus_specific_people'
-    specificUserIds: string[]
-  } | null
-  unreadBoundaryAt?: string | null
-  unreadCount?: number
+    allowThreads: boolean;
+    allowMentions: boolean;
+    mode: "everyone" | "admin_only" | "admins_plus_specific_people";
+    specificUserIds: string[];
+  } | null;
+  unreadBoundaryAt?: string | null;
+  unreadCount?: number;
+  channelName?: string;
 }
 
 type ListItem =
-  | { type: 'message'; message: Message; isCompact: boolean }
-  | { type: 'date'; date: Date }
-  | { type: 'new-divider'; anchorMessageId: string }
-  | { type: 'welcome'; members?: User[]; isGroup?: boolean; createdAt?: string; workspaceId?: string; channelName?: string }
+  | { type: "message"; message: Message; isCompact: boolean }
+  | { type: "date"; date: Date }
+  | { type: "new-divider"; anchorMessageId: string }
+  | {
+      type: "welcome";
+      members?: User[];
+      isGroup?: boolean;
+      createdAt?: string;
+      workspaceId?: string;
+      channelName?: string;
+      isPrivate?: boolean;
+      createdBy?: ChannelCreator | null;
+    };
 
 // Pagination states and Virtualizer types removed in favor of @tanstack/react-virtual
 
 const getItemKey = (item: ListItem) => {
-  if (!item) return null
-  if (item.type === 'message') return item.message.id
-  if (item.type === 'date') return `date-${item.date.getTime()}`
-  if (item.type === 'new-divider') return `new-divider-${item.anchorMessageId}`
-  if (item.type === 'welcome') return 'welcome'
-  return null
-}
+  if (!item) return null;
+  if (item.type === "message") return item.message.id;
+  if (item.type === "date") return `date-${item.date.getTime()}`;
+  if (item.type === "new-divider") return `new-divider-${item.anchorMessageId}`;
+  if (item.type === "welcome") return "welcome";
+  return null;
+};
 
-function DateSeparator({ date, onJump, onJumpToMostRecent, onOpenJumpDialog, onJumpToBeginning, createdAt }: { date: Date, onJump: (date: Date) => void, onJumpToMostRecent: () => void, onOpenJumpDialog: () => void, onJumpToBeginning: () => void, createdAt?: string }) {
-  const [open, setOpen] = useState(false)
-  const language = useLanguage()
-  const dateFormat = useDateFormat()
-  const t = useMessageList()
+function DateSeparator({
+  date,
+  onJump,
+  onJumpToMostRecent,
+  onOpenJumpDialog,
+  onJumpToBeginning,
+  createdAt,
+}: {
+  date: Date;
+  onJump: (date: Date) => void;
+  onJumpToMostRecent: () => void;
+  onOpenJumpDialog: () => void;
+  onJumpToBeginning: () => void;
+  createdAt?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const language = useLanguage();
+  const t = useMessageList();
 
-  const dateLocale = language === 'vi' ? vi : enUS
+  const dateLocale = language === "vi" ? vi : enUS;
 
-  let label: string
-  const todayLabel = t("jumpTo.today") || t("common.today") || "Today"
-  const yesterdayLabel = t("jumpTo.yesterday") || t("common.yesterday") || "Yesterday"
+  let label: string;
+  const todayLabel = t("jumpTo.today") || t("common.today") || "Today";
+  const yesterdayLabel =
+    t("jumpTo.yesterday") || t("common.yesterday") || "Yesterday";
 
-  if (isToday(date)) label = todayLabel
-  else if (isYesterday(date)) label = yesterdayLabel
+  if (isToday(date)) label = todayLabel;
+  else if (isYesterday(date)) label = yesterdayLabel;
   else {
-    // Format based on dateFormat preference: en_US = MMMM do, vi_VN = do MMMM
-    if (dateFormat === 'vi_VN') {
-      if (isThisYear(date)) label = format(date, 'do MMMM', { locale: dateLocale })
-      else label = format(date, 'do MMMM, yyyy', { locale: dateLocale })
+    // Day-month order is derived from language: en = "MMMM do", vi = "do MMMM"
+    if (language === "vi") {
+      if (isThisYear(date))
+        label = format(date, "do MMMM", { locale: dateLocale });
+      else label = format(date, "do MMMM, yyyy", { locale: dateLocale });
     } else {
-      if (isThisYear(date)) label = format(date, 'MMMM do', { locale: dateLocale })
-      else label = format(date, 'MMMM do, yyyy', { locale: dateLocale })
+      if (isThisYear(date))
+        label = format(date, "MMMM do", { locale: dateLocale });
+      else label = format(date, "MMMM do, yyyy", { locale: dateLocale });
     }
   }
 
@@ -106,35 +166,79 @@ function DateSeparator({ date, onJump, onJumpToMostRecent, onOpenJumpDialog, onJ
           </PopoverTrigger>
           <PopoverContent withOverlay>
             <div className="flex flex-col py-2">
-              <span className="mx-4 text-[12px] text-[#8e9297]">{t("jumpTo.title")}</span>
-              <div onClick={() => { setOpen(false); onJumpToMostRecent() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.mostRecent")}</div>
-              <div onClick={() => { setOpen(false); onJump(subWeeks(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.lastWeek")}</div>
-              <div onClick={() => { setOpen(false); onJump(subMonths(new Date(), 1)) }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.lastMonth")}</div>
-              {createdAt && <div onClick={() => { setOpen(false); onJumpToBeginning() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.theVeryBeginning")}</div>}
+              <span className="mx-4 text-[12px] text-[#8e9297]">
+                {t("jumpTo.title")}
+              </span>
+              <div
+                onClick={() => {
+                  setOpen(false);
+                  onJumpToMostRecent();
+                }}
+                className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
+              >
+                {t("jumpTo.mostRecent")}
+              </div>
+              <div
+                onClick={() => {
+                  setOpen(false);
+                  onJump(subWeeks(new Date(), 1));
+                }}
+                className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
+              >
+                {t("jumpTo.lastWeek")}
+              </div>
+              <div
+                onClick={() => {
+                  setOpen(false);
+                  onJump(subMonths(new Date(), 1));
+                }}
+                className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
+              >
+                {t("jumpTo.lastMonth")}
+              </div>
+              {createdAt && (
+                <div
+                  onClick={() => {
+                    setOpen(false);
+                    onJumpToBeginning();
+                  }}
+                  className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
+                >
+                  {t("jumpTo.theVeryBeginning")}
+                </div>
+              )}
               <Separator className="my-2" />
-              <div onClick={() => { setOpen(false); onOpenJumpDialog() }} className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm">{t("jumpTo.specificDate")}</div>
+              <div
+                onClick={() => {
+                  setOpen(false);
+                  onOpenJumpDialog();
+                }}
+                className="px-4 py-1 hover:bg-selection-hover hover:text-white cursor-pointer text-sm"
+              >
+                {t("jumpTo.specificDate")}
+              </div>
             </div>
           </PopoverContent>
         </Popover>
       </div>
     </div>
-  )
+  );
 }
 
 function isMessageOnDate(message: Message | undefined, date: Date): boolean {
-  if (!message) return false
-  return isSameDay(new Date(message.createdAt), date)
+  if (!message) return false;
+  return isSameDay(new Date(message.createdAt), date);
 }
 
 function findDateAnchorIndex(items: ListItem[], date: Date): number {
   const separatorIndex = items.findIndex(
-    (item) => item.type === 'date' && isSameDay(item.date, date),
-  )
-  if (separatorIndex >= 0) return separatorIndex
+    (item) => item.type === "date" && isSameDay(item.date, date),
+  );
+  if (separatorIndex >= 0) return separatorIndex;
 
   return items.findIndex(
-    (item) => item.type === 'message' && isMessageOnDate(item.message, date),
-  )
+    (item) => item.type === "message" && isMessageOnDate(item.message, date),
+  );
 }
 
 function MessageSkeleton() {
@@ -148,65 +252,196 @@ function MessageSkeleton() {
               <Skeleton className="h-3.5 w-24 bg-[#2a2d31]" />
               <Skeleton className="h-3.5 w-16 bg-[#2a2d31]" />
             </div>
-            <Skeleton className="h-4 bg-[#2a2d31]" style={{ width: `${40 + i * 12}%` }} />
+            <Skeleton
+              className="h-4 bg-[#2a2d31]"
+              style={{ width: `${40 + i * 12}%` }}
+            />
             {i % 3 === 0 && <Skeleton className="h-4 w-2/3 bg-[#2a2d31]" />}
           </div>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
-function ChannelWelcome({ channelName, members, isGroup, createdAt, workspaceId }: {
-  channelName?: string
-  members?: User[]
-  isGroup?: boolean
-  createdAt?: string
-  workspaceId?: string
+function ChannelWelcome({
+  channelName,
+  members,
+  isGroup,
+  createdAt,
+  workspaceId,
+  isPrivate,
+  createdBy,
+  currentUserId,
+}: {
+  channelName?: string;
+  members?: User[];
+  isGroup?: boolean;
+  createdAt?: string;
+  workspaceId?: string;
+  isPrivate?: boolean;
+  createdBy?: ChannelCreator | null;
+  currentUserId: string;
 }) {
-  const t = useMessageList()
+  const t = useMessageList();
+  const language = useLanguage();
 
-  if (members?.length && typeof isGroup === 'boolean' && createdAt && workspaceId) {
-    return <DMIntro members={members} isGroup={isGroup} createdAt={createdAt} workspaceId={workspaceId} />
+  if (
+    members?.length &&
+    typeof isGroup === "boolean" &&
+    createdAt &&
+    workspaceId
+  ) {
+    return (
+      <DMIntro
+        members={members}
+        isGroup={isGroup}
+        createdAt={createdAt}
+        workspaceId={workspaceId}
+      />
+    );
   }
+
+  const dateLocale = language === "vi" ? vi : enUS;
+  const formattedDate = createdAt
+    ? format(
+        new Date(createdAt),
+        language === "vi" ? "do MMMM, yyyy" : "MMMM do, yyyy",
+        { locale: dateLocale },
+      )
+    : null;
+
+  const privateLabel = isPrivate ? t("welcome.privateBadge") || "private" : "";
+
+  const inlineIcon = isPrivate ? (
+    <MdOutlineLock
+      size={14}
+      className="inline shrink-0 text-[#616061] dark:text-[#ababad] mx-0.5"
+    />
+  ) : (
+    <FiHash
+      size={14}
+      className="inline shrink-0 text-[#616061] dark:text-[#ababad] mx-0.5"
+    />
+  );
+
+  const renderDescription = (): ReactNode => {
+    let raw: string;
+    if (!createdBy) {
+      raw = t("welcome.noCreator", { channelName: channelName || "" });
+    } else if (createdBy.id === currentUserId) {
+      raw = formattedDate
+        ? t("welcome.createdByYou", {
+            privateLabel,
+            date: formattedDate,
+            channelName: channelName || "",
+          })
+        : t("welcome.createdByYouNoDate", {
+            privateLabel,
+            channelName: channelName || "",
+          });
+    } else if (!createdBy.isActive) {
+      raw = formattedDate
+        ? t("welcome.deactivatedCreator", {
+            privateLabel,
+            date: formattedDate,
+            channelName: channelName || "",
+          })
+        : t("welcome.deactivatedCreatorNoDate", {
+            privateLabel,
+            channelName: channelName || "",
+          });
+    } else {
+      const creatorName = createdBy.displayName || createdBy.name || "Unknown";
+      raw = formattedDate
+        ? t("welcome.createdByOther", {
+            creatorName,
+            privateLabel,
+            date: formattedDate,
+            channelName: channelName || "",
+          })
+        : t("welcome.createdByOtherNoDate", {
+            creatorName,
+            privateLabel,
+            channelName: channelName || "",
+          });
+    }
+
+    const target = channelName || "";
+    if (!target) return raw;
+    const idx = raw.lastIndexOf(target);
+    if (idx === -1) return raw;
+    const before = raw.slice(0, idx);
+    const after = raw.slice(idx + target.length);
+    return (
+      <>
+        {before}
+        {inlineIcon}
+        <span className="font-semibold">{target}</span>
+        {after}
+      </>
+    );
+  };
+
   return (
-    <div className="px-4 pt-6 pb-4">
-      <div className="text-center text-[#797c81]">
-        <div className="text-4xl mb-3">#</div>
-        <h3 className="text-xl font-bold mb-1">{t("welcome.channelTitle")}</h3>
-        <p className="text-sm">{t("welcome.channelDescription", { channelName: channelName || "" })}</p>
+    <div className="px-4 pb-8">
+      <div className="flex items-center gap-x-2.5 mb-3 pt-12 pb-2">
+        {isPrivate ? (
+          <MdOutlineLock
+            size={28}
+            className="text-[#616061] dark:text-[#ababad] shrink-0 font-bold"
+          />
+        ) : (
+          <FiHash
+            size={28}
+            className="text-[#616061] dark:text-[#ababad] shrink-0"
+          />
+        )}
+        <h2 className="text-2xl font-semibold dark:text-white leading-none">
+          {channelName}
+        </h2>
       </div>
+      <p className="text-[15px] text-[#616061] dark:text-[#ababad] leading-normal">
+        {renderDescription()}
+      </p>
     </div>
-  )
+  );
 }
 
 function shouldCompact(prev: Message, curr: Message): boolean {
-  if (prev.user.id !== curr.user.id) return false
-  const prevTime = new Date(prev.createdAt).getTime()
-  const currTime = new Date(curr.createdAt).getTime()
-  return currTime - prevTime < 5 * 60 * 1000
+  if (prev.user.id !== curr.user.id) return false;
+  const prevTime = new Date(prev.createdAt).getTime();
+  const currTime = new Date(curr.createdAt).getTime();
+  return currTime - prevTime < 5 * 60 * 1000;
 }
 
-function buildListItemsFromMessages(messages: Message[], hasOlder: boolean): ListItem[] {
-  const items: ListItem[] = []
-  let lastDate: Date | null = null
+function buildListItemsFromMessages(
+  messages: Message[],
+  hasOlder: boolean,
+): ListItem[] {
+  const items: ListItem[] = [];
+  let lastDate: Date | null = null;
 
   for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]
-    const msgDate = new Date(msg.createdAt)
+    const msg = messages[i];
+    const msgDate = new Date(msg.createdAt);
 
     if (!lastDate || !isSameDay(lastDate, msgDate)) {
       if (!(i === 0 && hasOlder)) {
-        items.push({ type: 'date', date: startOfDay(msgDate) })
+        items.push({ type: "date", date: startOfDay(msgDate) });
       }
-      lastDate = startOfDay(msgDate)
+      lastDate = startOfDay(msgDate);
     }
 
-    const prevMsg = i > 0 ? messages[i - 1] : null
-    items.push({ type: 'message', message: msg, isCompact: prevMsg ? shouldCompact(prevMsg, msg) : false })
+    const prevMsg = i > 0 ? messages[i - 1] : null;
+    items.push({
+      type: "message",
+      message: msg,
+      isCompact: prevMsg ? shouldCompact(prevMsg, msg) : false,
+    });
   }
 
-  return items
+  return items;
 }
 
 function buildRenderedListItems({
@@ -223,66 +458,81 @@ function buildRenderedListItems({
   unreadCount,
   stickyUnreadCountSnapshot,
   currentUserId,
+  isPrivate,
+  createdBy,
 }: {
-  messages: Message[]
-  isInitialized: boolean
-  hasOlder: boolean
-  members?: User[]
-  isGroup?: boolean
-  createdAt?: string
-  workspaceId?: string
-  channelName?: string
-  unreadBoundaryAt?: string | null
-  stickyUnreadBoundaryAt: string | null
-  unreadCount?: number
-  stickyUnreadCountSnapshot: number
-  currentUserId: string
+  messages: Message[];
+  isInitialized: boolean;
+  hasOlder: boolean;
+  members?: User[];
+  isGroup?: boolean;
+  createdAt?: string;
+  workspaceId?: string;
+  channelName?: string;
+  unreadBoundaryAt?: string | null;
+  stickyUnreadBoundaryAt: string | null;
+  unreadCount?: number;
+  stickyUnreadCountSnapshot: number;
+  currentUserId: string;
+  isPrivate?: boolean;
+  createdBy?: ChannelCreator | null;
 }): ListItem[] {
   if (!isInitialized && messages.length === 0) {
-    return []
+    return [];
   }
 
-  const items = buildListItemsFromMessages(messages, hasOlder)
-  const effectiveUnreadBoundaryAt = stickyUnreadBoundaryAt ?? unreadBoundaryAt ?? null
-  let firstUnreadMessage: Message | undefined
+  const items = buildListItemsFromMessages(messages, hasOlder);
+  const effectiveUnreadBoundaryAt =
+    stickyUnreadBoundaryAt ?? unreadBoundaryAt ?? null;
+  let firstUnreadMessage: Message | undefined;
   const effectiveUnreadCount = Math.max(
     unreadCount ?? 0,
     stickyUnreadCountSnapshot,
-  )
+  );
   if (effectiveUnreadCount > 0 && effectiveUnreadBoundaryAt) {
     firstUnreadMessage = messages.find(
       (m) =>
         m.user.id !== currentUserId &&
         new Date(m.createdAt).getTime() >
           new Date(effectiveUnreadBoundaryAt).getTime(),
-    )
+    );
   } else if (effectiveUnreadCount > 0) {
-    const nonSelfMessages = messages.filter((m) => m.user.id !== currentUserId)
+    const nonSelfMessages = messages.filter((m) => m.user.id !== currentUserId);
     if (nonSelfMessages.length > 0) {
-      const idx = Math.max(0, nonSelfMessages.length - effectiveUnreadCount)
-      firstUnreadMessage = nonSelfMessages[idx]
+      const idx = Math.max(0, nonSelfMessages.length - effectiveUnreadCount);
+      firstUnreadMessage = nonSelfMessages[idx];
     }
   }
   if (firstUnreadMessage) {
     const unreadMessageIndex = items.findIndex(
-      (item) => item.type === 'message' && item.message.id === firstUnreadMessage.id,
-    )
+      (item) =>
+        item.type === "message" && item.message.id === firstUnreadMessage.id,
+    );
     if (unreadMessageIndex >= 0) {
       items.splice(unreadMessageIndex, 0, {
-        type: 'new-divider',
+        type: "new-divider",
         anchorMessageId: firstUnreadMessage.id,
-      })
+      });
     }
   }
   if (!hasOlder && isInitialized) {
-    items.unshift({ type: 'welcome' as const, members, isGroup, createdAt, workspaceId, channelName })
+    items.unshift({
+      type: "welcome" as const,
+      members,
+      isGroup,
+      createdAt,
+      workspaceId,
+      channelName,
+      isPrivate,
+      createdBy,
+    });
   }
 
-  return items
+  return items;
 }
 
 function NewDivider() {
-  const t = useMessageList()
+  const t = useMessageList();
 
   return (
     <div
@@ -293,7 +543,7 @@ function NewDivider() {
         {t("newDivider.label")}
       </span>
     </div>
-  )
+  );
 }
 
 export default function MessageList({
@@ -309,23 +559,38 @@ export default function MessageList({
   members,
   isGroup,
   createdAt,
+  channelName,
+  isPrivate,
+  createdBy,
   fromPublicChannel,
   isMember,
   channelPostingSettings,
   unreadBoundaryAt,
   unreadCount,
-}: MessageListProps & { members?: User[]; isGroup?: boolean; createdAt?: string; channelName?: string }) {
-  const [openJumpToSpecificDateDialog, setOpenJumpToSpecificDateDialog] = useState(false)
-  const [stickyUnreadBoundaryAt, setStickyUnreadBoundaryAt] = useState<string | null>(null)
-  const [stickyUnreadCountSnapshot, setStickyUnreadCountSnapshot] = useState<number>(0)
-  const queryClient = useQueryClient()
+}: MessageListProps & {
+  members?: User[];
+  isGroup?: boolean;
+  createdAt?: string;
+  isPrivate?: boolean;
+  createdBy?: ChannelCreator | null;
+}) {
+  const [openJumpToSpecificDateDialog, setOpenJumpToSpecificDateDialog] =
+    useState(false);
+  const [stickyUnreadBoundaryAt, setStickyUnreadBoundaryAt] = useState<
+    string | null
+  >(null);
+  const [stickyUnreadCountSnapshot, setStickyUnreadCountSnapshot] =
+    useState<number>(0);
+  const queryClient = useQueryClient();
 
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
-  const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<
+    string | null
+  >(null);
 
-  const target = channelId ? { channelId } : { conversationId }
-  const targetId = (channelId || conversationId) as string
+  const target = channelId ? { channelId } : { conversationId };
+  const targetId = (channelId || conversationId) as string;
 
   const {
     messages,
@@ -339,89 +604,102 @@ export default function MessageList({
     jumpToDate,
     jumpToBeginning,
     jumpToMostRecent,
-  } = useChannelMessages(target, currentUserId, isConnected)
+  } = useChannelMessages(target, currentUserId, isConnected);
 
   const messageIdsForLater = useMemo(
     () => messages.map((m) => m.id),
     [messages],
-  )
-  const { savedMessageIdSet, remindAtByMessageId } = useLaterSavedMessageIds(
+  );
+  const attachmentIdsForLater = useMemo(
+    () => messages.flatMap((m) => m.attachments?.map((a) => a.id) ?? []),
+    [messages],
+  );
+  const { savedMessageIdSet, remindAtByMessageId, savedAttachmentIdSet } = useLaterSavedMessageIds(
     workspaceId,
     messageIdsForLater,
-  )
+    attachmentIdsForLater,
+  );
 
-  const { mutate: toggleLaterMessage } = useToggleLaterMessage(workspaceId)
+  const { mutate: toggleLaterMessage } = useToggleLaterMessage(workspaceId);
 
   const handleSaveForLater = useCallback(
     (messageId: string) => {
       if (onSaveForLater) {
-        onSaveForLater(messageId)
-        return
+        onSaveForLater(messageId);
+        return;
       }
-      toggleLaterMessage(messageId)
+      toggleLaterMessage(messageId);
     },
     [onSaveForLater, toggleLaterMessage],
-  )
+  );
 
-  const { focusedMessageId, setFocusedMessageId } = useMessageFocusStore()
-  const [internalFocusedId, setInternalFocusedId] = useState<string | null>(null)
-  const [isJumping, setIsJumping] = useState(false)
-  
+  const { focusedMessageId, setFocusedMessageId } = useMessageFocusStore();
+  const [internalFocusedId, setInternalFocusedId] = useState<string | null>(
+    null,
+  );
+  const [isJumping, setIsJumping] = useState(false);
+
   type JumpState =
     | {
-        mode: 'date'
-        targetDate: Date
-        phase: 'loading-window' | 'expanding-older' | 'ready-to-scroll'
+        mode: "date";
+        targetDate: Date;
+        phase: "loading-window" | "expanding-older" | "ready-to-scroll";
       }
     | {
-        mode: 'beginning'
-        targetDate: Date
-        phase: 'loading-window' | 'expanding-older' | 'ready-to-scroll'
+        mode: "beginning";
+        targetDate: Date;
+        phase: "loading-window" | "expanding-older" | "ready-to-scroll";
       }
     | {
-        mode: 'recent'
-        targetDate: Date
-        phase: 'loading-window' | 'ready-to-scroll'
-      }
-      
-  const [jumpState, setJumpState] = useState<JumpState | null>(null)
-  const [isJumpWindowReady, setIsJumpWindowReady] = useState(false)
-  
-  const isPrependingRef = useRef(false)
-  const anchorRef = useRef<{ key: string, expectedStart: number } | null>(null)
-  const restoreSnapshotRef = useRef<{ scrollTop: number; scrollHeight: number; clientHeight: number } | null>(null)
-  const restorePendingRef = useRef(false)
-  const isRestoringRef = useRef(false)
-  const isNearTopRef = useRef(false)
-  const hasOlderRef = useRef(hasOlder)
-  const isLoadingOlderRef = useRef(isLoadingOlder)
-  const isJumpingRef = useRef(isJumping)
+        mode: "recent";
+        targetDate: Date;
+        phase: "loading-window" | "ready-to-scroll";
+      };
 
-  const { mutate: addReaction } = useAddReaction(targetId)
-  const { mutate: togglePin } = useTogglePin(targetId)
-  const openThread = useThreadPanelStore((s) => s.open)
-  const t = useMessageList()
+  const [jumpState, setJumpState] = useState<JumpState | null>(null);
+  const [isJumpWindowReady, setIsJumpWindowReady] = useState(false);
 
-  const lastTargetIdRef = useRef(targetId)
-  const hasRenderedTimelineRef = useRef(false)
+  const isPrependingRef = useRef(false);
+  const anchorRef = useRef<{ key: string; expectedStart: number } | null>(null);
+  const restoreSnapshotRef = useRef<{
+    scrollTop: number;
+    scrollHeight: number;
+    clientHeight: number;
+  } | null>(null);
+  const restorePendingRef = useRef(false);
+  const isRestoringRef = useRef(false);
+  const isNearTopRef = useRef(false);
+  const hasOlderRef = useRef(hasOlder);
+  const isLoadingOlderRef = useRef(isLoadingOlder);
+  const isJumpingRef = useRef(isJumping);
+
+  const { mutate: addReaction } = useAddReaction(targetId);
+  const { mutate: togglePin } = useTogglePin(targetId);
+  const openThread = useThreadPanelStore((s) => s.open);
+  const t = useMessageList();
+
+  const lastTargetIdRef = useRef(targetId);
+  const hasRenderedTimelineRef = useRef(false);
 
   const clearOlderLoadState = useCallback(() => {
-    restorePendingRef.current = false
-    isPrependingRef.current = false
-    isRestoringRef.current = false
-    anchorRef.current = null
-    restoreSnapshotRef.current = null
-  }, [])
+    restorePendingRef.current = false;
+    isPrependingRef.current = false;
+    isRestoringRef.current = false;
+    anchorRef.current = null;
+    restoreSnapshotRef.current = null;
+  }, []);
 
   const canLoadOlder = useCallback(() => {
-    const scroller = scrollContainerRef.current
-    return !!scroller &&
+    const scroller = scrollContainerRef.current;
+    return (
+      !!scroller &&
       hasOlderRef.current &&
       !isLoadingOlderRef.current &&
       !isJumpingRef.current &&
       !isPrependingRef.current &&
       !isRestoringRef.current
-  }, [])
+    );
+  }, []);
 
   const listItems = useMemo(() => {
     return buildRenderedListItems({
@@ -432,13 +710,32 @@ export default function MessageList({
       isGroup,
       createdAt,
       workspaceId,
+      channelName,
       unreadBoundaryAt,
       stickyUnreadBoundaryAt,
       unreadCount,
       stickyUnreadCountSnapshot,
       currentUserId,
-    })
-  }, [messages, isInitialized, hasOlder, members, isGroup, createdAt, workspaceId, unreadBoundaryAt, stickyUnreadBoundaryAt, unreadCount, stickyUnreadCountSnapshot, currentUserId])
+      isPrivate,
+      createdBy,
+    });
+  }, [
+    messages,
+    isInitialized,
+    hasOlder,
+    members,
+    isGroup,
+    createdAt,
+    workspaceId,
+    channelName,
+    unreadBoundaryAt,
+    stickyUnreadBoundaryAt,
+    unreadCount,
+    stickyUnreadCountSnapshot,
+    currentUserId,
+    isPrivate,
+    createdBy,
+  ]);
 
   const virtualizer = useVirtualizer({
     count: listItems.length,
@@ -446,69 +743,71 @@ export default function MessageList({
     estimateSize: () => 80,
     overscan: 15,
     getItemKey: (index) => getItemKey(listItems[index]) || index,
-  })
+  });
 
   useEffect(() => {
     if (listItems.length > 0) {
-      hasRenderedTimelineRef.current = true
+      hasRenderedTimelineRef.current = true;
     }
-  }, [listItems.length, targetId])
+  }, [listItems.length, targetId]);
 
-  usePrefetchPdfAttachments([{ messages, nextCursor: null, hasMore: false }])
+  usePrefetchPdfAttachments([{ messages, nextCursor: null, hasMore: false }]);
 
-  const dividerIndex = listItems.findIndex((item) => item.type === 'new-divider')
-  const hasServerUnread = (unreadCount ?? 0) > 0
-  const latestMessageTsRef = useRef<number>(0)
-  const readAckTsRef = useRef<number>(0)
+  const dividerIndex = listItems.findIndex(
+    (item) => item.type === "new-divider",
+  );
+  const hasServerUnread = (unreadCount ?? 0) > 0;
+  const latestMessageTsRef = useRef<number>(0);
+  const readAckTsRef = useRef<number>(0);
 
   const markTargetAsRead = useMutation({
     mutationFn: ({
       targetType,
       targetId,
     }: {
-      targetType: 'channel' | 'conversation'
-      targetId: string
+      targetType: "channel" | "conversation";
+      targetId: string;
     }) =>
-      targetType === 'channel'
+      targetType === "channel"
         ? markChannelAsReadApi(targetId)
         : markDmConversationAsReadApi(targetId),
     onMutate: ({ targetType, targetId }) => {
-      if (!workspaceId) return
-      const nowIso = new Date().toISOString()
-      let shouldDecrementSummary = false
+      if (!workspaceId) return;
+      const nowIso = new Date().toISOString();
+      let shouldDecrementSummary = false;
 
-      if (targetType === 'conversation') {
+      if (targetType === "conversation") {
         queryClient.setQueriesData<DirectMessageConversation[] | undefined>(
           {
             queryKey: messageKeys.conversations(workspaceId),
             exact: false,
           },
           (old) => {
-            if (!old?.length) return old
+            if (!old?.length) return old;
             return old.map((conv) => {
-              if (conv.id !== targetId) return conv
-              const prevUnread = conv.unreadCount ?? 0
-              if (prevUnread > 0) shouldDecrementSummary = true
+              if (conv.id !== targetId) return conv;
+              const prevUnread = conv.unreadCount ?? 0;
+              if (prevUnread > 0) shouldDecrementSummary = true;
               return {
                 ...conv,
                 unreadCount: 0,
                 lastReadAt: nowIso,
-              }
-            })
+              };
+            });
           },
-        )
+        );
 
         queryClient.setQueryData<DirectMessageConversation | undefined>(
           messageKeys.conversationDetail(targetId),
           (old) => {
-            if (!old) return old
+            if (!old) return old;
             return {
               ...old,
               unreadCount: 0,
               lastReadAt: nowIso,
-            }
+            };
           },
-        )
+        );
 
         if (shouldDecrementSummary) {
           queryClient.setQueryData<{ count: number } | undefined>(
@@ -516,199 +815,228 @@ export default function MessageList({
             (old) => ({
               count: Math.max(0, (old?.count ?? 0) - 1),
             }),
-          )
+          );
         }
       }
-      if (targetType === 'channel') {
-        queryClient.setQueryData<{
-          channels: { id: string; unreadCount: number }[]
-          conversations: { id: string; unreadCount: number }[]
-        } | undefined>(['workspace-unread-counts', workspaceId], (old) => {
-          if (!old) return old
+      if (targetType === "channel") {
+        queryClient.setQueryData<
+          | {
+              channels: { id: string; unreadCount: number }[];
+              conversations: { id: string; unreadCount: number }[];
+            }
+          | undefined
+        >(["workspace-unread-counts", workspaceId], (old) => {
+          if (!old) return old;
           return {
             ...old,
             channels: old.channels.map((row) =>
               row.id === targetId ? { ...row, unreadCount: 0 } : row,
             ),
-          }
-        })
+          };
+        });
       }
     },
     onSuccess: () => {
       if (workspaceId) {
         void queryClient.invalidateQueries({
-          queryKey: ['workspace-unread-counts', workspaceId],
-        })
+          queryKey: ["workspace-unread-counts", workspaceId],
+        });
         void queryClient.invalidateQueries({
           queryKey: messageKeys.conversations(workspaceId),
           exact: false,
-        })
+        });
         void queryClient.invalidateQueries({
           queryKey: messageKeys.conversationDetail(targetId),
-        })
+        });
         void queryClient.invalidateQueries({
           queryKey: messageKeys.conversationsUnreadSummary(workspaceId),
-        })
+        });
       }
     },
-  })
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setStickyUnreadBoundaryAt(null)
-      setStickyUnreadCountSnapshot(0)
-      readAckTsRef.current = 0
-    }, 0)
+      setStickyUnreadBoundaryAt(null);
+      setStickyUnreadCountSnapshot(0);
+      readAckTsRef.current = 0;
+    }, 0);
 
-    return () => window.clearTimeout(timeoutId)
-  }, [conversationId, channelId])
+    return () => window.clearTimeout(timeoutId);
+  }, [conversationId, channelId]);
 
   useEffect(() => {
     if (!stickyUnreadBoundaryAt && unreadBoundaryAt) {
       const timeoutId = window.setTimeout(() => {
-        setStickyUnreadBoundaryAt(unreadBoundaryAt)
-      }, 0)
+        setStickyUnreadBoundaryAt(unreadBoundaryAt);
+      }, 0);
 
-      return () => window.clearTimeout(timeoutId)
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [stickyUnreadBoundaryAt, unreadBoundaryAt])
+  }, [stickyUnreadBoundaryAt, unreadBoundaryAt]);
 
   useEffect(() => {
     if (stickyUnreadCountSnapshot === 0 && (unreadCount ?? 0) > 0) {
       const timeoutId = window.setTimeout(() => {
-        setStickyUnreadCountSnapshot(unreadCount ?? 0)
-      }, 0)
+        setStickyUnreadCountSnapshot(unreadCount ?? 0);
+      }, 0);
 
-      return () => window.clearTimeout(timeoutId)
+      return () => window.clearTimeout(timeoutId);
     }
-  }, [stickyUnreadCountSnapshot, unreadCount])
+  }, [stickyUnreadCountSnapshot, unreadCount]);
 
   useEffect(() => {
-    const latest = messages[messages.length - 1]
-    latestMessageTsRef.current = latest ? new Date(latest.createdAt).getTime() : 0
-  }, [messages])
+    const latest = messages[messages.length - 1];
+    latestMessageTsRef.current = latest
+      ? new Date(latest.createdAt).getTime()
+      : 0;
+  }, [messages]);
 
   useEffect(() => {
-    const targetType = channelId ? 'channel' : conversationId ? 'conversation' : null
-    const targetId = channelId ?? conversationId ?? null
-    if (!targetType || !targetId || !hasServerUnread) return
-    const currentLatestTs = latestMessageTsRef.current
-    if (currentLatestTs <= readAckTsRef.current) return
-    readAckTsRef.current = currentLatestTs
-    markTargetAsRead.mutate({ targetType, targetId })
-  }, [channelId, conversationId, hasServerUnread, markTargetAsRead])
+    const targetType = channelId
+      ? "channel"
+      : conversationId
+        ? "conversation"
+        : null;
+    const targetId = channelId ?? conversationId ?? null;
+    if (!targetType || !targetId || !hasServerUnread) return;
+    const currentLatestTs = latestMessageTsRef.current;
+    if (currentLatestTs <= readAckTsRef.current) return;
+    readAckTsRef.current = currentLatestTs;
+    markTargetAsRead.mutate({ targetType, targetId });
+  }, [channelId, conversationId, hasServerUnread, markTargetAsRead]);
 
   const stopJump = useCallback(() => {
-    setIsJumpWindowReady(false)
-    setJumpState(null)
-    setIsJumping(false)
-  }, [])
+    setIsJumpWindowReady(false);
+    setJumpState(null);
+    setIsJumping(false);
+  }, []);
 
   // Pagination Triggering
   const handleLoadOlderMessages = useCallback(async () => {
-    if (!canLoadOlder()) return
+    if (!canLoadOlder()) return;
 
-    const scroller = scrollContainerRef.current
-    if (!scroller) return
+    const scroller = scrollContainerRef.current;
+    if (!scroller) return;
 
-    const virtualItems = virtualizer.getVirtualItems()
+    const virtualItems = virtualizer.getVirtualItems();
     const firstVisible = virtualItems.find((virtualItem) => {
-      const item = listItems[virtualItem.index]
-      return !!item && !!getItemKey(item)
-    })
+      const item = listItems[virtualItem.index];
+      return !!item && !!getItemKey(item);
+    });
 
     if (firstVisible) {
-      const item = listItems[firstVisible.index]
-      const key = item ? getItemKey(item) : null
+      const item = listItems[firstVisible.index];
+      const key = item ? getItemKey(item) : null;
       anchorRef.current = key
         ? {
             key,
             expectedStart: firstVisible.start,
           }
-        : null
+        : null;
     } else {
-      anchorRef.current = null
+      anchorRef.current = null;
     }
 
     restoreSnapshotRef.current = {
       scrollTop: scroller.scrollTop,
       scrollHeight: scroller.scrollHeight,
       clientHeight: scroller.clientHeight,
-    }
+    };
 
-    isPrependingRef.current = true
-    isRestoringRef.current = true
-    restorePendingRef.current = false
+    isPrependingRef.current = true;
+    isRestoringRef.current = true;
+    restorePendingRef.current = false;
 
     try {
-      const page = await fetchOlderPage()
+      const page = await fetchOlderPage();
       if (!page) {
-        clearOlderLoadState()
-        return
+        clearOlderLoadState();
+        return;
       }
 
-      restorePendingRef.current = true
-      useMessageStore.getState().prependMessages(
-        targetId,
-        page.messages,
-        page.nextCursor,
-        page.hasOlder,
-      )
-    } catch(e) {
-      console.error(e)
-      clearOlderLoadState()
+      restorePendingRef.current = true;
+      useMessageStore
+        .getState()
+        .prependMessages(
+          targetId,
+          page.messages,
+          page.nextCursor,
+          page.hasOlder,
+        );
+    } catch (e) {
+      console.error(e);
+      clearOlderLoadState();
     }
-  }, [canLoadOlder, clearOlderLoadState, fetchOlderPage, listItems, targetId, virtualizer])
+  }, [
+    canLoadOlder,
+    clearOlderLoadState,
+    fetchOlderPage,
+    listItems,
+    targetId,
+    virtualizer,
+  ]);
 
-  const isFetchingNewerRef = useRef(false)
+  const isFetchingNewerRef = useRef(false);
   const handleLoadNewerMessages = useCallback(async () => {
-    if (!hasNewer || isLoadingNewer || isJumpingRef.current || isFetchingNewerRef.current) return
-    isFetchingNewerRef.current = true
+    if (
+      !hasNewer ||
+      isLoadingNewer ||
+      isJumpingRef.current ||
+      isFetchingNewerRef.current
+    )
+      return;
+    isFetchingNewerRef.current = true;
     try {
-      await fetchNewer()
+      await fetchNewer();
     } finally {
-      isFetchingNewerRef.current = false
+      isFetchingNewerRef.current = false;
     }
-  }, [fetchNewer, hasNewer, isLoadingNewer])
+  }, [fetchNewer, hasNewer, isLoadingNewer]);
 
   // Virtual item based pagination removed, using scrollTop in handleScroll instead
 
   // Scroll Position Restoration (CORE FIX)
   useLayoutEffect(() => {
-    if (!isPrependingRef.current || !restorePendingRef.current) return
-    let frameId: number | null = null
+    if (!isPrependingRef.current || !restorePendingRef.current) return;
+    let frameId: number | null = null;
 
     const finishRestore = () => {
-      restorePendingRef.current = false
-      clearOlderLoadState()
-    }
+      restorePendingRef.current = false;
+      clearOlderLoadState();
+    };
 
     const settleRestore = () => {
-      if (!isPrependingRef.current || !restorePendingRef.current) return
+      if (!isPrependingRef.current || !restorePendingRef.current) return;
 
-      const scroller = scrollContainerRef.current
-      const snapshot = restoreSnapshotRef.current
+      const scroller = scrollContainerRef.current;
+      const snapshot = restoreSnapshotRef.current;
       if (!scroller || (!anchorRef.current && !snapshot)) {
-        finishRestore()
-        return
+        finishRestore();
+        return;
       }
 
       if (anchorRef.current) {
-        const anchorIndex = listItems.findIndex((item) => getItemKey(item) === anchorRef.current!.key)
+        const anchorIndex = listItems.findIndex(
+          (item) => getItemKey(item) === anchorRef.current!.key,
+        );
         if (anchorIndex !== -1) {
-          const offsetTuple = virtualizer.getOffsetForIndex(anchorIndex, 'start')
+          const offsetTuple = virtualizer.getOffsetForIndex(
+            anchorIndex,
+            "start",
+          );
           if (offsetTuple) {
-            const newStart = offsetTuple[0]
-            const delta = newStart - anchorRef.current.expectedStart
+            const newStart = offsetTuple[0];
+            const delta = newStart - anchorRef.current.expectedStart;
             if (delta !== 0) {
-              scroller.scrollTop += delta
-              anchorRef.current.expectedStart = newStart
-              frameId = window.requestAnimationFrame(settleRestore)
-              return
+              scroller.scrollTop += delta;
+              anchorRef.current.expectedStart = newStart;
+              frameId = window.requestAnimationFrame(settleRestore);
+              return;
             }
 
-            finishRestore()
-            return
+            finishRestore();
+            return;
           }
         }
       }
@@ -717,105 +1045,114 @@ export default function MessageList({
         const expectedScrollTop = Math.max(
           0,
           snapshot.scrollTop + (scroller.scrollHeight - snapshot.scrollHeight),
-        )
+        );
         if (Math.abs(scroller.scrollTop - expectedScrollTop) > 1) {
-          scroller.scrollTop = expectedScrollTop
-          frameId = window.requestAnimationFrame(settleRestore)
-          return
+          scroller.scrollTop = expectedScrollTop;
+          frameId = window.requestAnimationFrame(settleRestore);
+          return;
         }
 
-        finishRestore()
-        return
+        finishRestore();
+        return;
       }
 
-      finishRestore()
-    }
+      finishRestore();
+    };
 
-    settleRestore()
+    settleRestore();
     return () => {
       if (frameId != null) {
-        window.cancelAnimationFrame(frameId)
+        window.cancelAnimationFrame(frameId);
       }
-    }
-  }, [clearOlderLoadState, listItems, virtualizer])
+    };
+  }, [clearOlderLoadState, listItems, virtualizer]);
 
   // Reset state on target change
-  const [newMessageCount, setNewMessageCount] = useState(0)
-  const isNearBottomRef = useRef(true)
-  const isFirstRenderRef = useRef(true)
-  const lastLatestMessageIdRef = useRef<string | null>(null)
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const isNearBottomRef = useRef(true);
+  const isFirstRenderRef = useRef(true);
+  const lastLatestMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (lastTargetIdRef.current === targetId) return
-    lastTargetIdRef.current = targetId
-    hasRenderedTimelineRef.current = false
-    setIsJumpWindowReady(false)
-    setJumpState(null)
-    setIsJumping(false)
-    setNewMessageCount(0)
-    isNearTopRef.current = false
-    isNearBottomRef.current = true
-    clearOlderLoadState()
-    isFirstRenderRef.current = true
-    lastLatestMessageIdRef.current = null
-  }, [clearOlderLoadState, targetId])
+    if (lastTargetIdRef.current === targetId) return;
+    lastTargetIdRef.current = targetId;
+    hasRenderedTimelineRef.current = false;
+    setIsJumpWindowReady(false);
+    setJumpState(null);
+    setIsJumping(false);
+    setNewMessageCount(0);
+    isNearTopRef.current = false;
+    isNearBottomRef.current = true;
+    clearOlderLoadState();
+    isFirstRenderRef.current = true;
+    lastLatestMessageIdRef.current = null;
+  }, [clearOlderLoadState, targetId]);
 
   useEffect(() => {
-    hasOlderRef.current = hasOlder
-  }, [hasOlder])
+    hasOlderRef.current = hasOlder;
+  }, [hasOlder]);
 
   useEffect(() => {
-    isLoadingOlderRef.current = isLoadingOlder
-  }, [isLoadingOlder])
+    isLoadingOlderRef.current = isLoadingOlder;
+  }, [isLoadingOlder]);
 
   useEffect(() => {
-    isJumpingRef.current = isJumping
-  }, [isJumping])
+    isJumpingRef.current = isJumping;
+  }, [isJumping]);
 
   // Handle new messages and auto-scroll
   useEffect(() => {
-    const latest = messages[messages.length - 1]
-    if (latest && lastLatestMessageIdRef.current && latest.id !== lastLatestMessageIdRef.current) {
+    const latest = messages[messages.length - 1];
+    if (
+      latest &&
+      lastLatestMessageIdRef.current &&
+      latest.id !== lastLatestMessageIdRef.current
+    ) {
       if (!isFetchingNewerRef.current && !isPrependingRef.current) {
         if (!isNearBottomRef.current) {
-           setNewMessageCount(prev => prev + 1)
+          setNewMessageCount((prev) => prev + 1);
         } else {
-           const timer = setTimeout(() => {
-              virtualizer.scrollToIndex(listItems.length - 1, { align: 'end' })
-           }, 10)
-           return () => clearTimeout(timer)
+          const timer = setTimeout(() => {
+            virtualizer.scrollToIndex(listItems.length - 1, { align: "end" });
+          }, 10);
+          return () => clearTimeout(timer);
         }
       }
     }
-    lastLatestMessageIdRef.current = latest?.id || null
-  }, [messages, listItems.length, virtualizer])
+    lastLatestMessageIdRef.current = latest?.id || null;
+  }, [messages, listItems.length, virtualizer]);
 
   const scrollToBottom = useCallback(() => {
-    virtualizer.scrollToIndex(listItems.length - 1, { align: 'end' })
-    setNewMessageCount(0)
-  }, [listItems.length, virtualizer])
+    virtualizer.scrollToIndex(listItems.length - 1, { align: "end" });
+    setNewMessageCount(0);
+  }, [listItems.length, virtualizer]);
 
   const handleScroll = useCallback(() => {
-    const scroller = scrollContainerRef.current
-    if (!scroller) return
+    const scroller = scrollContainerRef.current;
+    if (!scroller) return;
 
-    const distanceFromTop = scroller.scrollTop
-    isNearTopRef.current = distanceFromTop <= TOP_LOAD_THRESHOLD_PX
+    const distanceFromTop = scroller.scrollTop;
+    isNearTopRef.current = distanceFromTop <= TOP_LOAD_THRESHOLD_PX;
 
-    const distanceFromBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+    const distanceFromBottom =
+      scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
 
     if (distanceFromTop <= TOP_LOAD_THRESHOLD_PX && canLoadOlder()) {
-      void handleLoadOlderMessages()
-    }
-    
-    if (distanceFromBottom <= BOTTOM_LOAD_THRESHOLD_PX && hasNewer && !isLoadingNewer) {
-      handleLoadNewerMessages()
+      void handleLoadOlderMessages();
     }
 
-    const isNearBottom = distanceFromBottom < 100
-    isNearBottomRef.current = isNearBottom
+    if (
+      distanceFromBottom <= BOTTOM_LOAD_THRESHOLD_PX &&
+      hasNewer &&
+      !isLoadingNewer
+    ) {
+      handleLoadNewerMessages();
+    }
+
+    const isNearBottom = distanceFromBottom < 100;
+    isNearBottomRef.current = isNearBottom;
     if (isNearBottom && newMessageCount > 0) {
-      setNewMessageCount(0)
+      setNewMessageCount(0);
     }
   }, [
     canLoadOlder,
@@ -823,239 +1160,262 @@ export default function MessageList({
     newMessageCount,
     hasNewer,
     isLoadingNewer,
-    handleLoadNewerMessages
-  ])
+    handleLoadNewerMessages,
+  ]);
 
-  const handleWheel = useCallback((event: { deltaY: number }) => {
-    if (event.deltaY >= 0) return
-    const scroller = scrollContainerRef.current
-    if (!scroller) return
+  const handleWheel = useCallback(
+    (event: { deltaY: number }) => {
+      if (event.deltaY >= 0) return;
+      const scroller = scrollContainerRef.current;
+      if (!scroller) return;
 
-    isNearTopRef.current = scroller.scrollTop <= TOP_LOAD_THRESHOLD_PX
-    if (!isNearTopRef.current) return
-    if (!canLoadOlder()) return
+      isNearTopRef.current = scroller.scrollTop <= TOP_LOAD_THRESHOLD_PX;
+      if (!isNearTopRef.current) return;
+      if (!canLoadOlder()) return;
 
-    void handleLoadOlderMessages()
-  }, [canLoadOlder, handleLoadOlderMessages])
+      void handleLoadOlderMessages();
+    },
+    [canLoadOlder, handleLoadOlderMessages],
+  );
 
   // Initial scroll positioning
   useLayoutEffect(() => {
     if (isInitialized && listItems.length > 0 && isFirstRenderRef.current) {
-      isFirstRenderRef.current = false
+      isFirstRenderRef.current = false;
       if (dividerIndex >= 0) {
-        virtualizer.scrollToIndex(Math.max(0, dividerIndex - 1), { align: 'start' })
+        virtualizer.scrollToIndex(Math.max(0, dividerIndex - 1), {
+          align: "start",
+        });
       } else {
-        virtualizer.scrollToIndex(listItems.length - 1, { align: 'end' })
+        virtualizer.scrollToIndex(listItems.length - 1, { align: "end" });
       }
     }
-  }, [isInitialized, listItems.length, dividerIndex, virtualizer])
+  }, [isInitialized, listItems.length, dividerIndex, virtualizer]);
 
   // Jump logic
   useEffect(() => {
-    if (!jumpState || jumpState.phase !== 'loading-window') return
-    if (!isJumpWindowReady) return
-    if (!isInitialized || listItems.length === 0) return
+    if (!jumpState || jumpState.phase !== "loading-window") return;
+    if (!isJumpWindowReady) return;
+    if (!isInitialized || listItems.length === 0) return;
 
-    if (jumpState.mode === 'beginning' || jumpState.mode === 'recent') {
+    if (jumpState.mode === "beginning" || jumpState.mode === "recent") {
       queueMicrotask(() => {
         setJumpState({
           ...jumpState,
-          phase: 'ready-to-scroll',
-        })
-      })
-      return
+          phase: "ready-to-scroll",
+        });
+      });
+      return;
     }
 
-    if (jumpState.mode === 'date') {
-      const anchorIndex = findDateAnchorIndex(listItems, jumpState.targetDate)
+    if (jumpState.mode === "date") {
+      const anchorIndex = findDateAnchorIndex(listItems, jumpState.targetDate);
       if (anchorIndex === -1) {
-        toast.error('Không thể xác định vị trí của ngày đã chọn')
+        toast.error(t("datePositionNotFound"));
         queueMicrotask(() => {
-          stopJump()
-        })
-        return
+          stopJump();
+        });
+        return;
       }
     }
 
     queueMicrotask(() => {
       setJumpState({
         ...jumpState,
-        phase: 'expanding-older',
-      })
-    })
-  }, [isInitialized, isJumpWindowReady, jumpState, listItems, stopJump])
+        phase: "expanding-older",
+      });
+    });
+  }, [isInitialized, isJumpWindowReady, jumpState, listItems, stopJump]);
 
   useEffect(() => {
-    if (!jumpState || jumpState.phase !== 'expanding-older') return
-    if (listItems.length === 0) return
-    
+    if (!jumpState || jumpState.phase !== "expanding-older") return;
+    if (listItems.length === 0) return;
+
     // With current API, fetchOlder from jump doesn't exist, we rely on jumpToDate loading everything needed
     queueMicrotask(() => {
       setJumpState((currentState) =>
         currentState
           ? {
               ...currentState,
-              phase: 'ready-to-scroll',
+              phase: "ready-to-scroll",
             }
           : currentState,
-      )
-    })
-  }, [jumpState, listItems])
+      );
+    });
+  }, [jumpState, listItems]);
 
   useEffect(() => {
-    if (!jumpState || jumpState.phase !== 'ready-to-scroll') return
-    if (listItems.length === 0) return
+    if (!jumpState || jumpState.phase !== "ready-to-scroll") return;
+    if (listItems.length === 0) return;
 
     const targetIndex =
-      jumpState.mode === 'beginning'
+      jumpState.mode === "beginning"
         ? 0
-        : jumpState.mode === 'recent'
+        : jumpState.mode === "recent"
           ? Math.max(0, listItems.length - 1)
-        : findDateAnchorIndex(listItems, jumpState.targetDate)
+          : findDateAnchorIndex(listItems, jumpState.targetDate);
 
     if (targetIndex < 0) {
-      toast.error('Không thể xác định vị trí của ngày đã chọn')
+      toast.error(t("datePositionNotFound"));
       queueMicrotask(() => {
-        stopJump()
-      })
-      return
+        stopJump();
+      });
+      return;
     }
 
     const frame = window.requestAnimationFrame(() => {
-      virtualizer.scrollToIndex(targetIndex, { align: 'start' })
-      stopJump()
-    })
+      virtualizer.scrollToIndex(targetIndex, { align: "start" });
+      stopJump();
+    });
 
-    return () => window.cancelAnimationFrame(frame)
-  }, [jumpState, listItems, stopJump, virtualizer])
+    return () => window.cancelAnimationFrame(frame);
+  }, [jumpState, listItems, stopJump, virtualizer]);
 
-  const handleJumpToDateAction = useCallback(async (date: Date) => {
-    const targetDate = startOfDay(date)
-    setIsJumping(true)
-    setIsJumpWindowReady(false)
-    setJumpState({
-      mode: 'date',
-      targetDate,
-      phase: 'loading-window',
-    })
+  const handleJumpToDateAction = useCallback(
+    async (date: Date) => {
+      const targetDate = startOfDay(date);
+      setIsJumping(true);
+      setIsJumpWindowReady(false);
+      setJumpState({
+        mode: "date",
+        targetDate,
+        phase: "loading-window",
+      });
 
-    const success = await jumpToDate(targetDate)
-    if (!success) {
-      stopJump()
-      return
-    }
-    setIsJumpWindowReady(true)
-  }, [jumpToDate, stopJump])
+      const success = await jumpToDate(targetDate);
+      if (!success) {
+        stopJump();
+        return;
+      }
+      setIsJumpWindowReady(true);
+    },
+    [jumpToDate, stopJump],
+  );
 
   const handleJumpToBeginningAction = useCallback(async () => {
-    if (!createdAt) return
+    if (!createdAt) return;
 
-    const targetDate = startOfDay(new Date(createdAt))
-    setIsJumping(true)
-    setIsJumpWindowReady(false)
+    const targetDate = startOfDay(new Date(createdAt));
+    setIsJumping(true);
+    setIsJumpWindowReady(false);
     setJumpState({
-      mode: 'beginning',
+      mode: "beginning",
       targetDate,
-      phase: 'loading-window',
-    })
+      phase: "loading-window",
+    });
 
-    const success = await jumpToBeginning(createdAt)
+    const success = await jumpToBeginning(createdAt);
     if (!success) {
-      stopJump()
-      return
+      stopJump();
+      return;
     }
-    setIsJumpWindowReady(true)
-  }, [createdAt, jumpToBeginning, stopJump])
+    setIsJumpWindowReady(true);
+  }, [createdAt, jumpToBeginning, stopJump]);
 
   const handleJumpToMostRecentAction = useCallback(async () => {
-    setIsJumping(true)
-    setIsJumpWindowReady(false)
+    setIsJumping(true);
+    setIsJumpWindowReady(false);
     setJumpState({
-      mode: 'recent',
+      mode: "recent",
       targetDate: new Date(),
-      phase: 'loading-window',
-    })
+      phase: "loading-window",
+    });
 
-    const success = await jumpToMostRecent()
+    const success = await jumpToMostRecent();
     if (!success) {
-      stopJump()
-      return
+      stopJump();
+      return;
     }
-    setIsJumpWindowReady(true)
-  }, [jumpToMostRecent, stopJump])
+    setIsJumpWindowReady(true);
+  }, [jumpToMostRecent, stopJump]);
 
   // Focus message
   useEffect(() => {
     if (focusedMessageId && listItems.length > 0) {
-      const index = listItems.findIndex(item => item.type === 'message' && item.message.id === focusedMessageId)
+      const index = listItems.findIndex(
+        (item) =>
+          item.type === "message" && item.message.id === focusedMessageId,
+      );
       if (index !== -1) {
         const startTimer = window.setTimeout(() => {
-          setInternalFocusedId(focusedMessageId)
-          setIsJumping(true)
-          virtualizer.scrollToIndex(index, { align: 'center' })
-        }, 0)
+          setInternalFocusedId(focusedMessageId);
+          setIsJumping(true);
+          virtualizer.scrollToIndex(index, { align: "center" });
+        }, 0);
         const timer = window.setTimeout(() => {
-          setInternalFocusedId(null)
-          setIsJumping(false)
-        }, 1500)
+          setInternalFocusedId(null);
+          setIsJumping(false);
+        }, 1500);
         return () => {
-          window.clearTimeout(startTimer)
-          window.clearTimeout(timer)
-        }
+          window.clearTimeout(startTimer);
+          window.clearTimeout(timer);
+        };
       }
     }
-  }, [focusedMessageId, listItems, virtualizer])
+  }, [focusedMessageId, listItems, virtualizer]);
 
   const handleReact = useCallback(
-    (messageId: string, emoji: string) => addReaction({ messageId, emoji, userId: currentUserId }),
+    (messageId: string, emoji: string) =>
+      addReaction({ messageId, emoji, userId: currentUserId }),
     [addReaction, currentUserId],
-  )
+  );
 
   const handleReply = useCallback(
-    (message: Message, highlightedMessageId?: string) => openThread(message, highlightedMessageId),
+    (message: Message, highlightedMessageId?: string) =>
+      openThread(message, highlightedMessageId),
     [openThread],
-  )
+  );
 
   const handleJoinHuddle = useCallback(
     (message: Message) => {
       if (onJoinHuddle) {
-        onJoinHuddle(message)
-        return
+        onJoinHuddle(message);
+        return;
       }
-      const targetEntityType = channelId ? 'channel' : 'dm'
-      const targetEntityId = channelId || conversationId
-      if (!targetEntityId) return
+      const targetEntityType = channelId ? "channel" : "dm";
+      const targetEntityId = channelId || conversationId;
+      if (!targetEntityId) return;
       const huddleLabel =
-        (message.huddleSnapshot as { entityLabel?: string | null } | null)
-          ?.entityLabel?.trim() ||
+        (
+          message.huddleSnapshot as { entityLabel?: string | null } | null
+        )?.entityLabel?.trim() ||
         message.channelName ||
-        'Huddle'
+        "Huddle";
 
-      openHuddlePreviewWindow({
-        workspaceId,
-        entityType: targetEntityType,
-        entityId: targetEntityId,
-        label: huddleLabel,
-        mode: 'join',
-      })
+      openHuddlePreviewWindow(
+        {
+          workspaceId,
+          entityType: targetEntityType,
+          entityId: targetEntityId,
+          label: huddleLabel,
+          mode: "join",
+        },
+        { popupBlockedMessage: t("popupBlocked") },
+      );
     },
     [channelId, conversationId, onJoinHuddle, workspaceId],
-  )
+  );
 
   const shouldShowInitialSkeleton =
-    !hasRenderedTimelineRef.current &&
-    !isInitialized &&
-    messages.length === 0
+    !hasRenderedTimelineRef.current && !isInitialized && messages.length === 0;
 
-  if (shouldShowInitialSkeleton) return <MessageSkeleton />
+  if (shouldShowInitialSkeleton) return <MessageSkeleton />;
 
-  if (listItems.length === 0) return <ChannelWelcome workspaceId={workspaceId} />
+  if (listItems.length === 0)
+    return (
+      <ChannelWelcome workspaceId={workspaceId} currentUserId={currentUserId} />
+    );
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col relative">
       {isLoadingOlder && (
-        <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex h-8 items-center justify-center" aria-live="polite">
-          <span className="text-[12px] text-[#797c81] animate-pulse">{t("loadingOlderMessages")}</span>
+        <div
+          className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex h-8 items-center justify-center"
+          aria-live="polite"
+        >
+          <span className="text-[12px] text-[#797c81] animate-pulse">
+            {t("loadingOlderMessages")}
+          </span>
         </div>
       )}
 
@@ -1064,14 +1424,20 @@ export default function MessageList({
         onScroll={handleScroll}
         onWheel={handleWheel}
         className="flex-1 overflow-y-auto outline-none"
-        style={{ overflowAnchor: 'none' }}
+        style={{ overflowAnchor: "none" }}
       >
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            position: "relative",
+            width: "100%",
+          }}
+        >
           {virtualizer.getVirtualItems().map((virtualRow) => {
-            const item = listItems[virtualRow.index]
+            const item = listItems[virtualRow.index];
 
             let content;
-            if (item.type === 'welcome') {
+            if (item.type === "welcome") {
               content = (
                 <ChannelWelcome
                   channelName={item.channelName}
@@ -1079,9 +1445,12 @@ export default function MessageList({
                   isGroup={item.isGroup}
                   createdAt={item.createdAt}
                   workspaceId={item.workspaceId}
+                  isPrivate={item.isPrivate}
+                  createdBy={item.createdBy}
+                  currentUserId={currentUserId}
                 />
-              )
-            } else if (item.type === 'date') {
+              );
+            } else if (item.type === "date") {
               content = (
                 <DateSeparator
                   date={item.date}
@@ -1091,9 +1460,9 @@ export default function MessageList({
                   onOpenJumpDialog={() => setOpenJumpToSpecificDateDialog(true)}
                   createdAt={createdAt}
                 />
-              )
-            } else if (item.type === 'new-divider') {
-              content = <NewDivider />
+              );
+            } else if (item.type === "new-divider") {
+              content = <NewDivider />;
             } else {
               content = (
                 <MessageItem
@@ -1102,10 +1471,17 @@ export default function MessageList({
                   currentUserId={currentUserId}
                   workspaceId={workspaceId}
                   isCompact={item.isCompact}
-                  isHovered={hoveredMessageId === item.message.id || emojiPickerMessageId === item.message.id}
-                  onHoverChange={(id, hovered) => setHoveredMessageId(hovered ? id : null)}
+                  isHovered={
+                    hoveredMessageId === item.message.id ||
+                    emojiPickerMessageId === item.message.id
+                  }
+                  onHoverChange={(id, hovered) =>
+                    setHoveredMessageId(hovered ? id : null)
+                  }
                   emojiPickerOpen={emojiPickerMessageId === item.message.id}
-                  onEmojiPickerOpenChange={(id, open) => setEmojiPickerMessageId(open ? id : null)}
+                  onEmojiPickerOpenChange={(id, open) =>
+                    setEmojiPickerMessageId(open ? id : null)
+                  }
                   onReact={handleReact}
                   onPin={(id) => togglePin(id)}
                   onEdit={onEditMessage}
@@ -1114,7 +1490,10 @@ export default function MessageList({
                   onJoinHuddle={handleJoinHuddle}
                   onSaveForLater={handleSaveForLater}
                   isSavedForLater={savedMessageIdSet.has(item.message.id)}
-                  savedLaterRemindAtIso={remindAtByMessageId.get(item.message.id)}
+                  savedLaterRemindAtIso={remindAtByMessageId.get(
+                    item.message.id,
+                  )}
+                  savedAttachmentIds={savedAttachmentIdSet}
                   isInsideThreadPanel={false}
                   isFocused={focusedMessageId === item.message.id}
                   isTemporaryHighlight={internalFocusedId === item.message.id}
@@ -1125,10 +1504,10 @@ export default function MessageList({
                     !channelPostingSettings
                       ? true
                       : channelPostingSettings.allowThreads ||
-                        channelPostingSettings.mode === 'everyone'
+                        channelPostingSettings.mode === "everyone"
                   }
                 />
-              )
+              );
             }
 
             return (
@@ -1137,35 +1516,40 @@ export default function MessageList({
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   top: 0,
                   left: 0,
-                  width: '100%',
+                  width: "100%",
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
                 {content}
               </div>
-            )
+            );
           })}
         </div>
       </div>
 
       {isLoadingNewer && (
-        <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-10 flex h-8 items-center justify-center" aria-live="polite">
-          <span className="text-[12px] text-[#797c81] animate-pulse">{t("loadingNewerMessages")}</span>
+        <div
+          className="pointer-events-none absolute left-0 right-0 bottom-0 z-10 flex h-8 items-center justify-center"
+          aria-live="polite"
+        >
+          <span className="text-[12px] text-[#797c81] animate-pulse">
+            {t("loadingNewerMessages")}
+          </span>
         </div>
       )}
 
       {newMessageCount > 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-           <button
-             onClick={scrollToBottom}
-             className="px-4 py-1.5 bg-[#1d9bd1] text-white rounded-full text-[13px] font-bold shadow-lg flex items-center gap-1.5 hover:bg-[#1A8BBF] transition"
-           >
-             {t("newMessage", { count: newMessageCount })}
-             <IoChevronDownOutline size={14} />
-           </button>
+          <button
+            onClick={scrollToBottom}
+            className="px-4 py-1.5 bg-[#1d9bd1] text-white rounded-full text-[13px] font-bold shadow-lg flex items-center gap-1.5 hover:bg-[#1A8BBF] transition"
+          >
+            {t("newMessage", { count: newMessageCount })}
+            <IoChevronDownOutline size={14} />
+          </button>
         </div>
       )}
 
@@ -1176,5 +1560,5 @@ export default function MessageList({
         targetCreatedAt={createdAt}
       />
     </div>
-  )
+  );
 }

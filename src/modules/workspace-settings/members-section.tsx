@@ -8,7 +8,6 @@ import {
     activateWorkspaceMemberApi,
     deactivateWorkspaceMemberApi,
     fetchWorkspaceMembersPageApi,
-    removeDeactivatedWorkspaceMemberApi,
     updateWorkspaceMemberRoleApi,
 } from "@/apis";
 import ChangeAccountTypeDialog from "@/components/dialogs/change-account-type-dialog";
@@ -28,7 +27,13 @@ import {
 import Typography from "@/components/ui/typography";
 import { UserPresenceIndicator } from "@/components/user-presence-indicator";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { authKeys, messageKeys, workspaceKeys } from "@/lib/query-keys";
+import {
+  authKeys,
+  channelKeys,
+  messageKeys,
+  notificationKeys,
+  workspaceKeys,
+} from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useAppTranslation } from "@/hooks/use-translation";
 
@@ -42,7 +47,7 @@ import {
 } from "@/components/ui/table";
 
 import ActivateUserDialog from "@/components/dialogs/activate-user-dialog";
-import DeleteDeactivatedUserDialog from "@/components/dialogs/delete-deactivated-user-dialog";
+import InvitePeopleDialog from "@/components/dialogs/invite-people-dialog";
 import {
     Popover,
     PopoverContent,
@@ -159,8 +164,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
   const [savingDeactivate, setSavingDeactivate] = useState(false);
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [savingActivate, setSavingActivate] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [savingDelete, setSavingDelete] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data: workspace } = useWorkspace(workspaceId);
   const normalizedSearch = search.trim();
@@ -214,14 +218,29 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
     setSortDirection("asc");
   };
 
+  /**
+   * Invalidate tất cả query cache phụ thuộc vào membership của user trong workspace.
+   *
+   * Khi một user bị DELETE khỏi workspace (workspace_members row bị hard-delete):
+   * - Messages của user đó: không thay đổi (FK không cascade) nhưng cần refresh
+   *   vì các surface phụ thuộc (sidebar, search, ...) hiển thị "Deleted user" dựa trên
+   *   mới nhất
+   * - DM list: cần refresh vì `isArchivedBecausePeerInactive` flag thay đổi
+   * - Channel members: cần refresh để loại user đã xoá khỏi danh sách
+   * - Workspace members: query chính cần refresh
+   * - Notification: actor info trong notification item có thể chuyển sang "Deleted user"
+   */
   const invalidateMemberDependentCaches = async () => {
     await Promise.all([
+      // Members list (chính nó)
       queryClient.invalidateQueries({
         queryKey: ["workspaces", workspaceId, "members"],
       }),
       queryClient.invalidateQueries({
         queryKey: ["workspaces", workspaceId, "members-page"],
       }),
+
+      // DM conversations + recents (DM list dùng isArchivedBecausePeerInactive)
       queryClient.invalidateQueries({
         queryKey: messageKeys.conversations(workspaceId),
       }),
@@ -232,9 +251,26 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
         predicate: (query) => {
           const key = query.queryKey;
           return (
-            Array.isArray(key) &&
-            key[0] === "dm-conversations" &&
-            (key[1] === workspaceId || key[1] === "detail")
+            // Catch TẤT CẢ dm-conversations queries (cả list, unread-summary,
+            // detail, attachments, files-search, ...) để đảm bảo state mới
+            // nhất của peer (deleted/deactivated) được phản ánh khi user
+            // đó bị xoá. Predicate rộng vì dm-conversations là dedicated prefix.
+            Array.isArray(key) && key[0] === "dm-conversations"
+          );
+        },
+      }),
+
+      // Channel members: bất kỳ channel nào trong workspace
+      queryClient.invalidateQueries({
+        queryKey: channelKeys.all(workspaceId),
+      }),
+
+      // Notification items (actor = user bị delete sẽ hiển thị "Deleted user")
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return (
+            Array.isArray(key) && key[0] === "notifications" && key[1] === workspaceId
           );
         },
       }),
@@ -276,6 +312,7 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
           variant="success"
           size="sm"
           className="h-9 rounded-lg px-4 text-[14px] font-semibold"
+          onClick={() => setInviteOpen(true)}
         >
           {t("membersSection.invitePeople")}
         </Button>
@@ -486,20 +523,6 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
                                   >
                                     {t("membersSection.reactivateAccount")}
                                   </Button>
-                                  <Separator />
-                                  <div
-                                    className={cn(
-                                      MENU_ITEM_STYLE,
-                                      " text-red-500 hover:bg-red-700 hover:text-white",
-                                    )}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setSelectedMember(member);
-                                      setDeleteDialogOpen(true);
-                                    }}
-                                  >
-                                    {t("membersSection.deleteDeactivatedAccount")}
-                                  </div>
                                 </>
                               )}
                             </div>
@@ -759,53 +782,11 @@ export function MembersSection({ workspaceId }: { workspaceId: string }) {
         />
       ) : null}
 
-      {selectedMember && workspace ? (
-        <DeleteDeactivatedUserDialog
-          open={deleteDialogOpen}
-          onOpenChange={(open) => {
-            setDeleteDialogOpen(open);
-            if (!open) setSelectedMember(null);
-          }}
-          member={selectedMember}
-          saving={savingDelete}
-          onDelete={async () => {
-            setSavingDelete(true);
-            try {
-              const removed = await removeDeactivatedWorkspaceMemberApi(
-                workspaceId,
-                selectedMember.id,
-              );
-              queryClient.setQueryData<MembersPage | undefined>(
-                workspaceKeys.membersPage(workspaceId, {
-                  page,
-                  pageSize: PAGE_SIZE,
-                  sortKey,
-                  sortDirection,
-                  search: normalizedSearch,
-                }),
-                (current) =>
-                  current
-                    ? {
-                        ...current,
-                        total: Math.max(0, current.total - 1),
-                        items: current.items.filter(
-                          (item) => item.id !== removed.id,
-                        ),
-                      }
-                    : current,
-              );
-              await invalidateMemberDependentCaches();
-              await queryClient.invalidateQueries({
-                queryKey: ["workspaces"],
-              });
-              setDeleteDialogOpen(false);
-              setSelectedMember(null);
-            } finally {
-              setSavingDelete(false);
-            }
-          }}
-        />
-      ) : null}
+      <InvitePeopleDialog
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        workspaceId={workspaceId}
+      />
     </div>
   );
 }

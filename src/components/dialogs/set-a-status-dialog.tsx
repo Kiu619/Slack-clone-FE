@@ -29,7 +29,7 @@ import { useWorkspaceMemberStore } from "@/stores/useWorkspaceMemberStore";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import EmojiPicker, { type EmojiClickData, Theme } from 'emoji-picker-react';
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuX } from "react-icons/lu";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -38,89 +38,46 @@ import { DatePickerDropdown } from "../date-picker-dropdown";
 import Typography from "../ui/typography";
 import { useLanguageRegionStore } from "@/stores/useLanguageRegionStore";
 import { useDialogs } from "@/hooks/use-translation";
-
+import { useTranslations } from "next-intl";
+import { buildTimeOptions } from "@/helpers/time-options";
 const formSchema = z.object({
   status: z.string().max(100),
   emoji: z.string().optional(),
   clearAfter: z.string().optional(),
-  pauseNotifications: z.string().optional(),
   date: z.date().optional(),
   time: z.string().optional(),
 });
 
-/** Gợi ý — `duration` chỉ để hiển thị; `clearAfter` / `pauseNotifications` khớp với 2 select */
-const SUGGESTIONS = [
-  {
-    icon: "🗓️",
-    text: "In a meeting",
-    duration: "1 hour",
-    clearAfter: "1hour",
-    pauseNotifications: "all",
-  },
-  {
-    icon: "🏃",
-    text: "Commuting",
-    duration: "30 minutes",
-    clearAfter: "30mins",
-    pauseNotifications: "none",
-  },
-  {
-    icon: "🤒",
-    text: "Out sick",
-    duration: "Today",
-    clearAfter: "today",
-    pauseNotifications: "none",
-  },
-  {
-    icon: "🌴",
-    text: "Vacationing",
-    duration: "Don't clear",
-    clearAfter: "never",
-    pauseNotifications: "none",
-  },
-  {
-    icon: "🏠",
-    text: "Working remotely",
-    duration: "Today",
-    clearAfter: "today",
-    pauseNotifications: "none",
-  },
-] as const;
+type SuggestionClearAfter = "1hour" | "30mins" | "today" | "never";
+type DurationValue = "never" | "30mins" | "1hour" | "4hours" | "today" | "week" | "custom";
 
-const DURATIONS = [
-  { label: "Don't clear", value: "never" },
-  { label: "30 minutes", value: "30mins" },
-  { label: "1 hour", value: "1hour" },
-  { label: "4 hours", value: "4hours" },
-  { label: "Today", value: "today" },
-  { label: "This week", value: "week" },
-  { label: "Choose date and time", value: "custom" },
-];
-
-const PAUSE_OPTIONS = [
-  { label: "Do not pause", value: "none" },
-  { label: "Pause for everyone", value: "all" },
-];
-
-const TIMES = Array.from({ length: 48 }).map((_, i) => {
-  const hour = Math.floor(i / 2);
-  const min = i % 2 === 0 ? "00" : "30";
-  const ampm = hour < 12 ? "AM" : "PM";
-  const h12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return {
-    label: `${h12}:${min} ${ampm}`,
-    value: `${hour.toString().padStart(2, '0')}:${min}`,
-    hour,
-    min: parseInt(min)
-  };
-});
-
-/** Gọi từ handler (không phải render) — tránh cảnh báo purity với `Date.now` trong component. */
-function isoHoursFromNow(hours: number): string {
-  const d = new Date();
-  d.setTime(d.getTime() + hours * 60 * 60 * 1000);
-  return d.toISOString();
+interface SuggestionDef {
+  icon: string;
+  textKey: "suggestionInMeeting" | "suggestionCommuting" | "suggestionOutSick" | "suggestionVacationing" | "suggestionWorkingRemotely";
+  durationKey: "hour1" | "minutes30" | "today" | "dontClear";
+  clearAfter: SuggestionClearAfter;
 }
+
+const SUGGESTION_DEFS: SuggestionDef[] = [
+  { icon: "🗓️", textKey: "suggestionInMeeting", durationKey: "hour1", clearAfter: "1hour" },
+  { icon: "🏃", textKey: "suggestionCommuting", durationKey: "minutes30", clearAfter: "30mins" },
+  { icon: "🤒", textKey: "suggestionOutSick", durationKey: "today", clearAfter: "today" },
+  { icon: "🌴", textKey: "suggestionVacationing", durationKey: "dontClear", clearAfter: "never" },
+  { icon: "🏠", textKey: "suggestionWorkingRemotely", durationKey: "today", clearAfter: "today" },
+];
+
+const DURATION_DEFS: Array<{ value: DurationValue; key: "dontClear" | "minutes30" | "hour1" | "hours4" | "today" | "thisWeek" | "chooseDateAndTime" }> = [
+  { value: "never", key: "dontClear" },
+  { value: "30mins", key: "minutes30" },
+  { value: "1hour", key: "hour1" },
+  { value: "4hours", key: "hours4" },
+  { value: "today", key: "today" },
+  { value: "week", key: "thisWeek" },
+  { value: "custom", key: "chooseDateAndTime" },
+];
+
+/** Module-level slots for arithmetic only (snapToTimesSlot). Labels are unused here. */
+const TIME_SLOTS = buildTimeOptions("24h");
 
 const getNextAvailableTime = () => {
   const now = new Date();
@@ -136,13 +93,13 @@ const getNextAvailableTime = () => {
   return `${suggestHour.toString().padStart(2, '0')}:${suggestMin.toString().padStart(2, '0')}`;
 }
 
-/** Snap thời gian local về một slot có trong `TIMES` (00 / 30). */
+/** Snap thời gian local về một slot có trong `TIME_SLOTS` (00 / 30). */
 function snapToTimesSlot(d: Date): string {
   const totalMinutes = d.getHours() * 60 + d.getMinutes();
-  let best = TIMES[0]!.value;
+  let best = TIME_SLOTS[0]!.value;
   let bestDiff = Infinity;
-  for (const t of TIMES) {
-    const tMin = t.hour * 60 + t.min;
+  for (const t of TIME_SLOTS) {
+    const tMin = t.hour * 60 + t.minute;
     const diff = Math.abs(totalMinutes - tMin);
     if (diff < bestDiff) {
       bestDiff = diff;
@@ -256,7 +213,6 @@ function pickStatusFromUser(u: User) {
     statusText: u.statusText?.trim() ?? "",
     statusEmoji: u.statusEmoji ?? "💬",
     statusExpiration: u.statusExpiration,
-    notificationsPausedUntil: u.notificationsPausedUntil,
   };
 }
 
@@ -267,14 +223,12 @@ function pickStatusFromMember(m: WorkspaceMemberStatus | null | undefined) {
       statusText: "",
       statusEmoji: "💬" as string,
       statusExpiration: null as string | null,
-      notificationsPausedUntil: null as string | null,
     };
   }
   return {
     statusText: m.statusText?.trim() ?? "",
     statusEmoji: m.statusEmoji ?? "💬",
     statusExpiration: m.statusExpiration,
-    notificationsPausedUntil: m.notificationsPausedUntil,
   };
 }
 
@@ -286,7 +240,6 @@ function deriveSyncFromProps(p: SetAStatusDialogProps) {
       : pickStatusFromMember(p.memberStatus);
   const statusPlain = picked.statusText.replace(/^\p{Emoji}\s*/u, "").trim();
   const derived = deriveClearAfterFromExpiration(picked.statusExpiration);
-  const pauseNotifications = picked.notificationsPausedUntil ? "all" : "none";
   return {
     snapshot: { status: statusPlain, emoji: picked.statusEmoji },
     emoji: picked.statusEmoji,
@@ -294,7 +247,6 @@ function deriveSyncFromProps(p: SetAStatusDialogProps) {
       status: statusPlain,
       emoji: "",
       clearAfter: derived.clearAfter,
-      pauseNotifications,
       date: derived.date,
       time: derived.time,
     },
@@ -340,13 +292,39 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
       ? props.currentWorkspaceData.name
       : (props.workspaceName?.trim() || "Workspace");
 
+  const t = useDialogs();
+  const tStatus = useTranslations("dialogs.setAStatus");
+  const tCommon = useTranslations("common");
+  const language = useLanguageRegionStore((s) => s.language);
+  const timeFormat = useLanguageRegionStore((s) => s.timeFormat);
+  const timeOptions = buildTimeOptions(timeFormat);
+
+  const SUGGESTIONS = useMemo(
+    () =>
+      SUGGESTION_DEFS.map((def) => ({
+        icon: def.icon,
+        text: tStatus(def.textKey),
+        duration: tStatus(def.durationKey),
+        clearAfter: def.clearAfter,
+      })),
+    [tStatus],
+  );
+
+  const DURATIONS = useMemo(
+    () =>
+      DURATION_DEFS.map((def) => ({
+        value: def.value,
+        label: tStatus(def.key),
+      })),
+    [tStatus],
+  );
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       status: "",
       emoji: "",
       clearAfter: "today",
-      pauseNotifications: "none",
       date: new Date(),
       time: getNextAvailableTime(),
     },
@@ -373,14 +351,14 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
   const watchedClearAfter = useWatch({ control: form.control, name: "clearAfter" });
   const selectedDate = useWatch({ control: form.control, name: "date" });
 
-  const filteredTimes = TIMES.filter((t) => {
+  const filteredTimes = timeOptions.filter((t) => {
     if (!selectedDate) return true;
     const isToday = selectedDate.toDateString() === new Date().toDateString();
     if (!isToday) return true;
 
     const now = new Date();
     if (t.hour < now.getHours()) return false;
-    if (t.hour === now.getHours() && t.min <= now.getMinutes()) return false;
+    if (t.hour === now.getHours() && t.minute <= now.getMinutes()) return false;
     return true;
   });
 
@@ -396,9 +374,6 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
     form.setValue("status", suggestion.text, { shouldDirty: true, shouldValidate: true })
     setSelectedEmoji(suggestion.icon)
     form.setValue("clearAfter", suggestion.clearAfter, { shouldDirty: true })
-    form.setValue("pauseNotifications", suggestion.pauseNotifications, {
-      shouldDirty: true,
-    })
     form.setValue("date", new Date(), { shouldDirty: true })
     form.setValue("time", getNextAvailableTime(), { shouldDirty: true })
   }
@@ -407,7 +382,6 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
     form.setValue("status", "", { shouldDirty: true, shouldValidate: true })
     setSelectedEmoji("💬")
     form.setValue("clearAfter", "never", { shouldDirty: true })
-    form.setValue("pauseNotifications", "none", { shouldDirty: true })
     form.setValue("date", new Date(), { shouldDirty: true })
     form.setValue("time", getNextAvailableTime(), { shouldDirty: true })
   }
@@ -439,8 +413,6 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
         statusText: data.status || null,
         statusEmoji: selectedEmoji,
         statusExpiration: statusExpirationIso,
-        notificationsPausedUntil:
-          data.pauseNotifications === "all" ? isoHoursFromNow(1) : null,
       };
 
       await updateMemberStatusApi(wsId, payload);
@@ -458,18 +430,16 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
         queryKey: ["workspace-member-status", wsId],
       });
 
-      toast.success("Status updated successfully");
+      toast.success(tStatus("statusUpdatedSuccess"));
       setOpen(false);
 
       if (props.statusSource === "profile") {
         openPanel({ userData: { ...userData, ...payload }, workspaceId: wsId });
       }
     } catch {
-      toast.error("Failed to update status. Please try again.");
+      toast.error(tStatus("statusUpdateFailed"));
     }
   }
-  const t = useDialogs();
-  const language = useLanguageRegionStore((s) => s.language);
 
   return (
     <CustomDialog open={open} onOpenChange={setOpen}>
@@ -480,7 +450,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
         >
           <CustomDialogHeader onOpenChange={setOpen}>
             <CustomDialogTitle>
-              {t('reminder.title')}
+              {tStatus('title')}
             </CustomDialogTitle>
           </CustomDialogHeader>
 
@@ -519,7 +489,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                   <FormItem className="flex-1">
                     <FormControl>
                       <Input
-                        placeholder="What's your status?"
+                        placeholder={tStatus('statusPlaceholder')}
                         className="border-none bg-transparent focus-visible:ring-0 placeholder:text-[#ababad] h-9"
                         {...field}
                       />
@@ -546,7 +516,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
               <div className="flex flex-col space-y-4 animate-in fade-in duration-200">
                 {/* Remove status after */}
                 <div className="flex flex-col space-y-2">
-                  <Typography text="Remove status after" variant="p" className="text-[13px] font-bold" />
+                  <Typography text={tStatus('removeStatusAfter')} variant="p" className="text-[13px] font-bold" />
                   <FormField
                     control={form.control}
                     name="clearAfter"
@@ -585,8 +555,8 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                               <FormControl>
                                 <CustomSelect
                                   options={filteredTimes}
-                                  value={field.value}
-                                  onChange={field.onChange}
+                                  value={timeOptions.find((o) => o.value === field.value)?.label ?? field.value ?? ""}
+                                  onChange={(val) => field.onChange(val)}
                                 />
                               </FormControl>
                             </FormItem>
@@ -596,31 +566,11 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                     </div>
                   )}
                 </div>
-
-                {/* Pause notifications */}
-                <div className="flex flex-col space-y-2">
-                  <Typography text="Pause notifications" variant="p" className="text-[13px] font-bold" />
-                  <FormField
-                    control={form.control}
-                    name="pauseNotifications"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <CustomSelect
-                            options={PAUSE_OPTIONS}
-                            value={field.value}
-                            onChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
             ) : (
               /* Suggestions */
               <div className="flex flex-col space-y-1 animate-in fade-in duration-200">
-                <Typography text={`For ${workspaceLabel}`} variant="p" className="text-[#ababad] text-xs font-semibold mb-2" />
+                <Typography text={tStatus('forWorkspace', { workspace: workspaceLabel })} variant="p" className="text-[#ababad] text-xs font-semibold mb-2" />
                 <div className="space-y-0.5">
                   {SUGGESTIONS.map((s, idx) => (
                     <div
@@ -652,14 +602,13 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                       status: "",
                       emoji: "💬",
                       clearAfter: "never",
-                      pauseNotifications: "none",
                       date: new Date(),
                       time: "17:00"
                     });
                   }}
                   className="px-1 transition-colors"
                 >
-                  Remove status
+                  {tStatus('removeStatus')}
                 </Button>
               </div>
             ) : (
@@ -672,7 +621,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                 type="button"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {tCommon('cancel')}
               </Button>
               <Button
                 disabled={(() => {
@@ -687,7 +636,7 @@ export function SetAStatusDialog(props: SetAStatusDialogProps) {
                 type="submit"
                 variant="success"
               >
-                Save
+                {tStatus('save')}
               </Button>
             </div>
           </CustomDialogFooter>

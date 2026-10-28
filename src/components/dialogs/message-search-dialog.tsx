@@ -37,16 +37,17 @@ import { toLocalDate } from "@/modules/global-search/utils";
 import type { HasFilterType, IsFilterType, TypeFilterType } from "@/modules/global-search/types";
 import { Input } from "../ui/input";
 import { ACTIVE_ITEM_STYLE } from "@/constants/styles";
+import { useTranslations } from "next-intl";
 
-const dateOptions = [
-  { label: "Any time", value: "all-time" },
-  { label: "Today", value: "today" },
-  { label: "Yesterday", value: "yesterday" },
-  { label: "Last 7 days", value: "last-7-days" },
-  { label: "Last 30 days", value: "last-30-days" },
-  { label: "Last 90 days", value: "last-90-days" },
-  { label: "Last 180 days", value: "last-180-days" },
-  { label: "Last 365 days", value: "last-365-days" },
+const DATE_OPTION_DEFS: Array<{ value: string; key: "anyTime" | "today" | "yesterday" | "last7Days" | "last30Days" | "last90Days" | "last180Days" | "last365Days" }> = [
+  { value: "all-time", key: "anyTime" },
+  { value: "today", key: "today" },
+  { value: "yesterday", key: "yesterday" },
+  { value: "last-7-days", key: "last7Days" },
+  { value: "last-30-days", key: "last30Days" },
+  { value: "last-90-days", key: "last90Days" },
+  { value: "last-180-days", key: "last180Days" },
+  { value: "last-365-days", key: "last365Days" },
 ];
 
 const FILE_TYPE_TO_GLOBAL_TYPE: Record<string, TypeFilterType> = {
@@ -146,7 +147,7 @@ function getDateRangeValueFromDates(afterDate: string | null, beforeDate: string
   if (afterDate && !beforeDate) return `after:${afterDate}`;
   if (!afterDate && beforeDate) return `before:${beforeDate}`;
 
-  const matched = dateOptions.find((option) => {
+  const matched = DATE_OPTION_DEFS.find((option) => {
     const range = getDateRangeForValue(option.value);
     return range.afterDate === afterDate && range.beforeDate === beforeDate;
   });
@@ -180,7 +181,18 @@ export default function MessageSearchDialog({
   onApply,
   mode = "messages",
 }: Props) {
+  const t = useTranslations("dialogs.messageSearch");
   const { user: currentUser } = useAuth();
+
+  const dateOptions = useMemo(
+    () =>
+      DATE_OPTION_DEFS.map((def) => ({
+        value: def.value,
+        label: t(def.key),
+      })),
+    [t],
+  );
+
   const [fromSearch, setFromSearch] = useState("");
   const [inSearch, setInSearch] = useState("");
   const [withSearch, setWithSearch] = useState("");
@@ -226,18 +238,24 @@ export default function MessageSearchDialog({
   const setTypeFilterTypes = useGlobalSearchStore((state) => state.setTypeFilterTypes);
   const dateRange = stagedDateRange;
 
-  const messageHasOptions = [
-    { id: "link", label: "Link", checked: messageHasLink },
-    { id: "file", label: "File", checked: messageHasFile },
-    { id: "reaction", label: "My reaction", checked: messageHasMyReaction },
-  ] as const;
+  const messageHasOptions = useMemo(
+    () => [
+      { id: "link", label: t("link"), checked: messageHasLink },
+      { id: "file", label: t("file"), checked: messageHasFile },
+      { id: "reaction", label: t("myReaction"), checked: messageHasMyReaction },
+    ],
+    [t, messageHasLink, messageHasFile, messageHasMyReaction],
+  );
 
-  const messageIsOptions = [
-    { id: "dm", label: "A direct message", checked: messageIsDirectMessage },
-    { id: "thread", label: "In a thread", checked: messageIsInThread },
-    { id: "saved", label: "Saved", checked: messageIsSaved },
-    { id: "pinned", label: "Pinned", checked: messageIsPinned },
-  ] as const;
+  const messageIsOptions = useMemo(
+    () => [
+      { id: "dm", label: t("directMessage"), checked: messageIsDirectMessage },
+      { id: "thread", label: t("inThread"), checked: messageIsInThread },
+      { id: "saved", label: t("saved"), checked: messageIsSaved },
+      { id: "pinned", label: t("pinned"), checked: messageIsPinned },
+    ],
+    [t, messageIsDirectMessage, messageIsInThread, messageIsSaved, messageIsPinned],
+  );
 
   const { data: channels = [] } = useChannels(workspaceId);
   const { data: conversations = [] } = useQuery({
@@ -427,13 +445,13 @@ export default function MessageSearchDialog({
   };
 
   const fileTypesLabel = useMemo(() => {
-    if (selectedTypes.length === 0) return "Select type";
+    if (selectedTypes.length === 0) return t("selectType");
     if (selectedTypes.length === 1) {
-      return FILE_TYPES.find((type) => type.id === selectedTypes[0])?.label ?? "Select type";
+      return FILE_TYPES.find((type) => type.id === selectedTypes[0])?.label ?? t("selectType");
     }
 
-    return `${selectedTypes.length} file types`;
-  }, [selectedTypes]);
+    return t("fileTypesCount", { count: selectedTypes.length });
+  }, [selectedTypes, t]);
 
   const isFromSettled = debouncedFrom.trim() === fromSearch.trim();
   const isInSettled = debouncedIn.trim() === inSearch.trim();
@@ -451,12 +469,12 @@ export default function MessageSearchDialog({
   return (
     <CustomDialog open={open} onOpenChange={onOpenChange}>
       <CustomDialogHeader onOpenChange={onOpenChange}>
-        <CustomDialogTitle>Filter by</CustomDialogTitle>
+        <CustomDialogTitle>{t('title')}</CustomDialogTitle>
       </CustomDialogHeader>
       <CustomDialogBody>
         <div className="flex flex-col gap-4 py-2">
           <TargetPickerField
-            label="From"
+            label={t('from')}
             fieldRef={fromRef}
             chips={
               <>
@@ -485,7 +503,7 @@ export default function MessageSearchDialog({
             input={
               <Input
                 id="from-message-search-dialog"
-                placeholder="ex. Zoe Maxwell"
+                placeholder={t('fromPlaceholder')}
                 value={fromSearch}
                 onChange={(e) => {
                   setFromSearch(e.target.value);
@@ -500,7 +518,7 @@ export default function MessageSearchDialog({
               showFromDropdown && isFromSettled ? (
                 <>
                   {memberResults.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                    <div className="px-4 py-2 text-sm text-gray-400">{t('noResultsFound')}</div>
                   ) : (
                     memberResults.map((member) => {
                       const d = displayMember(member);
@@ -533,7 +551,7 @@ export default function MessageSearchDialog({
           />
 
           <TargetPickerField
-            label="In"
+            label={t('in')}
             fieldRef={inRef}
             chips={
               <>
@@ -595,7 +613,7 @@ export default function MessageSearchDialog({
             input={
               <Input
                 id="in-message-search-dialog"
-                placeholder="ex. #project-unicorn"
+                placeholder={t('inPlaceholder')}
                 value={inSearch}
                 onChange={(e) => {
                   setInSearch(e.target.value);
@@ -610,7 +628,7 @@ export default function MessageSearchDialog({
               showInDropdown && isInSettled ? (
                 <>
                   {inResults.channels.length === 0 && inResults.conversations.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                    <div className="px-4 py-2 text-sm text-gray-400">{t('noResultsFound')}</div>
                   ) : (
                     <>
                       {inResults.channels.map((ch) => (
@@ -675,7 +693,7 @@ export default function MessageSearchDialog({
           />
 
           <TargetPickerField
-            label="With"
+            label={t('with')}
             fieldRef={withRef}
             chips={
               <>
@@ -704,7 +722,7 @@ export default function MessageSearchDialog({
             input={
               <Input
                 id="with-message-search-dialog"
-                placeholder="ex. Zoe Maxwell"
+                placeholder={t('fromPlaceholder')}
                 value={withSearch}
                 onChange={(e) => {
                   setWithSearch(e.target.value);
@@ -719,7 +737,7 @@ export default function MessageSearchDialog({
               showWithDropdown && isWithSettled ? (
                 <>
                   {withMemberResults.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-gray-400">No results found</div>
+                    <div className="px-4 py-2 text-sm text-gray-400">{t('noResultsFound')}</div>
                   ) : (
                     withMemberResults.map((member) => {
                       const d = displayMember(member);
@@ -752,7 +770,7 @@ export default function MessageSearchDialog({
           />
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px] font-bold">Date</Label>
+            <Label className="text-[13px] font-bold">{t('date')}</Label>
             <CustomSelect
               options={dateOptions}
               value={dateRange}
@@ -770,7 +788,7 @@ export default function MessageSearchDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label className="text-[13px] font-bold">File types</Label>
+            <Label className="text-[13px] font-bold">{t('fileTypes')}</Label>
             <Popover open={openTypeFilters} onOpenChange={setOpenTypeFilters}>
               <PopoverTrigger asChild>
                 <button
@@ -823,7 +841,7 @@ export default function MessageSearchDialog({
                     className="px-3 py-2 hover:underline cursor-pointer text-muted-foreground text-xs"
                     onClick={clearAllTypes}
                   >
-                    Clear all
+                    {t('clearAll')}
                   </span>
                 </div>
               </PopoverContent>
@@ -833,7 +851,7 @@ export default function MessageSearchDialog({
           {mode === "messages" ? (
             <>
               <div className="flex flex-col gap-1.5">
-                <Label className="text-[13px] font-bold">Message has...</Label>
+                <Label className="text-[13px] font-bold">{t('messageHas')}</Label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {messageHasOptions.map((item) => (
                     <label
@@ -855,7 +873,7 @@ export default function MessageSearchDialog({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label className="text-[13px] font-bold">Message is...</Label>
+                <Label className="text-[13px] font-bold">{t('messageIs')}</Label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {messageIsOptions.map((item) => (
                     <label
@@ -882,10 +900,10 @@ export default function MessageSearchDialog({
 
       <CustomDialogFooter className="gap-2">
         <Button variant="outline" onClick={handleClear}>
-          Clear filters
+          {t('clearFilters')}
         </Button>
         <Button variant="success" onClick={handleApply}>
-          Done
+          {t('done')}
         </Button>
       </CustomDialogFooter>
     </CustomDialog>

@@ -8,7 +8,7 @@ import {
   CustomDialogBody,
   CustomDialogFooter
 } from "../custom-dialog";
-import { FieldGroup } from "@/components/ui/field";
+import { Field, FieldGroup } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FormEvent, useState } from "react";

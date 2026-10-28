@@ -60,29 +60,29 @@ const DEFAULT_COLLAPSE_WIDTHS = {
   in: 72,
 }
 
-function getPaginationRange(currentPage: number, totalPages: number) {
-  const pages: PaginationValue[] = []
-  const push = (value: PaginationValue) => {
-    if (pages[pages.length - 1] !== value) pages.push(value)
-  }
+// function getPaginationRange(currentPage: number, totalPages: number) {
+//   const pages: PaginationValue[] = []
+//   const push = (value: PaginationValue) => {
+//     if (pages[pages.length - 1] !== value) pages.push(value)
+//   }
 
-  if (totalPages <= 7) {
-    for (let page = 1; page <= totalPages; page += 1) push(page)
-    return pages
-  }
+//   if (totalPages <= 7) {
+//     for (let page = 1; page <= totalPages; page += 1) push(page)
+//     return pages
+//   }
 
-  push(1)
-  if (currentPage > 3) push("...")
+//   push(1)
+//   if (currentPage > 3) push("...")
 
-  const start = Math.max(2, currentPage - 1)
-  const end = Math.min(totalPages - 1, currentPage + 1)
-  for (let page = start; page <= end; page += 1) push(page)
+//   const start = Math.max(2, currentPage - 1)
+//   const end = Math.min(totalPages - 1, currentPage + 1)
+//   for (let page = start; page <= end; page += 1) push(page)
 
-  if (currentPage < totalPages - 2) push("...")
-  push(totalPages)
+//   if (currentPage < totalPages - 2) push("...")
+//   push(totalPages)
 
-  return pages
-}
+//   return pages
+// }
 
 function getPaginationRange(currentPage: number, totalPages: number) {
   const pages: (number | "...")[] = []
@@ -430,7 +430,12 @@ export function WorkspaceMessageSearchPanel({
     setInConversationIds(values.conversationIds)
   }
 
+  // "From" filter trong search message:
+  // - Loại bỏ user đã bị xoá (membershipStatus = 'deleted'): không thể filter theo user không tồn tại
+  // - Loại bỏ user đã bị deactivate: message của họ vẫn có thể search bằng keyword,
+  //   nhưng filter "From" theo user thì không cho phép (giống Slack gốc)
   const filteredFromMembers = members
+    .filter((member) => member.membershipStatus === "active")
     .filter((member) => {
       const search = fromSearch.trim().toLowerCase()
       if (!search) return true

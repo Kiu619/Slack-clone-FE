@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useAppTranslation } from '@/hooks/use-translation'
 import { useMessageStore, DEFAULT_CHANNEL_STATE } from '@/stores/useMessageStore'
 import { apiClient } from '@/lib/axios'
 import { Message, MessagesPage } from '@/lib/types'
@@ -13,6 +14,7 @@ export function useChannelMessages(
   currentUserId: string,
   isConnected: boolean
 ) {
+  const t = useAppTranslation('messages')
   const channelId = (target.channelId || target.conversationId)!
   const store = useMessageStore()
   const channelState = store.channels[channelId] || DEFAULT_CHANNEL_STATE
@@ -117,7 +119,7 @@ export function useChannelMessages(
       const hasMessageOnDate = data.messages.some(msg => isSameDay(new Date(msg.createdAt), date))
       
       if (!hasMessageOnDate) {
-        toast.error('There are no messages on the selected date')
+        toast.error(t('noMessagesOnDate'))
         return
       }
 
@@ -132,10 +134,10 @@ export function useChannelMessages(
       return true // success
     } catch (error) {
       console.error('Jump to date failed:', error)
-      toast.error('There was an error loading messages')
+      toast.error(t('errorLoadingMessages'))
       return false
     }
-  }, [channelId, fetchMessages, store])
+  }, [channelId, fetchMessages, store, t])
 
   const jumpToBeginning = useCallback(async (createdAt: string) => {
     const beginningOfTargetDay = startOfDay(new Date(createdAt))
@@ -145,7 +147,7 @@ export function useChannelMessages(
       const data = await fetchMessages(cursor, 'forward')
 
       if (data.messages.length === 0) {
-        toast.error('There are no messages to display')
+        toast.error(t('noMessagesToDisplay'))
         return false
       }
 
@@ -160,10 +162,10 @@ export function useChannelMessages(
       return true
     } catch (error) {
       console.error('Jump to beginning failed:', error)
-      toast.error('There was an error loading the first messages')
+      toast.error(t('errorLoadingFirstMessages'))
       return false
     }
-  }, [channelId, fetchMessages, store])
+  }, [channelId, fetchMessages, store, t])
 
   const jumpToMostRecent = useCallback(async () => {
     try {
@@ -180,10 +182,10 @@ export function useChannelMessages(
       return true
     } catch (error) {
       console.error('Jump to most recent failed:', error)
-      toast.error('There was an error loading the most recent messages')
+      toast.error(t('errorLoadingMostRecentMessages'))
       return false
     }
-  }, [channelId, fetchMessages, store])
+  }, [channelId, fetchMessages, store, t])
 
   // Socket Handlers - Chỉ Join Room, dữ liệu sẽ về qua useGlobalSync
   const socketCallbacks = useMemo(() => ({
