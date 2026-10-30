@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import type { HuddleSessionSnapshot, HuddleStateSnapshot } from '@/lib/huddle'
+import { onAuthEvent } from '@/lib/auth-coordinator'
 
 const CHANNEL_CHAT_SOCKET_URL =
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/chat'
@@ -77,10 +78,21 @@ export type SocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
  */
 export function useSocket() {
   const mainGatewaySocket = getMainGatewaySocket()
+  const channelChatSocket = getChannelChatSocket()
 
   const [isMainGatewayConnected, setIsMainGatewayConnected] = useState(mainGatewaySocket.connected)
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthEvent((event) => {
+      if (event === 'refreshed') {
+        if (mainGatewaySocket.connected) mainGatewaySocket.disconnect().connect()
+        if (channelChatSocket.connected) channelChatSocket.disconnect().connect()
+      }
+      if (event === 'expired' || event === 'signed-out') {
+        mainGatewaySocket.disconnect()
+        channelChatSocket.disconnect()
+      }
+    })
     const onMainGatewayConnect = () => {
       console.log('[Socket] / (MainGateway) namespace CONNECTED')
       setIsMainGatewayConnected(true)
@@ -96,10 +108,11 @@ export function useSocket() {
     if (!mainGatewaySocket.connected) mainGatewaySocket.connect()
 
     return () => {
+      unsubscribeAuth()
       mainGatewaySocket.off('connect', onMainGatewayConnect)
       mainGatewaySocket.off('disconnect', onMainGatewayDisconnect)
     }
-  }, [mainGatewaySocket])
+  }, [channelChatSocket, mainGatewaySocket])
 
   return {
     isMainGatewayConnected,

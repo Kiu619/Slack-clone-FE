@@ -10,6 +10,7 @@ import { getUserApi, magicLinkVerifyApi } from '@/apis'
 import { authKeys } from '@/lib/query-keys'
 import { readRedirectParam } from '@/lib/redirect-utils'
 import { FullPageCenterSkeleton } from '@/components/loading-skeletons'
+import { notifySignedIn } from '@/lib/auth-coordinator'
 
 const AuthCallbackContent = () => {
   const t = useTranslations("auth")
@@ -39,6 +40,7 @@ const AuthCallbackContent = () => {
         try {
           const user = await getUserApi()
           queryClient.setQueryData(authKeys.me, user)
+          notifySignedIn()
           toast.success(t('signedInSuccessfully'))
           const safeRedirect =
             readRedirectParam(queryRedirect) ?? '/'
@@ -54,6 +56,7 @@ const AuthCallbackContent = () => {
         try {
           const { user, redirect } = await magicLinkVerifyApi(token)
           queryClient.setQueryData(authKeys.me, user)
+          notifySignedIn()
           toast.success(t('signedInSuccessfully'))
           const safeRedirect =
             readRedirectParam(

@@ -33,34 +33,6 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Refresh queue — tránh gọi /auth/refresh nhiều lần song song
-// ────────────────────────────────────────────────────────────────────────────
-
-let refreshPromise: Promise<boolean> | null = null
-
-async function tryRefresh(): Promise<boolean> {
-  if (refreshPromise) return refreshPromise
-  refreshPromise = (async () => {
-    try {
-      const headers = await getAuthHeaders()
-      const res = await fetch(`${API_URL}/auth/refresh`, {
-        method: 'POST',
-        headers,
-        cache: 'no-store',
-      })
-      return res.ok
-    } catch {
-      return false
-    } finally {
-      setTimeout(() => {
-        refreshPromise = null
-      }, 50)
-    }
-  })()
-  return refreshPromise
-}
-
 function isRetryableStatus(status: number): boolean {
   return status === 502 || status === 503 || status === 504
 }
@@ -102,22 +74,12 @@ async function serverFetch<T>(path: string): Promise<T | null> {
     return null
   }
 
-  if (!res) return null
+  if (!res) throw new Error('Authentication service unavailable')
 
   if (res.status === 401) {
-    const refreshed = await tryRefresh()
-    if (!refreshed) return null
-    try {
-      const retryHeaders = await getAuthHeaders()
-      res = await fetch(`${API_URL}${path}`, {
-        headers: retryHeaders,
-        cache: 'no-store',
-      })
-    } catch {
-      return null
-    }
-    if (!res.ok) return null
+    return null
   } else if (!res.ok) {
+    if (res.status >= 500) throw new Error('Authentication service unavailable')
     return null
   }
 

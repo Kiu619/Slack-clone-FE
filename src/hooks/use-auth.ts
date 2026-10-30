@@ -9,11 +9,23 @@ import type { AccountUser } from '@/lib/types'
 import { getUserApi } from '@/apis'
 import { authKeys } from '@/lib/query-keys'
 import { forceLightTheme } from '@/lib/theme-utils'
+import { notifySignedOut, onAuthEvent, startAuthCoordinator } from '@/lib/auth-coordinator'
 
 export function useAuth() {
   const queryClient = useQueryClient()
   const router = useRouter()
   const { setUser, setLoading, clearUser } = useUserStore()
+
+  useEffect(() => {
+    startAuthCoordinator()
+    return onAuthEvent((event) => {
+      if (event === 'expired' || event === 'signed-out') {
+        clearUser()
+        queryClient.clear()
+        if (!window.location.pathname.startsWith('/auth')) router.replace('/auth')
+      }
+    })
+  }, [clearUser, queryClient, router])
 
   const {
     data: user,
@@ -41,16 +53,18 @@ export function useAuth() {
   }, [user, isLoading, isError, setUser, clearUser, setLoading])
 
   const logoutMutation = useMutation({
-    mutationFn: () => apiClient.post('/auth/logout'),
+    mutationFn: () => apiClient.post('/auth/sign-out'),
     onSuccess: () => {
       forceLightTheme()
       clearUser()
       queryClient.clear()
+      notifySignedOut()
       router.replace('/auth')
     },
     onError: () => {
       clearUser()
       queryClient.clear()
+      notifySignedOut()
       router.replace('/auth')
     },
   })

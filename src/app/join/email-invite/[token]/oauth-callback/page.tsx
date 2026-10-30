@@ -1,12 +1,13 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { use, useEffect, useMemo } from 'react'
+import { use, useEffect, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { apiClient } from '@/lib/axios'
 import { useAcceptInvite, useInviteByToken } from '@/hooks/use-email-invite'
 import { useAuth } from '@/hooks/use-auth'
+import { notifySignedIn } from '@/lib/auth-coordinator'
 
 type ParamsLike = { token: string } | Promise<{ token: string }>
 
@@ -37,6 +38,7 @@ function EmailInviteOauthCallbackInner({ token }: { token: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const t = useTranslations('joinEmailInvite')
+  const signedInNotified = useRef(false)
 
   const provider =
     (searchParams.get('provider') as 'google' | 'github' | 'auto' | null) ?? 'auto'
@@ -72,6 +74,13 @@ function EmailInviteOauthCallbackInner({ token }: { token: string }) {
         }
       }, 3000)
       return () => clearTimeout(timeout)
+    }
+
+    // OAuth callback vừa tạo cookie/session; báo cho các tab và socket dùng
+    // cùng coordinator biết rằng đây là một phiên đăng nhập mới.
+    if (!signedInNotified.current) {
+      signedInNotified.current = true
+      notifySignedIn()
     }
 
     const userEmail = (user.email ?? '').toLowerCase()

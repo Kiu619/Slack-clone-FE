@@ -1,91 +1,134 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-const ALWAYS_PUBLIC = ['/auth', '/join']
-const AUTH_INTERNAL = ['/auth/callback']
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const ACCESS_REFRESH_LEAD_MS = 60_000
 
-function classify(pathname: string): 'public' | 'auth-internal' | 'protected' {
-  if (AUTH_INTERNAL.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
-    return 'auth-internal'
-  }
-  if (ALWAYS_PUBLIC.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
-    return 'public'
-  }
-  return 'protected'
-}
-
-/**
- * Decode JWT payload (không verify signature) — chỉ đọc `exp` để biết còn hạn không.
- * Middleware Edge không cần verify chữ ký vì backend là nguồn xác thực cuối cùng;
- * nếu token giả, request tới API protected sẽ trả 401 ngay và axios interceptor xử lý.
- */
-function isJwtUsable(token: string | undefined): boolean {
-  if (!token) return false
-  const parts = token.split('.')
-  if (parts.length !== 3) return false
+async function isConfirmedSessionExpiry(response: Response): Promise<boolean> {
+  if (response.status !== 401) return false
   try {
-    // base64url → base64
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
-    const payload = JSON.parse(atob(padded)) as { exp?: number }
-    if (typeof payload.exp !== 'number') return false
-    // Trừ 30s leeway để tránh race với access_token sắp hết hạn
-    return payload.exp * 1000 > Date.now() + 30_000
+    const body = (await response.clone().json()) as { code?: string }
+    return body.code === 'SESSION_EXPIRED' || body.code === 'TOKEN_REVOKED'
   } catch {
     return false
   }
 }
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
-  const access = classify(pathname)
+function clearAuthCookies(response: NextResponse) {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const cookieOptions = {
+    path: '/',
+    domain: process.env.AUTH_COOKIE_DOMAIN || undefined,
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
+    maxAge: 0,
+    expires: new Date(0),
+  }
+  response.cookies.set('access_token', '', cookieOptions)
+  response.cookies.set('refresh_token', '', cookieOptions)
+}
 
-  const refreshToken = request.cookies.get('refresh_token')?.value
-  const accessToken = request.cookies.get('access_token')?.value
+async function probeAccess(access: string): Promise<'valid' | 'invalid' | 'unavailable'> {
+  try {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: { Cookie: `access_token=${access}` },
+      cache: 'no-store',
+    })
+    if (response.ok) return 'valid'
+    if (response.status === 401) return 'invalid'
+    return 'unavailable'
+  } catch {
+    return 'unavailable'
+  }
+}
 
-  // refresh_token còn hạn ⇒ session còn sống, kể cả khi access_token đã expire.
-  // access_token còn hạn ⇒ chắc chắn authenticated.
-  const isAuthenticated =
-    isJwtUsable(refreshToken) || isJwtUsable(accessToken)
+function accessExpiresSoon(access: string | undefined): boolean {
+  if (!access) return true
+  try {
+    const encoded = access.split('.')[1]
+    if (!encoded) return true
+    const payload = JSON.parse(
+      atob(encoded.replace(/-/g, '+').replace(/_/g, '/')),
+    ) as { exp?: number }
+    return !payload.exp || payload.exp * 1000 <= Date.now() + ACCESS_REFRESH_LEAD_MS
+  } catch {
+    // Invalid/malformed JWT is only a refresh hint; backend remains authority.
+    return true
+  }
+}
 
-  // auth-internal: must render regardless of auth state (e.g. OAuth callback)
-  if (access === 'auth-internal') return NextResponse.next()
+export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname
+  const authPage = path === '/auth' || path === '/auth/' || path.startsWith('/auth/callback')
+  const publicPage = authPage || path === '/join' || path.startsWith('/join/')
+  const access = request.cookies.get('access_token')?.value
+  const refresh = request.cookies.get('refresh_token')?.value
+  let response: NextResponse | null = null
 
-  // public + authenticated: bounce home.
-  // Ngoại lệ: /join/[inviteCode] — user đã đăng nhập paste link mời phải thấy
-  // được page "Accept Invitation" thay vì bị đẩy về /. /join rỗng vẫn bounce như cũ.
-  if (access === 'public' && isAuthenticated) {
-    const isJoinWithCode =
-      pathname.startsWith('/join/') && pathname.length > '/join/'.length
-    if (!isJoinWithCode) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
-    // else: fall through, let /join/[inviteCode] render
+  // Không decode JWT ở proxy để kết luận phiên hợp lệ. Backend mới là authority:
+  // access 401 thì thử refresh; lỗi hạ tầng không bị biến thành logout.
+  const accessState = !authPage && access
+    ? await probeAccess(access)
+    : access
+      ? 'valid'
+      : 'invalid'
+
+  if (
+    !authPage &&
+    refresh &&
+    (accessState === 'invalid' || accessExpiresSoon(access))
+  ) {
+    try {
+      const refreshed = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { Cookie: `refresh_token=${refresh}`, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      })
+      if (refreshed.ok) {
+        const setCookies = refreshed.headers.getSetCookie()
+        const requestHeaders = new Headers(request.headers)
+        const newAccess = setCookies.find((cookie) => cookie.startsWith('access_token='))?.split(';')[0]
+        const newRefresh = setCookies.find((cookie) => cookie.startsWith('refresh_token='))?.split(';')[0]
+        const requestCookies = new Map(
+          request.cookies.getAll().map(({ name, value }) => [name, value]),
+        )
+        if (newAccess) requestCookies.set('access_token', newAccess.slice('access_token='.length))
+        if (newRefresh) requestCookies.set('refresh_token', newRefresh.slice('refresh_token='.length))
+        requestHeaders.set(
+          'Cookie',
+          Array.from(requestCookies, ([name, value]) => `${name}=${value}`).join('; '),
+        )
+        response = NextResponse.next({ request: { headers: requestHeaders } })
+        for (const cookie of setCookies) response.headers.append('set-cookie', cookie)
+      } else if (await isConfirmedSessionExpiry(refreshed)) {
+        if (!publicPage) {
+          const url = new URL('/auth', request.url)
+          url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
+          response = NextResponse.redirect(url)
+        } else response = NextResponse.next()
+        clearAuthCookies(response)
+      } else {
+        return new NextResponse('Authentication service temporarily unavailable', { status: 503 })
+      }
+    } catch { return new NextResponse('Authentication service temporarily unavailable', { status: 503 }) }
   }
 
-  // protected + unauthenticated: bounce to /auth with redirect param
-  if (access === 'protected' && !isAuthenticated) {
-    const redirectUrl = new URL('/auth', request.url)
-    redirectUrl.searchParams.set(
-      'redirect',
-      request.nextUrl.pathname + request.nextUrl.search + request.nextUrl.hash,
-    )
-    return NextResponse.redirect(redirectUrl)
+  if (!authPage && accessState === 'unavailable') {
+    return new NextResponse('Authentication service temporarily unavailable', { status: 503 })
   }
 
-  // i18n: forward NEXT_LOCALE cookie to Accept-Language for server-side locale detection
+  if (!response && !publicPage && !access && !refresh) {
+    const url = new URL('/auth', request.url)
+    url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(url)
+  }
+
+  if (!response) response = NextResponse.next()
   const locale = request.cookies.get('NEXT_LOCALE')?.value
-  if (locale && ['en', 'vi'].includes(locale)) {
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('Accept-Language', locale)
-    return NextResponse.next({ request: { headers: requestHeaders } })
-  }
-
-  return NextResponse.next()
+  if (locale === 'en' || locale === 'vi') response.headers.set('Accept-Language', locale)
+  return response
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
